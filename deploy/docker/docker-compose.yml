@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  pgpulse:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      PGPULSE_DB_PASSWORD: pgpulse
+    networks:
+      - pgpulse-net
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: pgpulse
+      POSTGRES_USER: pgpulse
+      POSTGRES_PASSWORD: pgpulse
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - pgpulse-net
+
+networks:
+  pgpulse-net:
+    driver: bridge
+
+volumes:
+  pgdata:
