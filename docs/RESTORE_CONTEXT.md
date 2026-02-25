@@ -26,6 +26,9 @@ We use Claude Code Agent Teams (in-process mode on Windows/Git Bash) with:
 - **QA & Review Agent**: tests (testcontainers PG 14–17), linting, security audit
 - Extended agents unlock at M5 (Frontend), M6 (OS), M8 (ML)
 
+**Known issue:** Claude Code bash execution broken on Windows (EINVAL temp path).
+Agents create files successfully; shell commands (go build, go test, git) run manually.
+
 ## Two-Contour Model
 - **Claude.ai (Brain)**: architecture, planning, requirements.md, design.md, team-prompt.md, review, session-log
 - **Claude Code (Hands)**: Agent Teams implementation, testing, commits
@@ -45,16 +48,17 @@ We use Claude Code Agent Teams (in-process mode on Windows/Git Bash) with:
 - PGAM (legacy archive): https://github.com/ios9000/pgam-legacy
 
 ## Current State
-- Milestone: M0 — Project Setup
-- Iteration: M0_01_02262026_project-setup
-- Last completed feature: Environment setup (Go 1.23.6, Claude Code 2.1.53, Agent Teams enabled)
-- Next planned work: M0 — Initialize repo, scaffold project structure, create Dockerfile + CI
-- Agents last used: Not yet (first team session pending)
+- Milestone: M0 ✅ Complete → M1 next
+- Iteration: M0_01_02262026_project-setup ✅
+- Last completed: Project scaffold, interfaces, version detection, Docker, CI
+- Next planned: M1_01 — Instance metrics collector (PGAM queries 1–19)
+- Agents last used: 2026-02-25 (scaffold + interfaces agents, bash broken)
+- Go version: 1.25.7 (auto-upgraded for pgx v5.8.0)
 
 ## Quick Milestone Reference
 | Milestone | Name | Duration | Status |
 |---|---|---|---|
-| M0 | Project Setup | 3–4 days | 🔲 Not started |
+| M0 | Project Setup | 1 day | ✅ Done |
 | M1 | Core Collector | 2 weeks | 🔲 Not started |
 | M2 | Storage & API | 1.5 weeks | 🔲 Not started |
 | M3 | Auth & Security | 4–5 days | 🔲 Not started |

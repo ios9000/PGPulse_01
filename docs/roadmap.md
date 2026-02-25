@@ -10,7 +10,7 @@
 
 | Milestone | Name | Agents | Duration | Start | End | Status |
 |---|---|---|---|---|---|---|
-| **M0** | Project Setup | Lead + 2 | 3–4 days | 2026-02-26 | — | 🔲 Not started |
+| **M0** | Project Setup | Lead + 2 | 3–4 days | 2026-02-25 | 2026-02-25 | ✅ Done |
 | **M1** | Core Collector | Lead + 3 | 2 weeks | — | — | 🔲 Not started |
 | **M2** | Storage & API | Lead + 3 | 1.5 weeks | — | — | 🔲 Not started |
 | **M3** | Auth & Security | Lead + 2 | 4–5 days | — | — | 🔲 Not started |
@@ -33,10 +33,12 @@
 
 ## Iteration Log
 
-### M0: Project Setup
+### M0: Project Setup ✅
 | Iteration | Description | Date | Status |
 |---|---|---|---|
-| M0_01 | Repo init, scaffold, Dockerfile, CI, CLAUDE.md | 2026-02-26 | 🔲 Not started |
+| M0_01 | Repo init, scaffold, Dockerfile, CI, interfaces, version detection | 2026-02-25 | ✅ Done |
+
+**Note:** Agent Teams bash execution broken on Windows. Files created by agents, bash commands run manually. See session-log for details.
 
 ### M1: Core Collector
 | Iteration | Description | Date | Status |
@@ -80,3 +82,10 @@
 | analiz2.php #53–58 | Locks | collector/locks.go | M1_05 | 🔲 |
 | analiz_db.php #1–18 | Per-DB analysis | collector/database.go | M2_01 | 🔲 |
 | **Total: 76 queries** | | | | **0/76 ported** |
+
+## Known Issues
+| Issue | Impact | Mitigation |
+|---|---|---|
+| Claude Code bash broken on Windows (EINVAL temp path) | Agents cannot run shell commands | Agents create files, developer runs bash manually |
+| LF/CRLF warnings on Git | Cosmetic | Add .gitattributes in M1 |
+| Go auto-upgraded to 1.25.7 | None — pgx v5.8.0 requires it | Accepted |
