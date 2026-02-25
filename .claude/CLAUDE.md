@@ -134,4 +134,6 @@ type AlertEvaluator interface {
 
 ## Current Iteration
 [UPDATED BY DEVELOPER BEFORE EACH SESSION]
+M1_01 — Instance Metrics Collector
+See: docs/iterations/M1_01_02252026_collector-instance/
 Check docs/save-points/LATEST.md for current state.
