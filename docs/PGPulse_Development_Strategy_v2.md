@@ -4,7 +4,7 @@
 **Project:** PGPulse — PostgreSQL Health & Activity Monitor  
 **Rewrite from:** PGAM (legacy PHP) → Go  
 **Date:** 2026-02-25  
-**Version:** 2.1 — Agent Teams Edition (Windows / Git Bash / In-Process Mode)
+**Version:** 2.2 — Agent Teams Edition (Windows / Git Bash / Hybrid Mode)
 
 ---
 
@@ -1001,7 +1001,12 @@ internal/version/ → COLLECTOR AGENT
    - `team-prompt.md` — **ready-to-paste Agent Team spawn prompt**
 5. Download all three files → place in `docs/iterations/M1_01_.../`
 
-### Phase 2: Implementation (Claude Code — Agent Teams)
+### Phase 2: Implementation (Claude Code — Agent Teams, Hybrid Mode)
+
+> **⚠️ Windows Bash Bug (as of v2.1.53):** Claude Code's `Bash()` tool fails with
+> EINVAL on Windows (all shells: Git Bash, PowerShell). File creation, reading, and
+> agent coordination work fine. All shell commands must be run manually by the developer.
+> See: https://github.com/anthropics/claude-code/issues/26545
 
 1. Open Claude Code in the project directory:
    ```bash
@@ -1017,6 +1022,8 @@ internal/version/ → COLLECTOR AGENT
    ```
 
 3. **Paste the team-prompt.md** content into Claude Code
+   - Remove any bash verification steps from the prompt (agents can't run bash)
+   - Focus prompts on file creation only
 
 4. **Watch the agents work** in in-process mode:
    - Press `Shift+Down` to cycle to next agent
@@ -1027,16 +1034,29 @@ internal/version/ → COLLECTOR AGENT
 5. Team Lead will:
    - Decompose the prompt into subtasks
    - Assign to specialists
-   - Coordinate dependencies
-   - Merge when QA confirms tests pass
-   - Commit with appropriate scoped messages
+   - Agents create all `.go` files, configs, and migrations
+   - **Agents CANNOT run:** go build, go test, golangci-lint, git commit
 
-6. **Verify the result:**
+6. **You run bash commands manually** (in a separate terminal):
    ```bash
+   cd ~/Projects/PGPulse_01
+   go mod tidy
+   go build ./...
+   go vet ./...
    go test -race ./...
    golangci-lint run
-   go build ./cmd/pgpulse-server/
+
+   # If compilation errors: tell Claude Code to fix them
+   # If all clean: commit
+   git add .
+   git commit -m "feat(collector): add instance metrics collector"
+   git push
    ```
+
+7. **Feedback loop** (if needed):
+   - If `go build` fails, paste errors back into Claude Code
+   - Agent will fix the files (file editing works)
+   - You re-run `go build` until clean
 
 ### Phase 3: Review and Finalization (Claude.ai — Brain)
 
@@ -1212,6 +1232,8 @@ Agent Teams consume more tokens than single sessions. Budget accordingly.
 | Letting Claude Code decide architecture | Inconsistent decisions | Architecture decisions in Claude.ai only |
 | Porting PGAM code literally | Carries security vulnerabilities | Port SQL queries, redesign architecture |
 | Skipping session-log | Lose track of agent decisions | Always create session-log after each team session |
+| Including bash steps in team-prompt (Windows) | Agents waste time retrying failed bash | Remove all bash from prompts, add "developer runs manually" note |
+| Forgetting to run go build after agents finish | Broken code gets committed | Always: go mod tidy → go build → go vet → go test before commit |
 
 ---
 
@@ -1230,13 +1252,20 @@ Agent Teams consume more tokens than single sessions. Budget accordingly.
 │     • Copy docs to docs/iterations/M*_*/                           │
 │     • Update CLAUDE.md "Current Iteration" section                 │
 │                                                                    │
-│  3. CLAUDE CODE (Agent Teams):                                     │
-│     cd ~/Projects/PGPulse_01                                          │
+│  3. CLAUDE CODE (Agent Teams — file creation only):                │
+│     cd ~/Projects/PGPulse_01                                      │
 │     claude --model claude-opus-4-6                                 │
 │     → Paste team-prompt.md                                         │
 │     → Watch agents (Shift+Down/Up to cycle between them)           │
-│     → Steer if needed, otherwise let Team Lead coordinate          │
-│     → Verify: go test -race ./... && golangci-lint run             │
+│     → Agents create .go files, configs, migrations                 │
+│     → Agents CANNOT run bash (Windows bug)                         │
+│                                                                    │
+│  3b. YOU (separate terminal — bash commands):                      │
+│     cd ~/Projects/PGPulse_01                                      │
+│     go mod tidy && go build ./... && go vet ./...                  │
+│     go test -race ./... && golangci-lint run                       │
+│     → If errors: paste back into Claude Code for fixes             │
+│     → If clean: git add . && git commit && git push                │
 │                                                                    │
 │  4. CLAUDE.AI (Brain):                                             │
 │     • Review results → produce session-log.md                      │
@@ -1248,6 +1277,58 @@ Agent Teams consume more tokens than single sessions. Budget accordingly.
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Known Issues & Workarounds
+
+### Claude Code Bash Broken on Windows (CRITICAL)
+
+**Status:** Unresolved as of Claude Code v2.1.53 (Feb 2026)
+**Bug report:** https://github.com/anthropics/claude-code/issues/26545
+
+**Symptom:** Every `Bash()` tool call fails with:
+```
+Error: EINVAL: invalid argument, open
+'C:\Users\...\AppData\Local\Temp\claude\C--...\tasks\*.output'
+```
+
+**What works:** File creation, file reading, file editing, Glob, Grep, agent coordination, task lists, inter-agent messaging.
+
+**What breaks:** Any shell command — go build, go test, git commit, echo hello.
+
+**Attempted fixes (all failed):**
+- TMPDIR override (shell env var, Claude settings.json)
+- Short project path (C:\pgp)
+- Pre-creating tasks directory
+- PowerShell instead of Git Bash
+- Downgrade to v2.1.44
+- Windows Defender exclusion
+
+**Workaround: Hybrid Mode**
+```
+Agent Teams create files  →  Developer runs bash manually
+(Go code, configs, tests)     (go build, go test, git commit)
+
+If go build fails → paste errors into Claude Code → agent fixes files → retry
+```
+
+**Impact on team-prompt.md:**
+- Remove all bash verification steps from prompts
+- Add note: "Agents cannot run shell commands on this platform"
+- End prompts with: "List all files created so developer can run build manually"
+
+### LF/CRLF Warnings on Git
+
+**Fix:** Add `.gitattributes` to project root:
+```
+* text=auto eol=lf
+```
+
+### Go Auto-Upgraded to 1.25.7
+
+**Cause:** pgx v5.8.0 requires Go ≥ 1.24
+**Impact:** None — accepted. Update go.mod accordingly.
 
 ---
 
