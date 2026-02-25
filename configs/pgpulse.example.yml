@@ -1,0 +1,74 @@
+# PGPulse Configuration
+# Copy to pgpulse.yml and adjust for your environment.
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+
+# PGPulse metadata storage (where PGPulse stores its own data)
+storage:
+  host: "localhost"
+  port: 5432
+  database: "pgpulse"
+  user: "pgpulse"
+  password: "${PGPULSE_DB_PASSWORD}"  # Use env var
+  sslmode: "prefer"
+
+# PostgreSQL instances to monitor
+instances:
+  - name: "production-primary"
+    host: "db-primary.example.com"
+    port: 5432
+    user: "pgpulse_monitor"  # Must have pg_monitor role
+    password: "${MONITOR_PASSWORD}"
+    sslmode: "require"
+    databases:
+      - "app_production"
+      - "analytics"
+
+  - name: "production-replica"
+    host: "db-replica.example.com"
+    port: 5432
+    user: "pgpulse_monitor"
+    password: "${MONITOR_PASSWORD}"
+    sslmode: "require"
+
+# Collection intervals
+collection:
+  high_frequency: 10s     # connections, locks, wait events
+  medium_frequency: 60s   # statements, replication
+  low_frequency: 5m       # per-DB analysis, bloat
+
+# Alert configuration
+alerts:
+  enabled: true
+  evaluation_interval: 30s
+
+  channels:
+    telegram:
+      enabled: false
+      bot_token: "${TELEGRAM_BOT_TOKEN}"
+      chat_id: "${TELEGRAM_CHAT_ID}"
+
+    slack:
+      enabled: false
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+
+    email:
+      enabled: false
+      smtp_host: "smtp.example.com"
+      smtp_port: 587
+      from: "pgpulse@example.com"
+      to:
+        - "dba-team@example.com"
+
+    webhook:
+      enabled: false
+      url: "https://pagerduty.example.com/webhook"
+
+# Logging
+logging:
+  level: "info"    # debug, info, warn, error
+  format: "json"   # json, text
