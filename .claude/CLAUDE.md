@@ -1,11 +1,36 @@
 # PGPulse
 
+## ⚡ START HERE — Project Continuity
+
+If you're starting a new session on this project, read in this order:
+
+1. **This file** — project overview, stack, interfaces, rules
+2. **Latest save point** → `docs/save-points/LATEST.md`
+   Full project snapshot: architecture, decisions, codebase state, milestone status.
+   If this file exists, it IS your comprehensive context. Start from there.
+3. **Latest handoff** → most recent `docs/iterations/HANDOFF_*.md`
+   What changed in the last iteration, what's next, known issues.
+4. **Rules** → `.claude/rules/` directory
+   - `code-style.md` — Go conventions, commit format
+   - `architecture.md` — module boundaries, concurrency model
+   - `security.md` — SQL injection prevention, auth requirements
+   - `postgresql.md` — version gates, PG-specific conventions
+   - `chat-transition.md` — how context transfers between Claude.ai chats
+   - `save-point.md` — how to create/restore project snapshots
+5. **Roadmap** → `docs/roadmap.md` — milestone status and query porting tracker
+6. **Legacy reference** → `docs/legacy/PGAM_FEATURE_AUDIT.md` — 76 SQL queries to port
+
+> **DO NOT** make architecture decisions without checking the save point first.
+> Decisions were already made. Check before re-deciding.
+
+---
+
 ## Description
 PostgreSQL Health & Activity Monitor — Go rewrite of legacy PGAM PHP tool.
 Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
 
 ## Stack
-- Language: Go 1.23+
+- Language: Go 1.25.7 (auto-upgraded for pgx v5.8.0)
 - PG Driver: jackc/pgx v5
 - HTTP: go-chi/chi v5
 - Storage: PostgreSQL + TimescaleDB
@@ -17,6 +42,11 @@ Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
 
 ## Agent Teams Configuration
 This project uses Claude Code Agent Teams (in-process mode on Windows/Git Bash).
+
+### ⚠️ Windows Bash Bug
+Claude Code's Bash() tool is broken on Windows (EINVAL temp path, all versions tested).
+**Hybrid workflow:** agents create files, developer runs bash commands manually.
+See `docs/save-points/LATEST.md` for full details.
 
 ### Team Structure
 - **Team Lead**: Reads this file + design.md, decomposes tasks, coordinates
@@ -46,15 +76,15 @@ shared task list.
 - web/ — embedded frontend (future: M5)
 - migrations/ — SQL migrations for PGPulse metadata DB
 - deploy/ — Docker, Helm, systemd
-- docs/ — documentation, iterations, legacy reference
+- docs/ — documentation, iterations, legacy reference, save points
+- docs/save-points/ — project snapshots for continuity and disaster recovery
+- .claude/rules/ — development process rules
 
 ## Legacy Reference
 - PGAM Feature Audit: docs/legacy/PGAM_FEATURE_AUDIT.md
 - Legacy repo: https://github.com/ios9000/pgam-legacy
-- When implementing collectors, reference the SQL queries in the audit
-  (58 instance-level + 18 per-DB queries covering PG 9.x through PG 16)
 - Query-to-file mapping:
-  - analiz2.php queries 1–19 → internal/collector/instance.go
+  - analiz2.php queries 1–19 → internal/collector/ (server_info, connections, cache, etc.)
   - analiz2.php queries 20–41 → internal/collector/replication.go
   - analiz2.php queries 42–47 → internal/collector/progress.go
   - analiz2.php queries 48–52 → internal/collector/statements.go
@@ -62,10 +92,10 @@ shared task list.
   - analiz_db.php queries 1–18 → internal/collector/database.go
 
 ## Shared Interfaces
-Agents must agree on these interfaces (defined before work begins):
 
 ```go
-// MetricPoint — universal metric data point
+// internal/collector/collector.go
+
 type MetricPoint struct {
     InstanceID string
     Metric     string
@@ -74,20 +104,18 @@ type MetricPoint struct {
     Timestamp  time.Time
 }
 
-// Collector — interface every collector implements
 type Collector interface {
     Name() string
     Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error)
     Interval() time.Duration
 }
 
-// MetricStore — storage layer interface
 type MetricStore interface {
     Write(ctx context.Context, points []MetricPoint) error
     Query(ctx context.Context, query MetricQuery) ([]MetricPoint, error)
+    Close() error
 }
 
-// AlertEvaluator — alert engine interface
 type AlertEvaluator interface {
     Evaluate(ctx context.Context, metric string, value float64, labels map[string]string) error
 }
@@ -102,7 +130,8 @@ type AlertEvaluator interface {
 - No COPY TO PROGRAM — OS metrics via Go agent only
 - Monitoring user: pg_monitor role, never superuser
 - Test against PG 14, 15, 16, 17 using testcontainers-go
+- Agents CANNOT run bash on Windows — create files only, developer runs bash
 
 ## Current Iteration
-M0_01 — Project Setup
-See: docs/iterations/M0_01_02262026_project-setup/
+[UPDATED BY DEVELOPER BEFORE EACH SESSION]
+Check docs/save-points/LATEST.md for current state.

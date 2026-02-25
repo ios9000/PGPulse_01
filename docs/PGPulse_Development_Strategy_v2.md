@@ -4,7 +4,7 @@
 **Project:** PGPulse — PostgreSQL Health & Activity Monitor  
 **Rewrite from:** PGAM (legacy PHP) → Go  
 **Date:** 2026-02-25  
-**Version:** 2.2 — Agent Teams Edition (Windows / Git Bash / Hybrid Mode)
+**Version:** 2.3 — Agent Teams + Save Point System
 
 ---
 
@@ -26,14 +26,67 @@
 
 | Problem | Solution |
 |---------|----------|
-| **Loss of Context** — Claude.ai gets confused with growing documentation | One chat = one iteration; CLAUDE.md as persistent anchor; RESTORE_CONTEXT.md for new chats |
-| **Loss of History** — Unclear which prompts led to which decisions | session-log.md after every iteration with prompt → result → commit mapping |
-| **Context compaction** — "Compacting our conversation so we can keep chatting…" | New chat for each iteration; keep iterations focused |
+| **Loss of Context** — New chat can't read repo or previous chats | **Iteration Handoff** documents (self-contained, uploaded per chat); **Project Knowledge** for stable docs |
+| **Loss of History** — Unclear which prompts led to which decisions | **Session-log.md** after every iteration with prompt → result → commit mapping |
+| **Project migration** — Must be able to restart from scratch in new Project or AI tool | **Save Points** — full project snapshots at each milestone (see `.claude/rules/save-point.md`) |
+| **Chat transition** — Context doesn't transfer between Claude.ai chats | **Three-tier system:** Project Knowledge (auto-loaded) + Handoff (uploaded) + Save Point (emergency). See `.claude/rules/chat-transition.md` |
+| **Context compaction** — "Compacting our conversation…" | New chat for each iteration; keep iterations focused |
 | **Sequential bottleneck** — Single Claude Code session does one thing at a time | Agent Teams: 3 specialists work in parallel on independent workstreams |
-| **Context window exhaustion** — Single session fills 80–90% context on complex tasks | Each agent has own context window; results come back summarized (~40% usage) |
+| **Context window exhaustion** — Single session fills 80–90% context | Each agent has own context window; results come back summarized (~40% usage) |
+| **Bash broken on Windows** — Claude Code can't run shell commands | **Hybrid workflow:** agents create files, developer runs bash manually |
 | **Manual copying** — Code and docs manually transferred between environments | Claude Code reads/writes directly; Git is the single source of truth |
-| **Project restoration** — Must be able to resume from scratch in a new chat | RESTORE_CONTEXT.md + structured docs/ folder + CHANGELOG.md |
-| **Legacy knowledge preservation** — 76 SQL queries from PGAM must not be lost | PGAM_FEATURE_AUDIT.md as permanent reference in docs/legacy/ |
+| **Legacy knowledge preservation** — 76 SQL queries from PGAM must not be lost | PGAM_FEATURE_AUDIT.md in **Project Knowledge** (always available) |
+
+---
+
+## Persistence & Continuity System
+
+Three layers protect project context across sessions, projects, and tools:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  SAVE POINT (Mass Effect save)                                  │
+│  Complete project snapshot — architecture, code, decisions,     │
+│  issues, environment. Restores entire project from scratch.     │
+│  Created: per milestone or monthly                              │
+│  Location: docs/save-points/SAVEPOINT_M{X}_{date}.md           │
+│  Rules: .claude/rules/save-point.md                             │
+├─────────────────────────────────────────────────────────────────┤
+│  ITERATION HANDOFF (mission briefing)                           │
+│  What changed, what's next, key interfaces, known issues.       │
+│  Self-contained — includes actual code, not just file paths.    │
+│  Created: end of every chat                                     │
+│  Location: docs/iterations/HANDOFF_M{from}_to_M{to}.md         │
+│  Rules: .claude/rules/chat-transition.md                        │
+├─────────────────────────────────────────────────────────────────┤
+│  SESSION-LOG (audit trail)                                      │
+│  What happened in one iteration — agents, commits, decisions.   │
+│  Created: end of every iteration                                │
+│  Location: docs/iterations/M{X}_{NN}_.../session-log.md        │
+│  Stays in repo only — never uploaded to new chats.              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Project Knowledge (Claude.ai — auto-loaded in every chat)
+
+Upload these ONCE to Project Knowledge. They persist across all chats:
+
+| Document | Purpose |
+|---|---|
+| PGPulse_Development_Strategy_v2.md | Process rules (this file) |
+| PGAM_FEATURE_AUDIT.md | Legacy SQL reference (76 queries) |
+| Chat_Transition_Process.md | How to move between chats |
+| Save_Point_System.md | How to create/restore save points |
+
+### CLAUDE.md — The Entry Point
+
+`.claude/CLAUDE.md` is the first file Claude Code reads. It contains:
+- "START HERE" section pointing to latest save point and handoff
+- Stack, interfaces, module ownership, rules
+- Links to all rules files
+
+If you're continuing development after any break, CLAUDE.md tells you
+where to find everything. It is the index, not the content.
 
 ---
 
@@ -254,7 +307,9 @@ C:\Users\Archer\Projects\PGPulse_01\
 │       ├── code-style.md               # Go conventions, linter config
 │       ├── architecture.md             # Module ownership, dependencies
 │       ├── security.md                 # Security rules (no SQL injection, etc.)
-│       └── postgresql.md               # PG-specific rules (version gates, parameterized queries)
+│       ├── postgresql.md               # PG-specific rules (version gates, parameterized queries)
+│       ├── chat-transition.md          # How to move context between Claude.ai chats
+│       └── save-point.md              # How to create/restore project snapshots
 │
 ├── cmd/
 │   ├── pgpulse-server/                 # Main server binary
@@ -294,20 +349,25 @@ C:\Users\Archer\Projects\PGPulse_01\
 ├── docs/
 │   ├── README.md
 │   ├── CHANGELOG.md
-│   ├── RESTORE_CONTEXT.md              # Context restoration for new chats
+│   ├── RESTORE_CONTEXT.md              # Emergency recovery (if handoff lost)
 │   ├── roadmap.md                      # Milestone status tracker
 │   ├── architecture.md                 # Full architecture document
-│   ├── PGPulse_Development_Strategy.md # THIS FILE
+│   ├── PGPulse_Development_Strategy.md # THIS FILE (also in Project Knowledge)
+│   │
+│   ├── save-points/                    # ← Project snapshots (Mass Effect saves)
+│   │   ├── SAVEPOINT_M0_20260225.md    # State after M0
+│   │   └── LATEST.md                   # Copy of most recent save point
 │   │
 │   ├── legacy/
 │   │   ├── PGAM_FEATURE_AUDIT.md       # Complete legacy inventory (76 queries)
 │   │   └── competitive-research.md     # Competitor analysis summary
 │   │
 │   ├── iterations/
+│   │   ├── HANDOFF_M0_to_M1.md         # ← Chat transition document
 │   │   ├── M0_01_02262026_project-setup/
 │   │   │   ├── requirements.md
 │   │   │   ├── design.md
-│   │   │   ├── team-prompt.md          # ← NEW: Agent team spawn prompt
+│   │   │   ├── team-prompt.md
 │   │   │   └── session-log.md
 │   │   │
 │   │   ├── M1_01_03012026_collector-instance/

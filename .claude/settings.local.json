@@ -6,7 +6,8 @@
       "Bash(go mod:*)",
       "Bash(go build:*)",
       "Bash(go version:*)",
-      "Bash(TMPDIR=\"$HOME/tmp\" && mkdir -p \"$TMPDIR\" && cd \"C:/Users/Archer/Projects/PGPulse_01\" && go mod tidy 2>&1)"
+      "Bash(TMPDIR=\"$HOME/tmp\" && mkdir -p \"$TMPDIR\" && cd \"C:/Users/Archer/Projects/PGPulse_01\" && go mod tidy 2>&1)",
+      "Bash(TMPDIR=/tmp echo hello:*)"
     ]
   }
 }
