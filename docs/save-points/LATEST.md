@@ -1,10 +1,10 @@
 # PGPulse — Save Point
 
-**Save Point:** M1 (in progress) — Core Collector  
-**Date:** 2026-02-26  
-**Commit:** c50dbe1 (M1_02a) + [M1_02b commit hash — fill in]  
-**Developer:** Evlampiy (ios9000)  
-**AI Tool:** Claude.ai (Opus 4.6) + Claude Code 2.1.53 (Agent Teams)
+**Save Point:** M1 (in progress) — Core Collector
+**Date:** 2026-02-26
+**Commit:** 562ae17 (after M1_03)
+**Developer:** Evlampiy (ios9000)
+**AI Tool:** Claude.ai (Opus 4.6) + Claude Code (Agent Teams)
 
 ---
 
@@ -58,7 +58,9 @@ Rewrite of PGAM — a legacy PHP PostgreSQL Activity Monitor used internally at 
 │  │  settings       │                                 │
 │  │  extensions     │  ┌───────────┐  ┌──────────┐   │
 │  │  replication_*  │  │  Alert    │  │  Web UI  │   │
-│  │  (M1_02b)       │  │  Engine   │  │ (embed)  │   │
+│  │  progress_*     │  │  Engine   │  │ (embed)  │   │
+│  │  checkpoint     │  │           │  │          │   │
+│  │  (M1_03)        │  │           │  │          │   │
 │  └───────┬─────────┘  └───────────┘  └──────────┘   │
 │          │                                           │
 │  ┌───────▼─────────┐                                │
@@ -97,20 +99,25 @@ Rewrite of PGAM — a legacy PHP PostgreSQL Activity Monitor used internally at 
 | D15 | Defer logical replication Q41 | Requires per-DB connections, which breaks single-conn Collector interface. Defer until PerDatabaseCollector interface designed (alongside analiz_db.php queries). | 2026-02-25 |
 | D16 | golangci-lint v2 config format | v1 doesn't support Go 1.24. Config requires `version: "2"` field. `gosimple` linter removed (merged into `staticcheck`). | 2026-02-25 |
 | D17 | Docker Desktop not available | BIOS virtualization disabled. Integration tests (testcontainers) run in CI only. Unit tests with mocks work locally. | 2026-02-25 |
+| D18 | Stateful checkpoint collector with snapshot + rate pattern | Checkpoint/bgwriter counters are cumulative. Need deltas for per-second rates. Store prev snapshot under mutex, detect stats_reset by counter decrease. | 2026-02-26 |
+| D19 | -1 sentinel for version-unavailable columns | PG 14-16 lacks restartpoints; PG 17 lacks buffers_backend. Use -1 (not 0, not NULL) so conditional emission is unambiguous. | 2026-02-26 |
+| D20 | completionPct() shared helper for all progress collectors | Six progress collectors all need safe division. One helper in progress_vacuum.go, package-level. | 2026-02-26 |
+| D21 | Multiple collectors per file for related operations | Group by similarity: progress_maintenance.go (cluster+analyze), progress_operations.go (index+basebackup+copy). Each struct has independent Name/Interval/Collect. | 2026-02-26 |
+| D22 | pg_stat_io deferred to M1_03b | PG 16+ only, high cardinality, needs granularity design. Not in PGAM audit. | 2026-02-26 |
 
 ---
 
 ## 3. CODEBASE STATE
 
-### File Tree (after M1_02b)
+### File Tree (after M1_03)
 ```
 .claude/CLAUDE.md
+.claude/rules/Chat_Transition_Process.md
+.claude/rules/Save_Point_System.md
 .claude/rules/architecture.md
 .claude/rules/code-style.md
 .claude/rules/postgresql.md
 .claude/rules/security.md
-.claude/rules/chat-transition.md
-.claude/rules/save-point.md
 .claude/settings.local.json
 .github/workflows/ci.yml
 .gitignore
@@ -135,40 +142,57 @@ docs/iterations/M0_01_02262026_project-setup/design.md
 docs/iterations/M0_01_02262026_project-setup/requirements.md
 docs/iterations/M0_01_02262026_project-setup/session-log.md
 docs/iterations/M0_01_02262026_project-setup/team-prompt.md
+docs/iterations/M1_01_02252026_collector-instance/...
+docs/iterations/M1_02_02262026_replication/M1_02_session-log.md
+docs/iterations/M1_02a_02252026_interface-refactor/...
+docs/iterations/M1_02b_02252026_replication-collectors/...
+docs/iterations/M1_03_02262026_progress-checkpoint-bgwriter/design.md
+docs/iterations/M1_03_02262026_progress-checkpoint-bgwriter/requirements.md
+docs/iterations/M1_03_02262026_progress-checkpoint-bgwriter/session-log.md
+docs/iterations/M1_03_02262026_progress-checkpoint-bgwriter/team-prompt.md
+docs/save-points/LATEST.md
 docs/save-points/SAVEPOINT_M0_20260225.md
 docs/save-points/SAVEPOINT_M1_20260225.md
-docs/save-points/LATEST.md
+docs/save-points/SAVEPOINT_M1_20260226.md
 go.mod
 go.sum
 internal/alert/.gitkeep
 internal/alert/notifier/.gitkeep
 internal/api/.gitkeep
 internal/auth/.gitkeep
-internal/collector/collector.go
 internal/collector/base.go
-internal/collector/server_info.go
-internal/collector/connections.go
 internal/collector/cache.go
-internal/collector/transactions.go
-internal/collector/database_sizes.go
-internal/collector/settings.go
-internal/collector/extensions.go
-internal/collector/replication_lag.go
-internal/collector/replication_slots.go
-internal/collector/replication_status.go
-internal/collector/registry.go
-internal/collector/testutil_test.go
-internal/collector/server_info_test.go
-internal/collector/connections_test.go
 internal/collector/cache_test.go
-internal/collector/transactions_test.go
+internal/collector/checkpoint.go            ← NEW (M1_03)
+internal/collector/checkpoint_test.go       ← NEW (M1_03)
+internal/collector/collector.go
+internal/collector/connections.go
+internal/collector/connections_test.go
+internal/collector/database_sizes.go
 internal/collector/database_sizes_test.go
-internal/collector/settings_test.go
+internal/collector/extensions.go
 internal/collector/extensions_test.go
-internal/collector/replication_lag_test.go
-internal/collector/replication_slots_test.go
-internal/collector/replication_status_test.go
+internal/collector/progress_maintenance.go      ← NEW (M1_03)
+internal/collector/progress_maintenance_test.go ← NEW (M1_03)
+internal/collector/progress_operations.go       ← NEW (M1_03)
+internal/collector/progress_operations_test.go  ← NEW (M1_03)
+internal/collector/progress_vacuum.go           ← NEW (M1_03)
+internal/collector/progress_vacuum_test.go      ← NEW (M1_03)
+internal/collector/registry.go
 internal/collector/registry_test.go
+internal/collector/replication_lag.go
+internal/collector/replication_lag_test.go
+internal/collector/replication_slots.go
+internal/collector/replication_slots_test.go
+internal/collector/replication_status.go
+internal/collector/replication_status_test.go
+internal/collector/server_info.go
+internal/collector/server_info_test.go
+internal/collector/settings.go
+internal/collector/settings_test.go
+internal/collector/testutil_test.go
+internal/collector/transactions.go
+internal/collector/transactions_test.go
 internal/config/.gitkeep
 internal/ml/.gitkeep
 internal/rca/.gitkeep
@@ -311,11 +335,17 @@ func CollectAll(ctx context.Context, conn *pgx.Conn, ic InstanceContext, collect
 | analiz2.php Q39 | Replication slots PG < 10 | — | ⏭️ Skipped (below min PG 14) |
 | analiz2.php Q40 | Replication slots PG ≥ 10 | replication_slots.go | ✅ Done (M1_02b) |
 | analiz2.php Q41 | Logical replication sync | — | ⏭️ Deferred (needs PerDatabaseCollector) |
-| analiz2.php Q42–Q47 | Progress monitoring | collector/progress.go | 🔲 M1_03 |
+| analiz2.php Q42 | Vacuum progress | progress_vacuum.go | ✅ Done (M1_03) |
+| analiz2.php Q43 | Cluster/vacuum full progress | progress_maintenance.go | ✅ Done (M1_03) |
+| analiz2.php Q44 | Create index progress | progress_operations.go | ✅ Done (M1_03) |
+| analiz2.php Q45 | Analyze progress | progress_maintenance.go | ✅ Done (M1_03) |
+| analiz2.php Q46 | Basebackup progress | progress_operations.go | ✅ Done (M1_03) |
+| analiz2.php Q47 | Copy progress | progress_operations.go | ✅ Done (M1_03) |
+| — (new) | Checkpoint/bgwriter stats | checkpoint.go | ✅ Done (M1_03) |
 | analiz2.php Q48–Q52 | pg_stat_statements | collector/statements.go | 🔲 M1_04 |
 | analiz2.php Q53–Q58 | Locks & wait events | collector/locks.go | 🔲 M1_05 |
 | analiz_db.php Q1–Q18 | Per-DB analysis | collector/database.go | 🔲 Later milestone |
-| **Total: 76** | | | **18 done, 9 deferred/skipped, 49 remaining** |
+| **Total: 76** | | | **24 done, 9 deferred/skipped, 43 remaining** |
 
 ### PGAM Bugs Fixed During Port
 
@@ -334,11 +364,11 @@ func CollectAll(ctx context.Context, conn *pgx.Conn, ic InstanceContext, collect
 | 2 | Q19 | pgss_info | PG ≤ 13: skip / PG ≥ 14: `SELECT * FROM pg_stat_statements_info` |
 | 3 | Q40 | replication_slots | PG 14: base cols / PG 15: + `two_phase` / PG 16+: + `conflicting` |
 
-### Version Gates Planned (M1_03)
+### Version Gates Implemented (continued)
 
-| # | Query | Gate | PG 14–16 | PG 17 |
-|---|-------|------|----------|-------|
-| 4 | New | checkpoint_stats | `pg_stat_bgwriter` (combined) | `pg_stat_checkpointer` + reduced `pg_stat_bgwriter` |
+| # | Query | Gate | Variants |
+|---|-------|------|----------|
+| 4 | New | checkpoint_stats | PG 14–16: `pg_stat_bgwriter` (combined) / PG 17+: `pg_stat_checkpointer` CROSS JOIN `pg_stat_bgwriter` |
 
 ---
 
@@ -349,7 +379,7 @@ func CollectAll(ctx context.Context, conn *pgx.Conn, ic InstanceContext, collect
 | Milestone | Name | Status | Completion Date |
 |---|---|---|---|
 | M0 | Project Setup | ✅ Done | 2026-02-25 |
-| M1 | Core Collector | 🔶 In progress (M1_01 done, M1_02 planned) | — |
+| M1 | Core Collector | 🔶 In progress (M1_01–M1_03 done, M1_04 next) | — |
 | M2 | Storage & API | 🔲 Not started | — |
 | M3 | Auth & Security | 🔲 Not started | — |
 | M4 | Alerting | 🔲 Not started | — |
@@ -367,29 +397,45 @@ func CollectAll(ctx context.Context, conn *pgx.Conn, ic InstanceContext, collect
 | M1_01 | Instance metrics: server_info, connections, cache, transactions, database_sizes, settings, extensions, registry | ✅ Done |
 | M1_02a | Interface refactor: add InstanceContext to Collector.Collect() signature | ✅ Done (c50dbe1) |
 | M1_02b | Replication collectors: replication_lag, replication_slots, replication_status | ✅ Done |
-| M1_03 | Progress monitoring: vacuum, analyze, index, cluster, basebackup, copy (Q42–Q47) + checkpoint/bgwriter stats | 🔲 Not started |
+| M1_03 | Progress monitoring: vacuum, analyze, index, cluster, basebackup, copy (Q42–Q47) + checkpoint/bgwriter stats | ✅ Done (f96ce2f) |
 | M1_04 | pg_stat_statements: IO-sorted, CPU-sorted, normalized total (Q48–Q52) | 🔲 Not started |
 | M1_05 | Locks & wait events: wait event summary, blocking tree, long transactions (Q53–Q58) | 🔲 Not started |
 
-### What Was Just Completed (M1_01 + M1_02)
+### What Was Just Completed (M1_03)
 
-**M1_01 — Instance metrics collector suite (13 PGAM queries ported).**
+**M1_03 — Progress monitoring + checkpoint/bgwriter (6 PGAM queries ported + 1 new collector).**
 
-Created 8 collector files (server_info, connections, cache, transactions, database_sizes, settings, extensions) plus base.go (shared helpers) and registry.go (orchestration). Each collector embeds Base struct, uses point() for metric creation, queryContext() for 5s timeout. Registry supports partial-failure.
+Created 4 production files + 4 test files (1302 lines total). Commit f96ce2f.
 
-**M1_02a — InstanceContext interface refactor.**
+**Progress collectors (Q42–Q47):**
+- VacuumProgressCollector (Q42, 10s) — 7 metrics per active vacuum, `completionPct()` shared helper
+- ClusterProgressCollector (Q43, 10s) — 6 metrics per active CLUSTER/VACUUM FULL
+- AnalyzeProgressCollector (Q45, 10s) — 7 metrics per active ANALYZE, includes current_child label
+- CreateIndexProgressCollector (Q44, 10s) — 9 metrics per active CREATE INDEX/REINDEX
+- BasebackupProgressCollector (Q46, 10s) — 5 metrics per active pg_basebackup
+- CopyProgressCollector (Q47, 10s) — 5 metrics per active COPY (no phase column)
 
-Added InstanceContext struct with IsRecovery field to Collector interface. Mechanical signature update across 18 files. ServerInfoCollector now reads ic.IsRecovery instead of querying pg_is_in_recovery() directly. Commit c50dbe1.
+All progress collectors: embed Base, 10s interval, no role check, COALESCE on regclass, empty result = empty slice.
 
-**M1_02b — Replication collectors (5 PGAM queries ported).**
+**CheckpointCollector (new feature, not from PGAM):**
+- Version-gated: PG 14–16 uses `pg_stat_bgwriter` (combined) / PG 17+ uses `pg_stat_checkpointer` CROSS JOIN `pg_stat_bgwriter`
+- Both variants return 13 columns; unavailable columns use -1 sentinel
+- Stateful: stores previous snapshot under sync.Mutex for delta/rate computation
+- Absolute metrics (8 always + 5 conditional) + rate metrics (5 always + 1 conditional)
+- Stats reset detection: skips rates if any counter decreased
+- New pattern: `computeMetrics()`, `absolutePoints()`, `ratePoints()`, `isStatsReset()` — all testable without PG connection
 
-Created 3 new collectors: ReplicationLagCollector (Q37+Q38, primary only, 10s), ReplicationSlotsCollector (Q40, version-gated PG 14/15/16+, 60s), ReplicationStatusCollector (Q20 primary + Q21 replica, 60s). All use InstanceContext.IsRecovery for role-aware behavior. 8 unit tests pass, 3 integration stubs skip cleanly.
+**Tests:** 28 pass, 10 skip (integration stubs). Checkpoint tests verify rate math, stats reset, zero-elapsed safety, and version-conditional metric emission.
 
-**Discovery:** RegisterCollector/init() auto-registration pattern from strategy doc is not used. Actual registration is explicit in main.go.
+### Previously Completed (M1_01 + M1_02)
 
-### What's Next (M1_03)
+**M1_01** — 8 collector files, 13 PGAM queries, base.go, registry.go.
+**M1_02a** — InstanceContext interface refactor (c50dbe1).
+**M1_02b** — 3 replication collectors, 5 PGAM queries (aa76eee).
 
-Progress monitoring collectors (Q42–Q47: vacuum, cluster, create index, analyze, basebackup, copy) plus checkpoint/bgwriter stats (PG 17 splits pg_stat_bgwriter) and optionally pg_stat_io (PG 16+ only). Planning docs not yet created — start with M1_03 planning chat using HANDOFF_M1_02_to_M1_03.md.
+### What's Next (M1_04)
+
+pg_stat_statements collectors (Q48–Q52): IO-sorted, CPU-sorted, normalized total. Requires pg_stat_statements extension. May need version gate for PG 13 (total_time) vs PG 14+ (total_exec_time + total_plan_time).
 
 ---
 
@@ -466,6 +512,7 @@ Progress monitoring collectors (Q42–Q47: vacuum, cluster, create index, analyz
 | 2026-02-25 | Docker Desktop not available on workstation | Integration tests CI-only. Unit tests with mocks locally. |
 | 2026-02-25 | Design doc showed Gate with int min/max | Actual M0 code uses VersionRange{MinMajor, MinMinor, MaxMajor, MaxMinor}. Use struct form. |
 | 2026-02-26 | RegisterCollector/init() auto-registration not used | Actual code registers collectors explicitly in main.go. Strategy doc, CLAUDE.md, and design docs are incorrect. All future docs corrected. |
+| 2026-02-26 | Agent Teams test file used wrong struct field names | QA agent wrote checkpoint_test.go in parallel with collector agent's checkpoint.go. Field names mismatched (checkpointsRequested vs checkpointsReq, etc.). Fixed with find-and-replace before tests. |
 
 ### Competitive Intelligence Summary
 - **pgwatch v3:** Go-based, SQL metrics, 4 storage backends — closest architectural cousin
@@ -578,6 +625,23 @@ Examples:
 
 \* Version-conditional: `two_phase` on PG 15+, `conflicting` on PG 16+.
 
+**Progress metrics (M1_03):**
+- `pgpulse.progress.vacuum.heap_blks_total` (labels: `pid`, `datname`, `table_name`, `phase`)
+- `pgpulse.progress.vacuum.completion_pct` (+ heap_blks_scanned, heap_blks_vacuumed, index_vacuum_count, max_dead_tuples, num_dead_tuples)
+- `pgpulse.progress.cluster.completion_pct` (labels: + `command`) (+ heap_tuples_scanned/written, heap_blks_total/scanned, index_rebuild_count)
+- `pgpulse.progress.analyze.completion_pct` (labels: + `current_child`) (+ sample_blks_total/scanned, ext_stats_total/computed, child_tables_total/done)
+- `pgpulse.progress.create_index.completion_pct` (labels: + `index_name`, `command`) (+ blocks/tuples/lockers/partitions total/done)
+- `pgpulse.progress.basebackup.completion_pct` (labels: `pid`, `usename`, `app_name`, `client_addr`, `phase`) (+ backup/tablespaces total/streamed)
+- `pgpulse.progress.copy.completion_pct` (labels: `pid`, `datname`, `table_name`, `command`, `type`) (+ bytes/tuples processed/excluded)
+
+**Checkpoint/bgwriter metrics (M1_03):**
+- `pgpulse.checkpoint.timed` / `.requested` / `.write_time_ms` / `.sync_time_ms` / `.buffers_written` (no labels)
+- `pgpulse.bgwriter.buffers_clean` / `.maxwritten_clean` / `.buffers_alloc` (no labels)
+- `pgpulse.bgwriter.buffers_backend` / `.buffers_backend_fsync` (PG ≤ 16 only)
+- `pgpulse.checkpoint.restartpoints_timed` / `_done` / `_req` (PG ≥ 17 only)
+- `pgpulse.checkpoint.timed_per_second` / `.requested_per_second` / `.buffers_written_per_second` (rates)
+- `pgpulse.bgwriter.buffers_clean_per_second` / `.buffers_alloc_per_second` / `.buffers_backend_per_second` (rates)
+
 ### Pattern: Test File Structure
 
 ```go
@@ -604,6 +668,69 @@ func TestMyCollector_Integration_PG16(t *testing.T) {
 }
 ```
 
+### Pattern: Stateful Collector (introduced in M1_03)
+
+For collectors that need delta/rate computation from cumulative PG counters:
+
+```go
+type mySnapshot struct {
+    counterA float64
+    counterB float64 // -1 if unavailable for this PG version
+}
+
+type MyStatefulCollector struct {
+    Base
+    sqlGate  version.Gate
+    mu       sync.Mutex
+    prev     *mySnapshot
+    prevTime time.Time
+}
+
+// computeMetrics — pure logic, testable without PG connection.
+func (c *MyStatefulCollector) computeMetrics(curr mySnapshot, prev *mySnapshot, prevTime, now time.Time) []MetricPoint {
+    points := c.absolutePoints(curr)
+    if prev != nil {
+        elapsed := now.Sub(prevTime).Seconds()
+        if elapsed > 0 && !c.isStatsReset(curr) {
+            points = append(points, c.ratePoints(curr, elapsed)...)
+        }
+    }
+    return points
+}
+
+// Collect — queries PG, calls computeMetrics, updates state under mutex.
+func (c *MyStatefulCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
+    // ... QueryRow + Scan into curr ...
+    now := time.Now()
+    c.mu.Lock()
+    points := c.computeMetrics(curr, c.prev, c.prevTime, now)
+    c.prev = &curr
+    c.prevTime = now
+    c.mu.Unlock()
+    return points, nil
+}
+```
+
+Key rules:
+- Use `-1` sentinel for version-unavailable columns (not 0, not NULL)
+- `isStatsReset()` detects counter decrease → skip rates that cycle
+- Guard against zero elapsed time in rate division
+- `computeMetrics()` is pure — all rate tests use it directly with crafted snapshots
+
+### Pattern: Shared Helper (introduced in M1_03)
+
+```go
+// completionPct computes percentage safely. Returns 0 when total is 0.
+func completionPct(done, total float64) float64 {
+    if total <= 0 {
+        return 0
+    }
+    return (done / total) * 100
+}
+```
+
+Package-level function in `progress_vacuum.go`, used by all 6 progress collectors.
+
 ---
 
 ## 9. HOW TO RESTORE THIS SAVE POINT
@@ -611,7 +738,7 @@ func TestMyCollector_Integration_PG16(t *testing.T) {
 ### Option A: Continue in Same Claude.ai Project
 1. Open new chat in the PGPulse project
 2. Upload this save point file
-3. Say: "Restoring from save point M1. Continue with M1_03 (progress monitoring)."
+3. Say: "Restoring from save point M1. Continue with M1_04 (pg_stat_statements)."
 4. Project Knowledge already has: strategy doc, PGAM audit, chat transition, save point system
 
 ### Option B: New Claude.ai Project from Scratch
