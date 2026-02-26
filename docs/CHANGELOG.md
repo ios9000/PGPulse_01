@@ -5,6 +5,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## 2026-02-26
+
+### M1_05 — Locks & Wait Events
+- Added WaitEventsCollector (Q53/Q54 merged) — per-event backend counts
+- Added LockTreeCollector (Q55) — pg_blocking_pids() + Go BFS graph, summary metrics
+- Added LongTransactionsCollector (Q56/Q57 merged) — parameterized threshold, active/waiting split
+- 23 new unit tests including 7 pure graph topology tests for lock chain computation
+- First use of Claude Code Agent Teams (2 agents: Collector + QA)
+
+### M1 Milestone Complete
+- 33/76 PGAM queries ported across 20 collector files
+- 2 new collectors not in PGAM (checkpoint/bgwriter, pg_stat_io)
+- 9 PGAM bugs fixed during port
+- 7 version gates implemented (PG 14–17)
+
 ### Added — M1_01: Instance Metrics Collector (2026-02-25)
 
 - **ServerInfoCollector** — PG start time, uptime (computed in Go), recovery state, backup state with version gate (PG 14 only, removed in PG 15+)
