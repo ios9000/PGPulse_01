@@ -2,7 +2,7 @@
 
 **Save Point:** M2 (in progress) — M2_01 Config & Orchestrator
 **Date:** 2026-02-26
-**Commit:** 31a696b
+**Commit:** 98b06f1
 **Developer:** Evlampiy (ios9000)
 **AI Tool:** Claude.ai (Opus 4.6) + Claude Code (Sonnet 4.6, single session)
 
@@ -526,7 +526,7 @@ pgpulse.long_transactions.*  — count, oldest_seconds (label: type=active|waiti
 3. Say: "Restoring from save point. M2_01 (config+orchestrator) is done. Next is M2_02 (TimescaleDB MetricStore)."
 
 ### Option B: New Claude.ai Project / Different Tool
-1. Clone: `git clone https://github.com/ios9000/PGPulse_01.git` (commit 31a696b)
+1. Clone: `git clone https://github.com/ios9000/PGPulse_01.git` (commit 98b06f1)
 2. Read this file for complete context
 3. Key interfaces: `internal/collector/collector.go`, `internal/config/config.go`, `internal/orchestrator/orchestrator.go`
 4. `go test ./internal/config/ ./internal/orchestrator/` — 16 tests, all pass
