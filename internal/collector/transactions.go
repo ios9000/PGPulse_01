@@ -41,7 +41,7 @@ func (c *TransactionsCollector) Name() string { return "transactions" }
 
 // Collect executes transaction statistics queries and returns metric points.
 // Emits: transactions.commit_ratio_pct and transactions.deadlocks, both labeled by database.
-func (c *TransactionsCollector) Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error) {
+func (c *TransactionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	tctx, cancel := queryContext(ctx)
 	rows, err := conn.Query(tctx, sqlTransactions)
 	cancel()

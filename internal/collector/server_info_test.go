@@ -22,7 +22,7 @@ func TestServerInfoCollector_PG17(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewServerInfoCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{IsRecovery: false})
 	require.NoError(t, err)
 	require.NotEmpty(t, points)
 
@@ -42,7 +42,7 @@ func TestServerInfoCollector_PG17(t *testing.T) {
 	require.NotNil(t, uptime)
 	assert.Greater(t, uptime.Value, 0.0)
 
-	// Fresh standalone instance should not be in recovery
+	// InstanceContext{IsRecovery: false} → must emit 0.0
 	recovery := findMetric(points, "pgpulse.server.is_in_recovery")
 	require.NotNil(t, recovery)
 	assert.Equal(t, 0.0, recovery.Value)
@@ -61,13 +61,49 @@ func TestServerInfoCollector_PG14(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewServerInfoCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{IsRecovery: false})
 	require.NoError(t, err)
 
 	// PG 14: pg_is_in_backup() must execute without error and return 0.0 (no backup running)
 	backup := findMetric(points, "pgpulse.server.is_in_backup")
 	require.NotNil(t, backup, "PG14 must emit is_in_backup via pg_is_in_backup()")
 	assert.Equal(t, 0.0, backup.Value, "no backup should be running in test container")
+}
+
+func TestServerInfoCollector_IsRecovery_Primary(t *testing.T) {
+	// Verify that InstanceContext{IsRecovery: false} → is_in_recovery == 0.0.
+	// The metric is read from InstanceContext, not from a DB query.
+	conn := setupPG(t, "17")
+	ctx := context.Background()
+
+	v, err := version.Detect(ctx, conn)
+	require.NoError(t, err)
+
+	c := collector.NewServerInfoCollector("test-instance", v)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{IsRecovery: false})
+	require.NoError(t, err)
+
+	recovery := findMetric(points, "pgpulse.server.is_in_recovery")
+	require.NotNil(t, recovery)
+	assert.Equal(t, 0.0, recovery.Value, "primary mode: is_in_recovery must be 0.0")
+}
+
+func TestServerInfoCollector_IsRecovery_Replica(t *testing.T) {
+	// Verify that InstanceContext{IsRecovery: true} → is_in_recovery == 1.0.
+	// The metric is read from InstanceContext, not from a DB query.
+	conn := setupPG(t, "17")
+	ctx := context.Background()
+
+	v, err := version.Detect(ctx, conn)
+	require.NoError(t, err)
+
+	c := collector.NewServerInfoCollector("test-instance", v)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{IsRecovery: true})
+	require.NoError(t, err)
+
+	recovery := findMetric(points, "pgpulse.server.is_in_recovery")
+	require.NotNil(t, recovery)
+	assert.Equal(t, 1.0, recovery.Value, "replica mode: is_in_recovery must be 1.0")
 }
 
 func TestServerInfoCollector_Name(t *testing.T) {

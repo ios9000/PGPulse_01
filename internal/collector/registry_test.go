@@ -22,7 +22,7 @@ type mockCollector struct {
 }
 
 func (m *mockCollector) Name() string { return m.name }
-func (m *mockCollector) Collect(_ context.Context, _ *pgx.Conn) ([]collector.MetricPoint, error) {
+func (m *mockCollector) Collect(_ context.Context, _ *pgx.Conn, _ collector.InstanceContext) ([]collector.MetricPoint, error) {
 	return m.points, m.err
 }
 func (m *mockCollector) Interval() time.Duration { return m.interval }
@@ -39,7 +39,7 @@ func TestRegistry_CollectAll_Success(t *testing.T) {
 	reg.Register(c1)
 	reg.Register(c2)
 
-	points := reg.CollectAll(context.Background(), nil)
+	points := reg.CollectAll(context.Background(), nil, collector.InstanceContext{})
 	require.Len(t, points, 3)
 	assert.Equal(t, "test.metric.one", points[0].Metric)
 	assert.Equal(t, "test.metric.two", points[1].Metric)
@@ -60,7 +60,7 @@ func TestRegistry_CollectAll_PartialFailure(t *testing.T) {
 	reg.Register(failing)
 	reg.Register(passing)
 
-	points := reg.CollectAll(context.Background(), nil)
+	points := reg.CollectAll(context.Background(), nil, collector.InstanceContext{})
 	// Only the passing collector's results are returned; failing does not abort the batch
 	require.Len(t, points, 1)
 	assert.Equal(t, "good.metric", points[0].Metric)
@@ -70,7 +70,7 @@ func TestRegistry_CollectAll_PartialFailure(t *testing.T) {
 func TestRegistry_CollectAll_Empty(t *testing.T) {
 	reg := collector.NewRegistry()
 	// Empty registry must return nil/empty without panic
-	points := reg.CollectAll(context.Background(), nil)
+	points := reg.CollectAll(context.Background(), nil, collector.InstanceContext{})
 	assert.Empty(t, points)
 }
 
@@ -91,7 +91,7 @@ func TestRegistry_CollectAll_ContextCanceled(t *testing.T) {
 	// Should return without hanging even with a cancelled context
 	done := make(chan []collector.MetricPoint, 1)
 	go func() {
-		done <- reg.CollectAll(ctx, nil)
+		done <- reg.CollectAll(ctx, nil, collector.InstanceContext{})
 	}()
 
 	select {
@@ -112,6 +112,6 @@ func TestRegistry_Register_MultipleCollectors(t *testing.T) {
 		})
 	}
 
-	points := reg.CollectAll(context.Background(), nil)
+	points := reg.CollectAll(context.Background(), nil, collector.InstanceContext{})
 	assert.Len(t, points, 5)
 }

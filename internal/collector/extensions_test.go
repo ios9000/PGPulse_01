@@ -22,7 +22,7 @@ func TestExtensionsCollector_WithPGSS(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewExtensionsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 	require.NotEmpty(t, points)
 
@@ -50,7 +50,7 @@ func TestExtensionsCollector_WithoutPGSS(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewExtensionsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 
 	// Not installed — must report 0.0

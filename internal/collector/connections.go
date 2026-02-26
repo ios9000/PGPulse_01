@@ -46,7 +46,7 @@ func (c *ConnectionsCollector) Name() string { return "connections" }
 // Collect executes connection queries and returns metric points.
 // Emits: connections.by_state (per state label), connections.total,
 // connections.max, connections.superuser_reserved, connections.utilization_pct.
-func (c *ConnectionsCollector) Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error) {
+func (c *ConnectionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	var points []MetricPoint
 	var total float64
 

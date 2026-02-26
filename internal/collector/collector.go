@@ -16,12 +16,22 @@ type MetricPoint struct {
 	Timestamp  time.Time
 }
 
+// InstanceContext holds per-scrape-cycle metadata about the PostgreSQL instance.
+// It is queried once by the orchestrator at the start of each collection cycle
+// and passed to all collectors, avoiding redundant per-collector queries.
+type InstanceContext struct {
+	// IsRecovery is true when the instance is a standby (replica).
+	// Derived from pg_is_in_recovery() queried once per cycle by the orchestrator.
+	IsRecovery bool
+}
+
 // Collector is the interface that all metric collectors must implement.
 type Collector interface {
 	// Name returns the collector's identifier (e.g., "instance", "replication").
 	Name() string
 	// Collect executes queries and returns metric points.
-	Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error)
+	// ic provides per-cycle instance state (e.g., recovery role) without additional queries.
+	Collect(ctx context.Context, conn *pgx.Conn, ic InstanceContext) ([]MetricPoint, error)
 	// Interval returns how often this collector should run.
 	Interval() time.Duration
 }

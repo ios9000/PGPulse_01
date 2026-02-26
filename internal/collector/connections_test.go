@@ -26,7 +26,7 @@ func TestConnectionsCollector_PG17(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewConnectionsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn2)
+	points, err := c.Collect(ctx, conn2, collector.InstanceContext{})
 	require.NoError(t, err)
 	require.NotEmpty(t, points)
 
@@ -62,7 +62,7 @@ func TestConnectionsCollector_ExcludesSelf(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewConnectionsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn2)
+	points, err := c.Collect(ctx, conn2, collector.InstanceContext{})
 	require.NoError(t, err)
 
 	total := findMetric(points, "pgpulse.connections.total")
@@ -76,7 +76,7 @@ func TestConnectionsCollector_ExcludesSelf(t *testing.T) {
 	v2, err := version.Detect(ctx, conn1)
 	require.NoError(t, err)
 	c2 := collector.NewConnectionsCollector("test-instance", v2)
-	points2, err := c2.Collect(ctx, conn1)
+	points2, err := c2.Collect(ctx, conn1, collector.InstanceContext{})
 	require.NoError(t, err)
 
 	total2 := findMetric(points2, "pgpulse.connections.total")
@@ -93,7 +93,7 @@ func TestConnectionsCollector_Utilization(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewConnectionsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 
 	util := findMetric(points, "pgpulse.connections.utilization_pct")

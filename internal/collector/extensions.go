@@ -47,7 +47,7 @@ func (c *ExtensionsCollector) Name() string { return "extensions" }
 // Emits: extensions.pgss_installed.
 // If pg_stat_statements is installed, also emits:
 // extensions.pgss_fill_pct, extensions.pgss_stats_reset_unix.
-func (c *ExtensionsCollector) Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error) {
+func (c *ExtensionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	var points []MetricPoint
 
 	// Q18: is pg_stat_statements installed?

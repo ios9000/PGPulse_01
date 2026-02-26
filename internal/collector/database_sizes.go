@@ -36,7 +36,7 @@ func (c *DatabaseSizesCollector) Name() string { return "database_sizes" }
 
 // Collect executes database size queries and returns metric points.
 // Emits: database.size_bytes labeled by database name.
-func (c *DatabaseSizesCollector) Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error) {
+func (c *DatabaseSizesCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	tctx, cancel := queryContext(ctx)
 	rows, err := conn.Query(tctx, sqlDatabaseSizes)
 	cancel()
