@@ -94,7 +94,7 @@ Create four new files in internal/collector/:
    SELECT checkpoints_timed, checkpoints_req, checkpoint_write_time,
      checkpoint_sync_time, buffers_checkpoint, buffers_clean, maxwritten_clean,
      buffers_alloc, buffers_backend, buffers_backend_fsync,
-     -1 AS restartpoints_timed, -1 AS restartpoints_done, -1 AS restartpoints_requested
+     -1 AS restartpoints_timed, -1 AS restartpoints_done, -1 AS restartpoints_req
    FROM pg_stat_bgwriter
 
    PG 17+ (VersionRange MinMajor:17 MaxMajor:99 MaxMinor:99):
@@ -103,7 +103,7 @@ Create four new files in internal/collector/:
      c.buffers_written AS buffers_checkpoint,
      b.buffers_clean, b.maxwritten_clean, b.buffers_alloc,
      -1 AS buffers_backend, -1 AS buffers_backend_fsync,
-     c.restartpoints_timed, c.restartpoints_done, c.restartpoints_requested
+     c.restartpoints_timed, c.restartpoints_done, c.restartpoints_req
    FROM pg_stat_checkpointer c CROSS JOIN pg_stat_bgwriter b
 
    Use -1 sentinel for unavailable columns (NOT 0, NOT NULL).
