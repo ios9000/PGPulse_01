@@ -154,7 +154,7 @@ completion_pct = bytes_processed / bytes_total * 100.
 | `pgpulse.bgwriter.buffers_backend_fsync` | buffers_backend_fsync | — (PG ≤ 16 only) |
 | `pgpulse.checkpoint.restartpoints_timed` | — | restartpoints_timed (PG ≥ 17 only) |
 | `pgpulse.checkpoint.restartpoints_done` | — | restartpoints_done (PG ≥ 17 only) |
-| `pgpulse.checkpoint.restartpoints_requested` | — | restartpoints_requested (PG ≥ 17 only) |
+| `pgpulse.checkpoint.restartpoints_req` | — | restartpoints_req (PG ≥ 17 only) |
 
 **Per-second rate metrics (computed from deltas):**
 - `pgpulse.checkpoint.timed_per_second`
