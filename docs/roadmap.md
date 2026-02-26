@@ -10,7 +10,7 @@
 |---|---|---|---|
 | M0 | Project Setup | ✅ Done | 2026-02-25 |
 | M1 | Core Collector | ✅ Done | 2026-02-26 |
-| M2 | Storage & API | 🔲 Not Started | — |
+| M2 | Storage & API | 🔶 In Progress | — |
 | M3 | Auth & Security | 🔲 Not Started | — |
 | M4 | Alerting | 🔲 Not Started | — |
 | M5 | Web UI (MVP) | 🔲 Not Started | — |
@@ -19,6 +19,14 @@
 | M8 | ML Phase 1 | 🔲 Not Started | — |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
+
+## M2 Sub-Iterations
+
+| Iteration | Scope | Status |
+|---|---|---|
+| M2_01 | Config loader (koanf) + Orchestrator + LogStore stub | ✅ Done 2026-02-26 |
+| M2_02 | TimescaleDB MetricStore implementation | 🔲 Not Started |
+| M2_03 | REST API (chi router, metric query endpoints) | 🔲 Not Started |
 
 ## M1 Sub-Iterations
 
