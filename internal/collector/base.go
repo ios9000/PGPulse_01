@@ -2,7 +2,10 @@ package collector
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/ios9000/PGPulse_01/internal/version"
 )
@@ -45,4 +48,18 @@ func (b *Base) Interval() time.Duration {
 // The caller must call the returned CancelFunc to release resources.
 func queryContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, defaultTimeout)
+}
+
+// pgssAvailable checks whether the pg_stat_statements extension is installed.
+func pgssAvailable(ctx context.Context, conn *pgx.Conn) (bool, error) {
+	qCtx, cancel := queryContext(ctx)
+	defer cancel()
+	var exists bool
+	err := conn.QueryRow(qCtx,
+		`SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')`,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check pgss availability: %w", err)
+	}
+	return exists, nil
 }
