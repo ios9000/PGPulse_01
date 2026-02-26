@@ -1,6 +1,6 @@
-# Go binaries
-pgpulse-server
-pgpulse-agent
+# Go binaries (root-anchored so cmd/pgpulse-server/ directory is not ignored)
+/pgpulse-server
+/pgpulse-agent
 *.exe
 
 # Dependencies

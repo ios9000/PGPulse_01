@@ -39,11 +39,11 @@ type Collector interface {
 // MetricQuery defines parameters for querying stored metrics.
 type MetricQuery struct {
 	InstanceID string
-	Metric     string
-	Labels     map[string]string
-	From       time.Time
-	To         time.Time
-	Limit      int
+	Metric     string            // optional: filter by metric name prefix
+	Labels     map[string]string // optional: filter by label values
+	Start      time.Time         // time range start
+	End        time.Time         // time range end
+	Limit      int               // max results (0 = no limit)
 }
 
 // MetricStore is the interface for time-series metric storage.
