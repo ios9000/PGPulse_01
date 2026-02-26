@@ -41,7 +41,7 @@ func (c *ServerInfoCollector) Name() string { return "server_info" }
 // Collect executes server identity queries and returns metric points.
 // Emits: server.start_time_unix, server.uptime_seconds,
 // server.is_in_recovery, server.is_in_backup.
-func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error) {
+func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn, ic InstanceContext) ([]MetricPoint, error) {
 	var points []MetricPoint
 
 	// Q2: postmaster start time
@@ -55,16 +55,9 @@ func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn) ([]Me
 	points = append(points, c.point("server.start_time_unix", float64(startEpoch), nil))
 	points = append(points, c.point("server.uptime_seconds", float64(time.Now().Unix()-startEpoch), nil))
 
-	// Q9: recovery state
-	tctx2, cancel2 := queryContext(ctx)
-	var isRecovery bool
-	err = conn.QueryRow(tctx2, "SELECT pg_is_in_recovery()").Scan(&isRecovery)
-	cancel2()
-	if err != nil {
-		return nil, fmt.Errorf("server_info collect is_recovery: %w", err)
-	}
+	// Q9: recovery state — read from InstanceContext (queried once per cycle by orchestrator).
 	recoveryVal := 0.0
-	if isRecovery {
+	if ic.IsRecovery {
 		recoveryVal = 1.0
 	}
 	points = append(points, c.point("server.is_in_recovery", recoveryVal, nil))

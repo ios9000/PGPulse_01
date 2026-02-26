@@ -22,7 +22,7 @@ func TestDatabaseSizesCollector_PG17(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewDatabaseSizesCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 	require.NotEmpty(t, points)
 

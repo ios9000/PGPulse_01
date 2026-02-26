@@ -26,13 +26,14 @@ func (r *Registry) Register(c Collector) {
 // CollectAll runs every registered collector sequentially and returns all metric points.
 // Individual collector failures are logged but do not abort the batch — the registry
 // continues to the next collector and returns all successfully collected points.
-func (r *Registry) CollectAll(ctx context.Context, conn *pgx.Conn) []MetricPoint {
+// ic provides per-cycle instance state (e.g., recovery role) queried once by the caller.
+func (r *Registry) CollectAll(ctx context.Context, conn *pgx.Conn, ic InstanceContext) []MetricPoint {
 	var results []MetricPoint
 
 	for _, c := range r.collectors {
 		tctx, cancel := queryContext(ctx)
 		start := time.Now()
-		points, err := c.Collect(tctx, conn)
+		points, err := c.Collect(tctx, conn, ic)
 		cancel()
 		duration := time.Since(start)
 

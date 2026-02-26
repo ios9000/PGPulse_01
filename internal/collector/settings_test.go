@@ -22,7 +22,7 @@ func TestSettingsCollector_PG17(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewSettingsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 	require.NotEmpty(t, points)
 
@@ -41,7 +41,7 @@ func TestSettingsCollector_BoolConversion(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewSettingsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 
 	trackIO := findMetric(points, "pgpulse.settings.track_io_timing")
@@ -59,7 +59,7 @@ func TestSettingsCollector_SharedBuffersPositive(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewSettingsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 
 	sharedBufs := findMetric(points, "pgpulse.settings.shared_buffers_8kb")

@@ -55,7 +55,7 @@ func (c *SettingsCollector) Name() string { return "settings" }
 // Collect executes the settings query and returns metric points.
 // Emits: settings.track_io_timing, settings.shared_buffers_8kb,
 // settings.max_locks_per_tx, settings.max_prepared_tx.
-func (c *SettingsCollector) Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error) {
+func (c *SettingsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	tctx, cancel := queryContext(ctx)
 	rows, err := conn.Query(tctx, sqlSettings)
 	cancel()

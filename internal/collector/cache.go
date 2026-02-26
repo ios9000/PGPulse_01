@@ -36,7 +36,7 @@ func (c *CacheCollector) Name() string { return "cache" }
 
 // Collect executes the cache hit ratio query and returns metric points.
 // Emits: cache.hit_ratio_pct.
-func (c *CacheCollector) Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error) {
+func (c *CacheCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	tctx, cancel := queryContext(ctx)
 	var hitRatio float64
 	err := conn.QueryRow(tctx, sqlCacheHitRatio).Scan(&hitRatio)

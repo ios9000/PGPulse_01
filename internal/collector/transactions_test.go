@@ -26,7 +26,7 @@ func TestTransactionsCollector_PG17(t *testing.T) {
 	require.NoError(t, err)
 
 	c := collector.NewTransactionsCollector("test-instance", v)
-	points, err := c.Collect(ctx, conn)
+	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 
 	// At least one database should have transaction data
