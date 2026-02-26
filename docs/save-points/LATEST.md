@@ -2,7 +2,7 @@
 
 **Save Point:** M1 (in progress) — Core Collector
 **Date:** 2026-02-26
-**Commit:** ea7e444 (after M1_05)
+**Commit:** c7db1e8 (after M1_05 + CHANGELOG update)
 **Developer:** Evlampiy (ios9000)
 **AI Tool:** Claude.ai (Opus 4.6) + Claude Code (Sonnet 4.6, single session)
 
@@ -304,11 +304,12 @@ func (g Gate) Select(v PGVersion) (string, bool)
 | M1_03 | Progress monitoring + checkpoint/bgwriter | ✅ Done (f96ce2f) |
 | M1_03b | pg_stat_io | ✅ Done (7963eff) |
 | M1_04 | pg_stat_statements config + top-N | ✅ Done (d2528ee) |
-| M1_05 | Locks & wait events | ✅ Done (ea7e444) |
+| M1_05 | Locks & wait events | ✅ Done (c7db1e8) |
 
 ### What Was Just Completed (M1_05)
 
 **M1_05 — Locks & wait events (Q53–Q57). Commit ea7e444. 6 files, 821 lines.**
+**CHANGELOG updated. Commit c7db1e8.**
 
 **`WaitEventsCollector` (wait_events.go) — Q53/Q54:**
 - 10s interval; filters to `client backend` (reduces noise vs PGAM which included all backends)
@@ -451,7 +452,7 @@ pgpulse.long_transactions.* — count, oldest_seconds (label: type=active|waitin
 3. Say: "Restoring from save point M1. M1_05 is done. Decide next: M1_06 (analiz_db.php), M2 (Storage & API), or wiring main.go."
 
 ### Option B: New Claude.ai Project / Different Tool
-1. Clone: `git clone https://github.com/ios9000/PGPulse_01.git` (commit ea7e444)
+1. Clone: `git clone https://github.com/ios9000/PGPulse_01.git` (commit c7db1e8)
 2. Read this file for complete context
 3. Key files: `internal/collector/collector.go`, `internal/collector/base.go`, `internal/version/gate.go`
 4. All collector code is in `internal/collector/` — 20 production files, fully tested
