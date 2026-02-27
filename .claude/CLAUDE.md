@@ -133,7 +133,25 @@ type AlertEvaluator interface {
 - Agents CANNOT run bash on Windows — create files only, developer runs bash
 
 ## Current Iteration
-[UPDATED BY DEVELOPER BEFORE EACH SESSION]
-M1_03 — Progress Monitoring + Checkpoint/BGWriter
-See: docs/iterations/M1_03_02262026_progress-checkpoint-bgwriter/
-Check docs/save-points/LATEST.md for current state.
+
+M2_02 — Storage Layer & Migrations
+See: docs/iterations/M2_02_02262026_storage-layer/
+
+### What was just completed
+M2_01 — Config & Orchestrator. PGPulse now starts as a running process:
+reads YAML config, connects to monitored PG instances, runs 20 collectors
+on scheduled intervals (10s/60s/300s groups), logs collected metrics via
+LogStore placeholder. Graceful shutdown on SIGINT/SIGTERM.
+
+New packages: internal/config/ (koanf YAML + env vars), internal/orchestrator/
+(Orchestrator → instanceRunner → intervalGroup lifecycle).
+
+### What's next
+M2_02 replaces LogStore with PG-backed PGStore. Adds: embedded SQL migrations,
+metrics table + indexes, pgx.CopyFrom batch writes, dynamic metric query builder,
+pgxpool for concurrent writes. main.go wires PGStore when storage.dsn is set,
+falls back to LogStore when empty.
+
+### Key files for this iteration
+- docs/iterations/M2_02_02262026_storage-layer/prompt.md — Claude Code prompt
+- docs/iterations/M2_02_02262026_storage-layer/design.md — full design spec
