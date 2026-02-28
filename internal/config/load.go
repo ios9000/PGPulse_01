@@ -63,6 +63,16 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("server.log_level %q must be one of: debug, info, warn, error", cfg.Server.LogLevel)
 	}
 
+	if cfg.Server.ReadTimeout == 0 {
+		cfg.Server.ReadTimeout = 30 * time.Second
+	}
+	if cfg.Server.WriteTimeout == 0 {
+		cfg.Server.WriteTimeout = 60 * time.Second
+	}
+	if cfg.Server.ShutdownTimeout == 0 {
+		cfg.Server.ShutdownTimeout = 10 * time.Second
+	}
+
 	if cfg.Storage.RetentionDays == 0 {
 		cfg.Storage.RetentionDays = 30
 	}

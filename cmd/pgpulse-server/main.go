@@ -5,13 +5,16 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"github.com/ios9000/PGPulse_01/internal/api"
+	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
 	"github.com/ios9000/PGPulse_01/internal/orchestrator"
+	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
 func main() {
@@ -37,13 +40,54 @@ func main() {
 	}
 	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 
-	store := orchestrator.NewLogStore(logger)
-	orch := orchestrator.New(cfg, store, logger)
-
-	// Listen for SIGINT / SIGTERM before starting so we don't miss signals
-	// that arrive during startup.
+	// Activate signal handling early so Ctrl-C during startup is caught.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// Initialise storage: real PostgreSQL when DSN is configured, log-only otherwise.
+	var store collector.MetricStore
+	var pinger api.Pinger // nil unless using PGStore
+
+	if cfg.Storage.DSN != "" {
+		pgPool, err := storage.NewPool(ctx, cfg.Storage.DSN)
+		if err != nil {
+			logger.Error("failed to connect to storage DB", "err", err)
+			os.Exit(1)
+		}
+
+		if err := storage.Migrate(ctx, pgPool, logger, storage.MigrateOptions{
+			UseTimescaleDB: cfg.Storage.UseTimescaleDB,
+		}); err != nil {
+			logger.Error("failed to run migrations", "err", err)
+			os.Exit(1)
+		}
+
+		pgStore := storage.NewPGStore(pgPool, logger)
+		store = pgStore
+		pinger = pgStore.Pool()
+		logger.Info("storage initialized with PostgreSQL")
+	} else {
+		store = orchestrator.NewLogStore(logger)
+		logger.Info("no storage DSN configured, using log-only mode")
+	}
+
+	orch := orchestrator.New(cfg, store, logger)
+
+	// Build and start HTTP API server.
+	apiServer := api.New(cfg, store, pinger, logger)
+	httpServer := &http.Server{
+		Addr:         cfg.Server.Listen,
+		Handler:      apiServer.Routes(),
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+	}
+
+	go func() {
+		logger.Info("starting HTTP server", "address", cfg.Server.Listen)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("HTTP server error", "err", err)
+		}
+	}()
 
 	if err := orch.Start(ctx); err != nil {
 		logger.Error("failed to start orchestrator", "err", err)
@@ -61,12 +105,18 @@ func main() {
 	// Stop listening for signals; subsequent signals will terminate immediately.
 	stop()
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 	defer cancel()
-	_ = shutdownCtx // will be used by the HTTP server in M2
 
+	logger.Info("shutting down HTTP server")
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("HTTP shutdown error", "err", err)
+	}
+
+	logger.Info("stopping orchestrator")
 	orch.Stop()
 
+	logger.Info("closing storage")
 	if err := store.Close(); err != nil {
 		logger.Error("failed to close store", "err", err)
 	}
