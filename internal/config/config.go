@@ -7,7 +7,17 @@ type Config struct {
 	Server    ServerConfig     `koanf:"server"`
 	Storage   StorageConfig    `koanf:"storage"`
 	Auth      AuthConfig       `koanf:"auth"`
+	Alerting  AlertingConfig   `koanf:"alerting"`
 	Instances []InstanceConfig `koanf:"instances"`
+}
+
+// AlertingConfig holds alerting engine settings.
+type AlertingConfig struct {
+	Enabled                 bool `koanf:"enabled"`
+	DefaultConsecutiveCount int  `koanf:"default_consecutive_count"`
+	DefaultCooldownMinutes  int  `koanf:"default_cooldown_minutes"`
+	EvaluationTimeoutSec    int  `koanf:"evaluation_timeout_seconds"`
+	HistoryRetentionDays    int  `koanf:"history_retention_days"`
 }
 
 // AuthConfig holds JWT authentication settings.

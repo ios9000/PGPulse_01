@@ -81,6 +81,10 @@ func validate(cfg *Config) error {
 		return err
 	}
 
+	if err := validateAlerting(cfg); err != nil {
+		return err
+	}
+
 	if len(cfg.Instances) == 0 {
 		return fmt.Errorf("at least one instance must be configured")
 	}
@@ -110,6 +114,30 @@ func validate(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// validateAlerting applies alerting defaults and validates alerting config when enabled.
+func validateAlerting(cfg *Config) error {
+	alertingDefaults(&cfg.Alerting)
+	if cfg.Alerting.Enabled && cfg.Storage.DSN == "" {
+		return fmt.Errorf("alerting.enabled=true requires storage.dsn to be configured")
+	}
+	return nil
+}
+
+func alertingDefaults(c *AlertingConfig) {
+	if c.DefaultConsecutiveCount == 0 {
+		c.DefaultConsecutiveCount = 3
+	}
+	if c.DefaultCooldownMinutes == 0 {
+		c.DefaultCooldownMinutes = 15
+	}
+	if c.EvaluationTimeoutSec == 0 {
+		c.EvaluationTimeoutSec = 5
+	}
+	if c.HistoryRetentionDays == 0 {
+		c.HistoryRetentionDays = 30
+	}
 }
 
 // validateAuth applies auth defaults and validates auth config when enabled.

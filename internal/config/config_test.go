@@ -200,6 +200,47 @@ instances:
 	}
 }
 
+func TestLoad_AlertingDefaults(t *testing.T) {
+	path := writeTempYAML(t, `
+instances:
+  - id: "db"
+    dsn: "postgres://user:pass@localhost/postgres"
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Alerting.Enabled {
+		t.Error("Alerting.Enabled should default to false")
+	}
+	if cfg.Alerting.DefaultConsecutiveCount != 3 {
+		t.Errorf("DefaultConsecutiveCount = %d, want 3", cfg.Alerting.DefaultConsecutiveCount)
+	}
+	if cfg.Alerting.DefaultCooldownMinutes != 15 {
+		t.Errorf("DefaultCooldownMinutes = %d, want 15", cfg.Alerting.DefaultCooldownMinutes)
+	}
+	if cfg.Alerting.EvaluationTimeoutSec != 5 {
+		t.Errorf("EvaluationTimeoutSec = %d, want 5", cfg.Alerting.EvaluationTimeoutSec)
+	}
+	if cfg.Alerting.HistoryRetentionDays != 30 {
+		t.Errorf("HistoryRetentionDays = %d, want 30", cfg.Alerting.HistoryRetentionDays)
+	}
+}
+
+func TestLoad_AlertingEnabled_NoDSN(t *testing.T) {
+	path := writeTempYAML(t, `
+alerting:
+  enabled: true
+instances:
+  - id: "db"
+    dsn: "postgres://user:pass@localhost/postgres"
+`)
+	_, err := Load(path)
+	if err == nil {
+		t.Error("Load() expected error when alerting enabled without storage.dsn, got nil")
+	}
+}
+
 func TestLoad_EnabledExplicitFalse(t *testing.T) {
 	path := writeTempYAML(t, `
 instances:
