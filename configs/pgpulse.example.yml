@@ -27,6 +27,16 @@ auth:
     username: "admin"
     password: "changeme"  # hashed on startup; change immediately
 
+# Alerting — threshold-based alert rules with hysteresis.
+# When enabled, evaluates collected metrics against rules and fires alerts.
+# Requires storage.dsn to be configured.
+alerting:
+  enabled: false
+  default_consecutive_count: 3    # breaches before firing (default hysteresis)
+  default_cooldown_minutes: 15    # suppress repeats for this duration
+  evaluation_timeout_seconds: 5   # max time per evaluation cycle
+  history_retention_days: 30      # delete resolved alerts older than this
+
 # PostgreSQL instances to monitor.
 # Each instance requires a user with the pg_monitor role (never superuser).
 # Create with: CREATE USER pgpulse_monitor WITH PASSWORD '...' IN ROLE pg_monitor;
