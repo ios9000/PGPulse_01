@@ -35,3 +35,9 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 		Error: ErrorBody{Code: code, Message: message},
 	})
 }
+
+// writeErrorRaw matches the callback signature expected by auth middleware,
+// allowing auth middleware to write JSON error responses without importing api.
+func writeErrorRaw(w http.ResponseWriter, code int, errCode, message string) {
+	writeError(w, code, errCode, message)
+}

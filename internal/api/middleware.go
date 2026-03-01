@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"time"
+
+	"github.com/ios9000/PGPulse_01/internal/auth"
 )
 
 type ctxKey string
@@ -110,9 +112,13 @@ func authStubMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// UserFromContext retrieves the authenticated user from the request context.
-// Returns "anonymous" when no user is set (before M3 auth middleware).
+// UserFromContext retrieves the authenticated username from the request context.
+// Checks real JWT claims first, then falls back to the stub value.
+// Returns "anonymous" when neither is set.
 func UserFromContext(ctx context.Context) string {
+	if claims := auth.ClaimsFromContext(ctx); claims != nil {
+		return claims.Username
+	}
 	if u, ok := ctx.Value(userKey).(string); ok {
 		return u
 	}

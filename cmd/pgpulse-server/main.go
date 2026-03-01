@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/ios9000/PGPulse_01/internal/api"
+	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
 	"github.com/ios9000/PGPulse_01/internal/orchestrator"
@@ -66,15 +67,54 @@ func main() {
 		store = pgStore
 		pinger = pgStore.Pool()
 		logger.Info("storage initialized with PostgreSQL")
+
+		// Wire auth when enabled — requires a storage DSN (validated in config).
+		if cfg.Auth.Enabled {
+			userStore := auth.NewPGUserStore(pgPool)
+
+			count, err := userStore.Count(ctx)
+			if err != nil {
+				logger.Error("failed to count users", "err", err)
+				os.Exit(1)
+			}
+
+			if count == 0 {
+				if cfg.Auth.InitialAdmin == nil {
+					logger.Error("auth enabled but no users exist and auth.initial_admin not configured")
+					os.Exit(1)
+				}
+				hash, err := auth.HashPassword(cfg.Auth.InitialAdmin.Password, cfg.Auth.BcryptCost)
+				if err != nil {
+					logger.Error("failed to hash initial admin password", "err", err)
+					os.Exit(1)
+				}
+				if _, err := userStore.Create(ctx, cfg.Auth.InitialAdmin.Username, hash, auth.RoleAdmin); err != nil {
+					logger.Error("failed to create initial admin user", "err", err)
+					os.Exit(1)
+				}
+				logger.Warn("created initial admin user — change password immediately",
+					"username", cfg.Auth.InitialAdmin.Username)
+			}
+
+			jwtSvc := auth.NewJWTService(cfg.Auth.JWTSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
+			apiServer := api.New(cfg, store, pinger, jwtSvc, userStore, logger)
+			startServer(ctx, stop, cfg, apiServer, store, logger)
+			return
+		}
 	} else {
 		store = orchestrator.NewLogStore(logger)
 		logger.Info("no storage DSN configured, using log-only mode")
 	}
 
+	// Auth disabled (or no DSN) — open API.
+	apiServer := api.New(cfg, store, pinger, nil, nil, logger)
+	startServer(ctx, stop, cfg, apiServer, store, logger)
+}
+
+// startServer wires the HTTP server and orchestrator, then blocks until shutdown.
+func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config, apiServer *api.APIServer, store collector.MetricStore, logger *slog.Logger) {
 	orch := orchestrator.New(cfg, store, logger)
 
-	// Build and start HTTP API server.
-	apiServer := api.New(cfg, store, pinger, logger)
 	httpServer := &http.Server{
 		Addr:         cfg.Server.Listen,
 		Handler:      apiServer.Routes(),
@@ -102,7 +142,6 @@ func main() {
 	<-ctx.Done()
 	logger.Info("shutdown signal received")
 
-	// Stop listening for signals; subsequent signals will terminate immediately.
 	stop()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)

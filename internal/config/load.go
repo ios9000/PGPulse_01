@@ -77,6 +77,10 @@ func validate(cfg *Config) error {
 		cfg.Storage.RetentionDays = 30
 	}
 
+	if err := validateAuth(cfg); err != nil {
+		return err
+	}
+
 	if len(cfg.Instances) == 0 {
 		return fmt.Errorf("at least one instance must be configured")
 	}
@@ -105,5 +109,28 @@ func validate(cfg *Config) error {
 		}
 	}
 
+	return nil
+}
+
+// validateAuth applies auth defaults and validates auth config when enabled.
+func validateAuth(cfg *Config) error {
+	if !cfg.Auth.Enabled {
+		return nil
+	}
+	if cfg.Storage.DSN == "" {
+		return fmt.Errorf("auth.enabled=true requires storage.dsn to be configured")
+	}
+	if len(cfg.Auth.JWTSecret) < 32 {
+		return fmt.Errorf("auth.jwt_secret must be at least 32 characters")
+	}
+	if cfg.Auth.AccessTokenTTL == 0 {
+		cfg.Auth.AccessTokenTTL = 24 * time.Hour
+	}
+	if cfg.Auth.RefreshTokenTTL == 0 {
+		cfg.Auth.RefreshTokenTTL = 7 * 24 * time.Hour
+	}
+	if cfg.Auth.BcryptCost == 0 {
+		cfg.Auth.BcryptCost = 12
+	}
 	return nil
 }
