@@ -46,7 +46,7 @@ repo disappeared tomorrow, this file alone would let you rebuild.
 **Date:** YYYY-MM-DD
 **Commit:** {git hash}
 **Developer:** {name}
-**AI Tool:** Claude.ai (Opus 4.6) + Claude Code 2.1.53 (Agent Teams)
+**AI Tool:** Claude.ai (Opus 4.6) + Claude Code 2.1.63+ (Agent Teams, bash works on Windows)
 
 ---
 
@@ -76,16 +76,18 @@ fixing every architectural and security flaw.
 ### Tech Stack
 | Component | Choice | Version | Why |
 |---|---|---|---|
-| Language | Go | 1.25.7 | Performance, single binary, goroutines for collectors |
+| Language | Go | 1.24.0 | Performance, single binary, goroutines for collectors |
 | PG Driver | jackc/pgx v5 | 5.8.0 | Best Go PG driver, parameterized queries |
-| HTTP Router | go-chi/chi v5 | — | Lightweight, middleware-friendly |
+| HTTP Router | go-chi/chi v5 | 5.2.5 | Lightweight, middleware-friendly |
+| JWT | golang-jwt/jwt v5 | 5.2.2 | Authentication tokens |
 | Storage | PostgreSQL + TimescaleDB | — | Time-series hypertables for metrics |
 | Frontend | Svelte + Tailwind | — | Embedded via go:embed |
-| Config | koanf | — | YAML + env vars |
+| Config | koanf v2 | — | YAML + env vars |
 | Logging | log/slog | stdlib | Structured logging |
 | Testing | testcontainers-go | — | Real PG instances in tests |
 | ML (Phase 1) | gonum | — | Pure Go statistics |
 | CI | GitHub Actions | — | Lint + test + build |
+| Linter | golangci-lint | v2.10.1 | v2 config format required |
 
 ### Architecture Diagram
 ```
@@ -124,7 +126,7 @@ fixing every architectural and security flaw.
 | D4 | No COPY TO PROGRAM ever | PGAM's worst security flaw — eliminated entirely | 2026-02-25 |
 | D5 | pg_monitor role only | Least privilege, never superuser | 2026-02-25 |
 | D6 | One Collector per module | Testable, enable/disable, independent intervals | 2026-02-25 |
-| D7 | Hybrid agent workflow | Claude Code bash broken on Windows; agents create files, dev runs bash | 2026-02-25 |
+| D7 | Agents run build/test/lint directly | Claude Code v2.1.63 fixed EINVAL bash bug on Windows | 2026-03-01 |
 | [Add more as project evolves] | | |
 
 ---
@@ -139,6 +141,10 @@ fixing every architectural and security flaw.
 ```go
 // internal/collector/collector.go
 
+type InstanceContext struct {
+    IsRecovery bool
+}
+
 type MetricPoint struct {
     InstanceID string
     Metric     string
@@ -147,9 +153,18 @@ type MetricPoint struct {
     Timestamp  time.Time
 }
 
+type MetricQuery struct {
+    InstanceID string
+    Metric     string
+    Labels     map[string]string
+    Start      time.Time
+    End        time.Time
+    Limit      int
+}
+
 type Collector interface {
     Name() string
-    Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error)
+    Collect(ctx context.Context, conn *pgx.Conn, ic InstanceContext) ([]MetricPoint, error)
     Interval() time.Duration
 }
 
@@ -255,18 +270,16 @@ func (g Gate) Select(v PGVersion) (string, bool)
 | Component | Value |
 |---|---|
 | OS | Windows 10 |
-| Shell | Git Bash (MSYS2) + PowerShell |
-| Go | 1.25.7 |
-| Node.js | 22.14.0 |
-| Claude Code | 2.1.53 |
+| Shell | Git Bash (MSYS2) |
+| Go | 1.24.0 |
+| Claude Code | 2.1.63+ |
 | Git | 2.52.0 |
-| golangci-lint | v1.64.8 |
-| IDE | [TBD] |
+| golangci-lint | v2.10.1 |
+| Docker Desktop | Not installed (BIOS virtualization disabled) |
 
 ### Development Method
 - **Two-contour model:** Claude.ai (Brain) + Claude Code (Hands)
-- **Agent Teams:** Enabled but bash broken on Windows (EINVAL temp path bug)
-- **Hybrid workflow:** Agents create files, developer runs go build/test/commit manually
+- **Claude Code v2.1.63+:** Bash works on Windows. Agents run go build/test/lint/commit directly.
 - **One chat per iteration** in Claude.ai
 - **Project Knowledge** contains: strategy, PGAM audit, architecture doc
 - **Iteration Handoff** documents bridge between chats
@@ -275,10 +288,9 @@ func (g Gate) Select(v PGVersion) (string, bool)
 
 | Issue | Status | Workaround |
 |---|---|---|
-| Claude Code bash EINVAL on Windows | Unresolved (v2.1.53) | Agents create files, dev runs bash manually |
+| ~~Claude Code bash EINVAL on Windows~~ | **Fixed in v2.1.63** | No workaround needed |
 | LF/CRLF warnings | Needs .gitattributes | Add `* text=auto eol=lf` |
-| WSL2 unavailable | BIOS virtualization disabled | Using native Windows |
-| Go auto-upgraded to 1.25.7 | Accepted | pgx v5.8.0 requires Go ≥ 1.24 |
+| Docker Desktop unavailable | BIOS virtualization disabled | Integration tests CI-only |
 
 ---
 
@@ -293,7 +305,7 @@ func (g Gate) Select(v PGVersion) (string, bool)
 | 2026-02-25 | pgx over database/sql | database/sql lacks PG-specific features | Named args, COPY, notifications |
 | 2026-02-25 | TimescaleDB over InfluxDB | InfluxDB requires separate service | PG-native, one less dependency |
 | 2026-02-25 | Agent Teams (4 agents) | 7 agents (enterprise template) | Right-sized for 1-dev project |
-| 2026-02-25 | Hybrid mode (agents + manual bash) | Pure Agent Teams | Windows bash bug forced this |
+| 2026-03-01 | Agents run bash directly | Hybrid mode (files only) | EINVAL bug fixed in Claude Code v2.1.63 |
 | [Add more] | | | |
 
 ### Issues & Resolutions
@@ -301,7 +313,7 @@ func (g Gate) Select(v PGVersion) (string, bool)
 
 | Date | Issue | Resolution |
 |---|---|---|
-| 2026-02-25 | TMPDIR path mangling in Claude Code | Not resolved — working around with hybrid mode |
+| 2026-02-25 | TMPDIR path mangling in Claude Code | Fixed in v2.1.63 — EINVAL temp path bug resolved |
 | 2026-02-25 | GitHub PAT missing workflow scope | Added workflow scope to PAT |
 | 2026-02-25 | WSL2 install failed (BIOS virtualization) | Abandoned WSL, using native Git Bash |
 | 2026-02-25 | New chat lost context | Created handoff document system |

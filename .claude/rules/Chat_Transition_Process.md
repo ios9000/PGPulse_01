@@ -73,7 +73,7 @@ Created at the end of each chat. Uploaded at the start of the next chat.
 - Testing approach
 
 ## Workflow Reminder
-[Hybrid mode steps — agents create files, developer runs bash]
+[Claude Code agents run go build/test/lint/commit directly. No manual steps needed.]
 ```
 
 ### Session-Log (stays in repo, not uploaded)

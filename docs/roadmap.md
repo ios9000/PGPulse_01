@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-02-27
+**Last updated:** 2026-03-01
 
 ---
 
@@ -11,14 +11,20 @@
 | M0 | Project Setup | ✅ Done | 2026-02-25 |
 | M1 | Core Collector | ✅ Done | 2026-02-26 |
 | M2 | Storage & API | ✅ Done | 2026-02-27 |
-| M3 | Auth & Security | 🔲 Next | — |
-| M4 | Alerting | 🔲 Not Started | — |
+| M3 | Auth & Security | ✅ Done | 2026-03-01 |
+| M4 | Alerting | 🔲 Next | — |
 | M5 | Web UI (MVP) | 🔲 Not Started | — |
 | M6 | Agent Mode | 🔲 Not Started | — |
 | M7 | P1 Features | 🔲 Not Started | — |
 | M8 | ML Phase 1 | 🔲 Not Started | — |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
+
+## M3 Sub-Iterations
+
+| Iteration | Scope | Status |
+|---|---|---|
+| M3_01 | JWT auth, bcrypt, RBAC, rate limiting, users table, auth endpoints, middleware | ✅ Done 2026-03-01 |
 
 ## M2 Sub-Iterations
 
