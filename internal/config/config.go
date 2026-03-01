@@ -13,11 +13,26 @@ type Config struct {
 
 // AlertingConfig holds alerting engine settings.
 type AlertingConfig struct {
-	Enabled                 bool `koanf:"enabled"`
-	DefaultConsecutiveCount int  `koanf:"default_consecutive_count"`
-	DefaultCooldownMinutes  int  `koanf:"default_cooldown_minutes"`
-	EvaluationTimeoutSec    int  `koanf:"evaluation_timeout_seconds"`
-	HistoryRetentionDays    int  `koanf:"history_retention_days"`
+	Enabled                 bool         `koanf:"enabled"`
+	DefaultConsecutiveCount int          `koanf:"default_consecutive_count"`
+	DefaultCooldownMinutes  int          `koanf:"default_cooldown_minutes"`
+	DefaultChannels         []string     `koanf:"default_channels"`
+	EvaluationTimeoutSec    int          `koanf:"evaluation_timeout_seconds"`
+	HistoryRetentionDays    int          `koanf:"history_retention_days"`
+	DashboardURL            string       `koanf:"dashboard_url"`
+	Email                   *EmailConfig `koanf:"email"`
+}
+
+// EmailConfig holds SMTP email notification settings.
+type EmailConfig struct {
+	Host               string   `koanf:"host"`
+	Port               int      `koanf:"port"`
+	Username           string   `koanf:"username"`
+	Password           string   `koanf:"password"`
+	From               string   `koanf:"from"`
+	Recipients         []string `koanf:"recipients"`
+	TLSSkipVerify      bool     `koanf:"tls_skip_verify"`
+	SendTimeoutSeconds int      `koanf:"send_timeout_seconds"`
 }
 
 // AuthConfig holds JWT authentication settings.

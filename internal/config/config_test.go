@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -258,5 +259,75 @@ instances:
 	}
 	if *inst.Enabled {
 		t.Error("Enabled = true, want false")
+	}
+}
+
+func TestLoad_EmailChannel_MissingEmailConfig(t *testing.T) {
+	path := writeTempYAML(t, `
+storage:
+  dsn: "postgres://user:pass@localhost/pgpulse"
+alerting:
+  enabled: true
+  default_channels: ["email"]
+instances:
+  - id: "db"
+    dsn: "postgres://user:pass@localhost/postgres"
+`)
+	_, err := Load(path)
+	if err == nil {
+		t.Error("Load() expected error when email channel configured without email section, got nil")
+	}
+}
+
+func TestLoad_EmailChannel_MissingHost(t *testing.T) {
+	path := writeTempYAML(t, `
+storage:
+  dsn: "postgres://user:pass@localhost/pgpulse"
+alerting:
+  enabled: true
+  default_channels: ["email"]
+  email:
+    from: "alerts@pgpulse.local"
+    recipients: ["admin@example.com"]
+instances:
+  - id: "db"
+    dsn: "postgres://user:pass@localhost/postgres"
+`)
+	_, err := Load(path)
+	if err == nil {
+		t.Error("Load() expected error for missing email host, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "host") {
+		t.Errorf("error = %q, want error containing 'host'", err)
+	}
+}
+
+func TestLoad_EmailChannel_Valid(t *testing.T) {
+	path := writeTempYAML(t, `
+storage:
+  dsn: "postgres://user:pass@localhost/pgpulse"
+alerting:
+  enabled: true
+  default_channels: ["email"]
+  email:
+    host: "smtp.example.com"
+    from: "alerts@pgpulse.local"
+    recipients: ["admin@example.com"]
+instances:
+  - id: "db"
+    dsn: "postgres://user:pass@localhost/postgres"
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Alerting.Email == nil {
+		t.Fatal("Alerting.Email is nil")
+	}
+	if cfg.Alerting.Email.Port != 587 {
+		t.Errorf("Email.Port = %d, want 587 (default)", cfg.Alerting.Email.Port)
+	}
+	if cfg.Alerting.Email.SendTimeoutSeconds != 10 {
+		t.Errorf("Email.SendTimeoutSeconds = %d, want 10 (default)", cfg.Alerting.Email.SendTimeoutSeconds)
 	}
 }

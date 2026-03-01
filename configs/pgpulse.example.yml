@@ -34,8 +34,22 @@ alerting:
   enabled: false
   default_consecutive_count: 3    # breaches before firing (default hysteresis)
   default_cooldown_minutes: 15    # suppress repeats for this duration
+  default_channels: ["email"]     # notification channels for rules without explicit channels
   evaluation_timeout_seconds: 5   # max time per evaluation cycle
   history_retention_days: 30      # delete resolved alerts older than this
+  dashboard_url: ""               # base URL for dashboard links in notifications (optional)
+
+  # SMTP email notifications — required when "email" is in default_channels.
+  email:
+    host: "smtp.example.com"
+    port: 587                     # default: 587 (STARTTLS)
+    username: ""                  # SMTP username (optional, for authenticated relay)
+    password: ""                  # SMTP password
+    from: "pgpulse@example.com"
+    recipients:
+      - "dba-team@example.com"
+    tls_skip_verify: false        # skip TLS certificate verification (not recommended)
+    send_timeout_seconds: 10      # per-message send timeout
 
 # PostgreSQL instances to monitor.
 # Each instance requires a user with the pg_monitor role (never superuser).

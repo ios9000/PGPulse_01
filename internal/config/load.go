@@ -122,6 +122,22 @@ func validateAlerting(cfg *Config) error {
 	if cfg.Alerting.Enabled && cfg.Storage.DSN == "" {
 		return fmt.Errorf("alerting.enabled=true requires storage.dsn to be configured")
 	}
+	for _, ch := range cfg.Alerting.DefaultChannels {
+		if ch == "email" {
+			if cfg.Alerting.Email == nil {
+				return fmt.Errorf("alerting.email config required when 'email' is in default_channels")
+			}
+			if cfg.Alerting.Email.Host == "" {
+				return fmt.Errorf("alerting.email.host is required")
+			}
+			if cfg.Alerting.Email.From == "" {
+				return fmt.Errorf("alerting.email.from is required")
+			}
+			if len(cfg.Alerting.Email.Recipients) == 0 {
+				return fmt.Errorf("alerting.email.recipients must not be empty")
+			}
+		}
+	}
 	return nil
 }
 
@@ -137,6 +153,14 @@ func alertingDefaults(c *AlertingConfig) {
 	}
 	if c.HistoryRetentionDays == 0 {
 		c.HistoryRetentionDays = 30
+	}
+	if c.Email != nil {
+		if c.Email.Port == 0 {
+			c.Email.Port = 587
+		}
+		if c.Email.SendTimeoutSeconds == 0 {
+			c.Email.SendTimeoutSeconds = 10
+		}
 	}
 }
 
