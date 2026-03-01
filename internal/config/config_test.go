@@ -142,6 +142,64 @@ instances:
 	}
 }
 
+func TestLoad_AuthEnabled_ValidConfig(t *testing.T) {
+	path := writeTempYAML(t, `
+storage:
+  dsn: "postgres://user:pass@localhost/pgpulse"
+auth:
+  enabled: true
+  jwt_secret: "this-is-a-secret-that-is-32-chars!!"
+instances:
+  - id: "db"
+    dsn: "postgres://user:pass@localhost/postgres"
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !cfg.Auth.Enabled {
+		t.Error("Auth.Enabled should be true")
+	}
+	if cfg.Auth.AccessTokenTTL != 24*time.Hour {
+		t.Errorf("AccessTokenTTL = %v, want 24h (default)", cfg.Auth.AccessTokenTTL)
+	}
+	if cfg.Auth.BcryptCost != 12 {
+		t.Errorf("BcryptCost = %d, want 12 (default)", cfg.Auth.BcryptCost)
+	}
+}
+
+func TestLoad_AuthEnabled_ShortSecret(t *testing.T) {
+	path := writeTempYAML(t, `
+storage:
+  dsn: "postgres://user:pass@localhost/pgpulse"
+auth:
+  enabled: true
+  jwt_secret: "tooshort"
+instances:
+  - id: "db"
+    dsn: "postgres://user:pass@localhost/postgres"
+`)
+	_, err := Load(path)
+	if err == nil {
+		t.Error("Load() expected error for short jwt_secret, got nil")
+	}
+}
+
+func TestLoad_AuthEnabled_NoDSN(t *testing.T) {
+	path := writeTempYAML(t, `
+auth:
+  enabled: true
+  jwt_secret: "this-is-a-secret-that-is-32-chars!!"
+instances:
+  - id: "db"
+    dsn: "postgres://user:pass@localhost/postgres"
+`)
+	_, err := Load(path)
+	if err == nil {
+		t.Error("Load() expected error when auth enabled without storage.dsn, got nil")
+	}
+}
+
 func TestLoad_EnabledExplicitFalse(t *testing.T) {
 	path := writeTempYAML(t, `
 instances:

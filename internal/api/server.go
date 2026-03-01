@@ -4,10 +4,12 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
 )
@@ -22,23 +24,36 @@ type Pinger interface {
 
 // APIServer holds dependencies for all HTTP handlers.
 type APIServer struct {
-	store     collector.MetricStore
-	instances []config.InstanceConfig
-	serverCfg config.ServerConfig
-	logger    *slog.Logger
-	startTime time.Time
-	pool      Pinger // nil when using LogStore
+	store       collector.MetricStore
+	instances   []config.InstanceConfig
+	serverCfg   config.ServerConfig
+	authCfg     config.AuthConfig
+	jwtService  *auth.JWTService  // nil when auth disabled
+	userStore   auth.UserStore    // nil when auth disabled
+	rateLimiter *auth.RateLimiter // nil when auth disabled
+	logger      *slog.Logger
+	startTime   time.Time
+	pool        Pinger // nil when using LogStore
 }
 
-// New creates an APIServer. pool may be nil (LogStore/no-storage mode).
-func New(cfg config.Config, store collector.MetricStore, pool Pinger, logger *slog.Logger) *APIServer {
+// New creates an APIServer. jwtSvc and userStore are nil when auth is disabled.
+// pool may be nil (LogStore/no-storage mode).
+func New(cfg config.Config, store collector.MetricStore, pool Pinger, jwtSvc *auth.JWTService, userStore auth.UserStore, logger *slog.Logger) *APIServer {
+	var rl *auth.RateLimiter
+	if cfg.Auth.Enabled {
+		rl = auth.NewRateLimiter(10, 15*time.Minute)
+	}
 	return &APIServer{
-		store:     store,
-		instances: cfg.Instances,
-		serverCfg: cfg.Server,
-		logger:    logger,
-		startTime: time.Now(),
-		pool:      pool,
+		store:       store,
+		instances:   cfg.Instances,
+		serverCfg:   cfg.Server,
+		authCfg:     cfg.Auth,
+		jwtService:  jwtSvc,
+		userStore:   userStore,
+		rateLimiter: rl,
+		logger:      logger,
+		startTime:   time.Now(),
+		pool:        pool,
 	}
 }
 
@@ -52,14 +67,66 @@ func (s *APIServer) Routes() http.Handler {
 	if s.serverCfg.CORSEnabled {
 		r.Use(corsMiddleware)
 	}
-	r.Use(authStubMiddleware)
 
-	r.Get("/api/v1/health", s.handleHealth)
-	r.Get("/api/v1/instances", s.handleListInstances)
-	r.Get("/api/v1/instances/{id}", s.handleGetInstance)
-	r.Get("/api/v1/instances/{id}/metrics", s.handleQueryMetrics)
+	r.Route("/api/v1", func(r chi.Router) {
+		// Health is always public.
+		r.Get("/health", s.handleHealth)
+
+		if s.authCfg.Enabled {
+			// Login is rate-limited and public.
+			r.Group(func(r chi.Router) {
+				r.Use(s.rateLimitMiddleware)
+				r.Post("/auth/login", s.handleLogin)
+			})
+			// Refresh is public (token is the credential).
+			r.Post("/auth/refresh", s.handleRefresh)
+
+			// Protected routes — require a valid access token.
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequireAuth(s.jwtService, writeErrorRaw))
+				r.Get("/auth/me", s.handleMe)
+				r.Get("/instances", s.handleListInstances)
+				r.Get("/instances/{id}", s.handleGetInstance)
+				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
+
+				// Admin-only group (mutation endpoints added in future iterations).
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequireRole(auth.RoleAdmin, writeErrorRaw))
+					// POST/PUT/DELETE endpoints go here.
+				})
+			})
+		} else {
+			// Auth disabled — preserve current open behaviour.
+			r.Group(func(r chi.Router) {
+				r.Use(authStubMiddleware)
+				r.Get("/instances", s.handleListInstances)
+				r.Get("/instances/{id}", s.handleGetInstance)
+				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
+			})
+		}
+	})
 
 	return r
+}
+
+// rateLimitMiddleware checks per-IP rate limits before the login handler.
+func (s *APIServer) rateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.rateLimiter == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ip := auth.ClientIP(r)
+		if !s.rateLimiter.Allow(ip) {
+			retryAfter := s.rateLimiter.RetryAfter(ip)
+			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+			writeError(w, http.StatusTooManyRequests, "RATE_LIMITED", "too many login attempts")
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 // instanceExists reports whether an instance with the given ID is configured.

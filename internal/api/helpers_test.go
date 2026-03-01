@@ -35,7 +35,7 @@ type mockPinger struct {
 
 func (m *mockPinger) Ping(_ context.Context) error { return m.err }
 
-// newTestServer creates an APIServer suitable for handler unit tests.
+// newTestServer creates an APIServer with auth disabled for handler unit tests.
 func newTestServer(
 	_ *testing.T,
 	store collector.MetricStore,
@@ -44,8 +44,9 @@ func newTestServer(
 ) *APIServer {
 	cfg := config.Config{
 		Server:    config.ServerConfig{CORSEnabled: false},
+		Auth:      config.AuthConfig{Enabled: false},
 		Instances: instances,
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(cfg, store, pool, logger)
+	return New(cfg, store, pool, nil, nil, logger)
 }

@@ -6,7 +6,24 @@ import "time"
 type Config struct {
 	Server    ServerConfig     `koanf:"server"`
 	Storage   StorageConfig    `koanf:"storage"`
+	Auth      AuthConfig       `koanf:"auth"`
 	Instances []InstanceConfig `koanf:"instances"`
+}
+
+// AuthConfig holds JWT authentication settings.
+type AuthConfig struct {
+	Enabled         bool                `koanf:"enabled"`           // default false
+	JWTSecret       string              `koanf:"jwt_secret"`        // required when enabled
+	AccessTokenTTL  time.Duration       `koanf:"access_token_ttl"`  // default 24h
+	RefreshTokenTTL time.Duration       `koanf:"refresh_token_ttl"` // default 168h (7d)
+	BcryptCost      int                 `koanf:"bcrypt_cost"`       // default 12
+	InitialAdmin    *InitialAdminConfig `koanf:"initial_admin"`
+}
+
+// InitialAdminConfig holds credentials for the first admin user seeded on startup.
+type InitialAdminConfig struct {
+	Username string `koanf:"username"`
+	Password string `koanf:"password"`
 }
 
 // ServerConfig holds HTTP server settings.

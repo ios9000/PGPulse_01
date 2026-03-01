@@ -14,6 +14,19 @@ storage:
   use_timescaledb: true  # set false for plain PostgreSQL (no hypertables)
   retention_days: 30     # delete metric data older than this many days
 
+# Authentication — JWT-based auth and RBAC.
+# When disabled (default), all API endpoints are open (no token required).
+# When enabled, a storage DSN is required and jwt_secret must be ≥ 32 characters.
+auth:
+  enabled: false
+  jwt_secret: "change-me-to-at-least-32-characters-long"
+  access_token_ttl: 24h
+  refresh_token_ttl: 168h   # 7 days
+  bcrypt_cost: 12
+  initial_admin:
+    username: "admin"
+    password: "changeme"  # hashed on startup; change immediately
+
 # PostgreSQL instances to monitor.
 # Each instance requires a user with the pg_monitor role (never superuser).
 # Create with: CREATE USER pgpulse_monitor WITH PASSWORD '...' IN ROLE pg_monitor;
