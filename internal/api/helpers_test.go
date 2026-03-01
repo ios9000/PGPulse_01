@@ -48,5 +48,5 @@ func newTestServer(
 		Instances: instances,
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(cfg, store, pool, nil, nil, logger)
+	return New(cfg, store, pool, nil, nil, logger, nil, nil, nil, nil)
 }

@@ -270,3 +270,44 @@ func labelsMatch(required, actual map[string]string) bool {
 	}
 	return true
 }
+
+// StartCleanup launches a periodic goroutine that deletes old resolved alerts.
+func (e *Evaluator) StartCleanup(ctx context.Context, retentionDays int) {
+	if retentionDays <= 0 {
+		retentionDays = 30
+	}
+	retention := time.Duration(retentionDays) * 24 * time.Hour
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		// Run once immediately on startup.
+		e.runCleanup(ctx, retention)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				e.runCleanup(ctx, retention)
+			}
+		}
+	}()
+
+	e.logger.Info("alert history cleanup started", "retention_days", retentionDays, "interval", "1h")
+}
+
+func (e *Evaluator) runCleanup(ctx context.Context, retention time.Duration) {
+	cleanupCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	deleted, err := e.historyStore.Cleanup(cleanupCtx, retention)
+	if err != nil {
+		e.logger.Error("alert history cleanup failed", "error", err)
+		return
+	}
+	if deleted > 0 {
+		e.logger.Info("alert history cleanup completed", "deleted", deleted)
+	}
+}

@@ -10,6 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/ios9000/PGPulse_01/internal/alert"
+	"github.com/ios9000/PGPulse_01/internal/alert/notifier"
 	"github.com/ios9000/PGPulse_01/internal/api"
 	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
@@ -68,6 +70,48 @@ func main() {
 		pinger = pgStore.Pool()
 		logger.Info("storage initialized with PostgreSQL")
 
+		// Alert pipeline setup.
+		var (
+			evaluator         *alert.Evaluator
+			alertDispatcher   *alert.Dispatcher
+			notifierRegistry  *alert.NotifierRegistry
+			alertRuleStore    alert.AlertRuleStore
+			alertHistoryStore alert.AlertHistoryStore
+		)
+
+		if cfg.Alerting.Enabled {
+			alertRuleStore = alert.NewPGAlertRuleStore(pgPool)
+			alertHistoryStore = alert.NewPGAlertHistoryStore(pgPool)
+
+			if err := alert.SeedBuiltinRules(ctx, alertRuleStore, logger); err != nil {
+				logger.Error("failed to seed alert rules", "error", err)
+				os.Exit(1)
+			}
+
+			evaluator = alert.NewEvaluator(alertRuleStore, alertHistoryStore, logger)
+			if err := evaluator.LoadRules(ctx); err != nil {
+				logger.Error("failed to load alert rules", "error", err)
+				os.Exit(1)
+			}
+			if err := evaluator.RestoreState(ctx); err != nil {
+				logger.Error("failed to restore alert state", "error", err)
+				os.Exit(1)
+			}
+			evaluator.StartCleanup(ctx, cfg.Alerting.HistoryRetentionDays)
+
+			notifierRegistry = alert.NewNotifierRegistry()
+			if cfg.Alerting.Email != nil {
+				emailNotifier := notifier.NewEmailNotifier(*cfg.Alerting.Email, cfg.Alerting.DashboardURL, logger)
+				notifierRegistry.Register(emailNotifier)
+			}
+
+			alertDispatcher = alert.NewDispatcher(notifierRegistry, cfg.Alerting.DefaultChannels, cfg.Alerting.DefaultCooldownMinutes, logger)
+			alertDispatcher.Start()
+
+			logger.Info("alerting pipeline started",
+				"channels", notifierRegistry.Names())
+		}
+
 		// Wire auth when enabled — requires a storage DSN (validated in config).
 		if cfg.Auth.Enabled {
 			userStore := auth.NewPGUserStore(pgPool)
@@ -97,23 +141,31 @@ func main() {
 			}
 
 			jwtSvc := auth.NewJWTService(cfg.Auth.JWTSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
-			apiServer := api.New(cfg, store, pinger, jwtSvc, userStore, logger)
-			startServer(ctx, stop, cfg, apiServer, store, logger)
+			apiServer := api.New(cfg, store, pinger, jwtSvc, userStore, logger,
+				alertRuleStore, alertHistoryStore, evaluator, notifierRegistry)
+			startServer(ctx, stop, cfg, apiServer, store, logger, evaluator, alertDispatcher)
 			return
 		}
+
+		// Auth disabled with storage.
+		apiServer := api.New(cfg, store, pinger, nil, nil, logger,
+			alertRuleStore, alertHistoryStore, evaluator, notifierRegistry)
+		startServer(ctx, stop, cfg, apiServer, store, logger, evaluator, alertDispatcher)
 	} else {
 		store = orchestrator.NewLogStore(logger)
 		logger.Info("no storage DSN configured, using log-only mode")
-	}
 
-	// Auth disabled (or no DSN) — open API.
-	apiServer := api.New(cfg, store, pinger, nil, nil, logger)
-	startServer(ctx, stop, cfg, apiServer, store, logger)
+		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil)
+		startServer(ctx, stop, cfg, apiServer, store, logger, nil, nil)
+	}
 }
 
 // startServer wires the HTTP server and orchestrator, then blocks until shutdown.
-func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config, apiServer *api.APIServer, store collector.MetricStore, logger *slog.Logger) {
-	orch := orchestrator.New(cfg, store, logger)
+func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config,
+	apiServer *api.APIServer, store collector.MetricStore, logger *slog.Logger,
+	evaluator *alert.Evaluator, dispatcher *alert.Dispatcher) {
+
+	orch := orchestrator.New(cfg, store, logger, evaluator, dispatcher)
 
 	httpServer := &http.Server{
 		Addr:         cfg.Server.Listen,
@@ -154,6 +206,12 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 
 	logger.Info("stopping orchestrator")
 	orch.Stop()
+
+	// Drain buffered alert events before closing storage.
+	if dispatcher != nil {
+		logger.Info("stopping alert dispatcher")
+		dispatcher.Stop()
+	}
 
 	logger.Info("closing storage")
 	if err := store.Close(); err != nil {

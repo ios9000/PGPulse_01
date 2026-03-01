@@ -13,20 +13,26 @@ import (
 // Orchestrator manages collection across all configured PostgreSQL instances.
 // It creates one instanceRunner per enabled instance, each with three interval groups.
 type Orchestrator struct {
-	cfg     config.Config
-	store   collector.MetricStore
-	runners []*instanceRunner
-	wg      sync.WaitGroup
-	cancel  context.CancelFunc
-	logger  *slog.Logger
+	cfg        config.Config
+	store      collector.MetricStore
+	runners    []*instanceRunner
+	wg         sync.WaitGroup
+	cancel     context.CancelFunc
+	logger     *slog.Logger
+	evaluator  AlertEvaluator  // nil when alerting disabled
+	dispatcher AlertDispatcher // nil when alerting disabled
 }
 
 // New creates an Orchestrator. Call Start to begin collection.
-func New(cfg config.Config, store collector.MetricStore, logger *slog.Logger) *Orchestrator {
+// evaluator and dispatcher may be nil when alerting is disabled.
+func New(cfg config.Config, store collector.MetricStore, logger *slog.Logger,
+	evaluator AlertEvaluator, dispatcher AlertDispatcher) *Orchestrator {
 	return &Orchestrator{
-		cfg:    cfg,
-		store:  store,
-		logger: logger,
+		cfg:        cfg,
+		store:      store,
+		logger:     logger,
+		evaluator:  evaluator,
+		dispatcher: dispatcher,
 	}
 }
 
@@ -43,9 +49,11 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 		}
 
 		r := &instanceRunner{
-			cfg:    instCfg,
-			store:  o.store,
-			logger: o.logger,
+			cfg:        instCfg,
+			store:      o.store,
+			logger:     o.logger,
+			evaluator:  o.evaluator,
+			dispatcher: o.dispatcher,
 		}
 
 		if err := r.connect(ctx); err != nil {

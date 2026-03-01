@@ -5,11 +5,13 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/ios9000/PGPulse_01/internal/alert"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 )
 
@@ -65,7 +67,7 @@ func makePoint(metric string) collector.MetricPoint {
 
 // newTestGroup builds an intervalGroup with injected icFunc and a nil conn (no real DB).
 func newTestGroup(collectors []collector.Collector, store collector.MetricStore) *intervalGroup {
-	g := newIntervalGroup("test", 10*time.Second, collectors, nil, store, discardLogger())
+	g := newIntervalGroup("test", 10*time.Second, collectors, nil, store, discardLogger(), nil, nil)
 	g.icFunc = staticICFunc
 	return g
 }
@@ -141,5 +143,136 @@ func TestIntervalGroup_Collect_NilPoints(t *testing.T) {
 
 	if len(store.written) != 0 {
 		t.Errorf("Write called %d times, want 0 (no points produced)", len(store.written))
+	}
+}
+
+// --- Mock evaluator/dispatcher for alert tests ---
+
+type mockAlertEvaluator struct {
+	mu     sync.Mutex
+	calls  int
+	events []alert.AlertEvent
+	err    error
+}
+
+func (m *mockAlertEvaluator) Evaluate(_ context.Context, _ []collector.MetricPoint) ([]alert.AlertEvent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.calls++
+	return m.events, m.err
+}
+
+type mockAlertDispatcher struct {
+	mu         sync.Mutex
+	dispatched []alert.AlertEvent
+	full       bool
+}
+
+func (m *mockAlertDispatcher) Dispatch(event alert.AlertEvent) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.full {
+		return false
+	}
+	m.dispatched = append(m.dispatched, event)
+	return true
+}
+
+func newTestGroupWithEvaluator(collectors []collector.Collector, store collector.MetricStore,
+	eval AlertEvaluator, disp AlertDispatcher) *intervalGroup {
+	g := newIntervalGroup("test", 10*time.Second, collectors, nil, store, discardLogger(), eval, disp)
+	g.icFunc = staticICFunc
+	return g
+}
+
+// TestGroupCollect_WithEvaluator: evaluator returns 1 event → dispatcher receives it.
+func TestGroupCollect_WithEvaluator(t *testing.T) {
+	store := &mockStore{}
+	ev := &mockAlertEvaluator{
+		events: []alert.AlertEvent{
+			{RuleID: "rule-1", InstanceID: "test", Severity: alert.SeverityWarning},
+		},
+	}
+	disp := &mockAlertDispatcher{}
+	cols := []collector.Collector{
+		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
+	}
+
+	g := newTestGroupWithEvaluator(cols, store, ev, disp)
+	g.collect(context.Background())
+
+	ev.mu.Lock()
+	calls := ev.calls
+	ev.mu.Unlock()
+	if calls != 1 {
+		t.Errorf("evaluator calls = %d, want 1", calls)
+	}
+
+	disp.mu.Lock()
+	dispatched := len(disp.dispatched)
+	disp.mu.Unlock()
+	if dispatched != 1 {
+		t.Errorf("dispatched = %d, want 1", dispatched)
+	}
+}
+
+// TestGroupCollect_EvaluatorNil: evaluator=nil → no panic, store still written.
+func TestGroupCollect_EvaluatorNil(t *testing.T) {
+	store := &mockStore{}
+	cols := []collector.Collector{
+		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
+	}
+
+	g := newTestGroupWithEvaluator(cols, store, nil, nil)
+	g.collect(context.Background())
+
+	if len(store.written) != 1 {
+		t.Fatalf("Write called %d times, want 1", len(store.written))
+	}
+	if len(store.written[0]) != 1 {
+		t.Errorf("batch size = %d, want 1", len(store.written[0]))
+	}
+}
+
+// TestGroupCollect_EvaluatorError: evaluator errors → store still written, no panic.
+func TestGroupCollect_EvaluatorError(t *testing.T) {
+	store := &mockStore{}
+	ev := &mockAlertEvaluator{err: errors.New("eval error")}
+	disp := &mockAlertDispatcher{}
+	cols := []collector.Collector{
+		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
+	}
+
+	g := newTestGroupWithEvaluator(cols, store, ev, disp)
+	g.collect(context.Background())
+
+	if len(store.written) != 1 {
+		t.Fatalf("Write called %d times, want 1 (store should write despite eval error)", len(store.written))
+	}
+
+	disp.mu.Lock()
+	dispatched := len(disp.dispatched)
+	disp.mu.Unlock()
+	if dispatched != 0 {
+		t.Errorf("dispatched = %d, want 0 (no events on eval error)", dispatched)
+	}
+}
+
+// TestGroupCollect_NoPoints: all collectors return nil → evaluator NOT called.
+func TestGroupCollect_NoPoints(t *testing.T) {
+	store := &mockStore{}
+	ev := &mockAlertEvaluator{}
+	cols := []collector.Collector{
+		&mockCollector{name: "a", points: nil, err: nil},
+	}
+
+	g := newTestGroupWithEvaluator(cols, store, ev, nil)
+	g.collect(context.Background())
+
+	ev.mu.Lock()
+	calls := ev.calls
+	ev.mu.Unlock()
+	if calls != 0 {
+		t.Errorf("evaluator calls = %d, want 0 (no points to evaluate)", calls)
 	}
 }
