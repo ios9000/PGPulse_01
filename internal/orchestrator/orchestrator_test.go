@@ -19,7 +19,7 @@ func TestNew(t *testing.T) {
 	store := &mockStore{}
 	logger := discardLogger()
 
-	orch := New(cfg, store, logger)
+	orch := New(cfg, store, logger, nil, nil)
 
 	if orch == nil {
 		t.Fatal("New() returned nil")

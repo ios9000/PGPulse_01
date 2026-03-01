@@ -17,12 +17,14 @@ import (
 // instanceRunner manages a single monitored PostgreSQL instance:
 // one persistent connection, version detection, and a set of interval groups.
 type instanceRunner struct {
-	cfg       config.InstanceConfig
-	conn      *pgx.Conn
-	pgVersion version.PGVersion
-	store     collector.MetricStore
-	groups    []*intervalGroup
-	logger    *slog.Logger
+	cfg        config.InstanceConfig
+	conn       *pgx.Conn
+	pgVersion  version.PGVersion
+	store      collector.MetricStore
+	groups     []*intervalGroup
+	logger     *slog.Logger
+	evaluator  AlertEvaluator  // nil when alerting disabled
+	dispatcher AlertDispatcher // nil when alerting disabled
 }
 
 // connect opens a connection to the instance, detects the PG version, and stores both.
@@ -93,9 +95,9 @@ func (r *instanceRunner) buildCollectors() {
 	}
 
 	r.groups = []*intervalGroup{
-		newIntervalGroup("high", r.cfg.Intervals.High, high, r.conn, r.store, r.logger),
-		newIntervalGroup("medium", r.cfg.Intervals.Medium, medium, r.conn, r.store, r.logger),
-		newIntervalGroup("low", r.cfg.Intervals.Low, low, r.conn, r.store, r.logger),
+		newIntervalGroup("high", r.cfg.Intervals.High, high, r.conn, r.store, r.logger, r.evaluator, r.dispatcher),
+		newIntervalGroup("medium", r.cfg.Intervals.Medium, medium, r.conn, r.store, r.logger, r.evaluator, r.dispatcher),
+		newIntervalGroup("low", r.cfg.Intervals.Low, low, r.conn, r.store, r.logger, r.evaluator, r.dispatcher),
 	}
 }
 

@@ -624,3 +624,33 @@ func TestStateKeyWithLabels(t *testing.T) {
 		t.Errorf("label order should not matter: %q != %q", key2, key3)
 	}
 }
+
+// --- Cleanup tests ---
+
+type cleanupRecordingStore struct {
+	mockHistoryStore
+	cleanupCalled    bool
+	cleanupRetention time.Duration
+}
+
+func (s *cleanupRecordingStore) Cleanup(_ context.Context, olderThan time.Duration) (int64, error) {
+	s.cleanupCalled = true
+	s.cleanupRetention = olderThan
+	return 5, nil
+}
+
+func TestEvaluator_RunCleanup(t *testing.T) {
+	rs := &mockRuleStore{}
+	hs := &cleanupRecordingStore{}
+	ev := NewEvaluator(rs, hs, discardLogger())
+
+	retention := 30 * 24 * time.Hour
+	ev.runCleanup(context.Background(), retention)
+
+	if !hs.cleanupCalled {
+		t.Error("Cleanup was not called")
+	}
+	if hs.cleanupRetention != retention {
+		t.Errorf("Cleanup retention = %v, want %v", hs.cleanupRetention, retention)
+	}
+}

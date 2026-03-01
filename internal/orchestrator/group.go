@@ -9,8 +9,19 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/ios9000/PGPulse_01/internal/alert"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 )
+
+// AlertEvaluator evaluates metrics against alert rules.
+type AlertEvaluator interface {
+	Evaluate(ctx context.Context, points []collector.MetricPoint) ([]alert.AlertEvent, error)
+}
+
+// AlertDispatcher dispatches alert events for notification delivery.
+type AlertDispatcher interface {
+	Dispatch(event alert.AlertEvent) bool
+}
 
 // icQueryFunc is the signature of the function that queries InstanceContext.
 // It is a field on intervalGroup so tests can inject a mock without a real DB.
@@ -25,6 +36,8 @@ type intervalGroup struct {
 	store      collector.MetricStore
 	logger     *slog.Logger
 	icFunc     icQueryFunc // defaults to queryInstanceContext; injectable for tests
+	evaluator  AlertEvaluator  // nil when alerting disabled
+	dispatcher AlertDispatcher // nil when alerting disabled
 }
 
 func newIntervalGroup(
@@ -34,6 +47,8 @@ func newIntervalGroup(
 	conn *pgx.Conn,
 	store collector.MetricStore,
 	logger *slog.Logger,
+	evaluator AlertEvaluator,
+	dispatcher AlertDispatcher,
 ) *intervalGroup {
 	return &intervalGroup{
 		name:       name,
@@ -43,6 +58,8 @@ func newIntervalGroup(
 		store:      store,
 		logger:     logger,
 		icFunc:     queryInstanceContext,
+		evaluator:  evaluator,
+		dispatcher: dispatcher,
 	}
 }
 
@@ -95,6 +112,35 @@ func (g *intervalGroup) collect(ctx context.Context) {
 		return
 	}
 	g.logger.Debug("metrics written", "group", g.name, "points", len(batch))
+
+	if g.evaluator != nil && len(batch) > 0 {
+		g.evaluateAlerts(ctx, batch)
+	}
+}
+
+func (g *intervalGroup) evaluateAlerts(ctx context.Context, points []collector.MetricPoint) {
+	evalCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	events, err := g.evaluator.Evaluate(evalCtx, points)
+	if err != nil {
+		g.logger.Error("alert evaluation failed", "group", g.name, "error", err)
+		return
+	}
+
+	for _, event := range events {
+		if g.dispatcher != nil {
+			if !g.dispatcher.Dispatch(event) {
+				g.logger.Warn("alert event dropped (dispatcher buffer full)",
+					"rule", event.RuleID, "instance", event.InstanceID)
+			}
+		}
+	}
+
+	if len(events) > 0 {
+		g.logger.Info("alert evaluation produced events",
+			"group", g.name, "event_count", len(events))
+	}
 }
 
 // queryInstanceContext queries pg_is_in_recovery() with a 5-second timeout.

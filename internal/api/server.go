@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/ios9000/PGPulse_01/internal/alert"
 	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
@@ -24,36 +25,51 @@ type Pinger interface {
 
 // APIServer holds dependencies for all HTTP handlers.
 type APIServer struct {
-	store       collector.MetricStore
-	instances   []config.InstanceConfig
-	serverCfg   config.ServerConfig
-	authCfg     config.AuthConfig
-	jwtService  *auth.JWTService  // nil when auth disabled
-	userStore   auth.UserStore    // nil when auth disabled
-	rateLimiter *auth.RateLimiter // nil when auth disabled
-	logger      *slog.Logger
-	startTime   time.Time
-	pool        Pinger // nil when using LogStore
+	store             collector.MetricStore
+	instances         []config.InstanceConfig
+	serverCfg         config.ServerConfig
+	authCfg           config.AuthConfig
+	jwtService        *auth.JWTService         // nil when auth disabled
+	userStore         auth.UserStore            // nil when auth disabled
+	rateLimiter       *auth.RateLimiter         // nil when auth disabled
+	logger            *slog.Logger
+	startTime         time.Time
+	pool              Pinger                    // nil when using LogStore
+	alertRuleStore    alert.AlertRuleStore      // nil when alerting disabled
+	alertHistoryStore alert.AlertHistoryStore   // nil when alerting disabled
+	evaluator         *alert.Evaluator          // nil when alerting disabled
+	notifierRegistry  *alert.NotifierRegistry   // nil when alerting disabled
+	alertingCfg       config.AlertingConfig
 }
 
 // New creates an APIServer. jwtSvc and userStore are nil when auth is disabled.
 // pool may be nil (LogStore/no-storage mode).
-func New(cfg config.Config, store collector.MetricStore, pool Pinger, jwtSvc *auth.JWTService, userStore auth.UserStore, logger *slog.Logger) *APIServer {
+// alertRuleStore, alertHistoryStore, evaluator, and registry are nil when alerting is disabled.
+func New(cfg config.Config, store collector.MetricStore, pool Pinger,
+	jwtSvc *auth.JWTService, userStore auth.UserStore, logger *slog.Logger,
+	alertRuleStore alert.AlertRuleStore, alertHistoryStore alert.AlertHistoryStore,
+	evaluator *alert.Evaluator, registry *alert.NotifierRegistry,
+) *APIServer {
 	var rl *auth.RateLimiter
 	if cfg.Auth.Enabled {
 		rl = auth.NewRateLimiter(10, 15*time.Minute)
 	}
 	return &APIServer{
-		store:       store,
-		instances:   cfg.Instances,
-		serverCfg:   cfg.Server,
-		authCfg:     cfg.Auth,
-		jwtService:  jwtSvc,
-		userStore:   userStore,
-		rateLimiter: rl,
-		logger:      logger,
-		startTime:   time.Now(),
-		pool:        pool,
+		store:             store,
+		instances:         cfg.Instances,
+		serverCfg:         cfg.Server,
+		authCfg:           cfg.Auth,
+		jwtService:        jwtSvc,
+		userStore:         userStore,
+		rateLimiter:       rl,
+		logger:            logger,
+		startTime:         time.Now(),
+		pool:              pool,
+		alertRuleStore:    alertRuleStore,
+		alertHistoryStore: alertHistoryStore,
+		evaluator:         evaluator,
+		notifierRegistry:  registry,
+		alertingCfg:       cfg.Alerting,
 	}
 }
 
@@ -89,6 +105,22 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}", s.handleGetInstance)
 				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
 
+				// Alert routes (only when alerting enabled).
+				if s.alertRuleStore != nil {
+					r.Get("/alerts", s.handleGetActiveAlerts)
+					r.Get("/alerts/history", s.handleGetAlertHistory)
+					r.Get("/alerts/rules", s.handleGetAlertRules)
+
+					// Admin-only alert management.
+					r.Group(func(r chi.Router) {
+						r.Use(auth.RequireRole(auth.RoleAdmin, writeErrorRaw))
+						r.Post("/alerts/rules", s.handleCreateAlertRule)
+						r.Put("/alerts/rules/{id}", s.handleUpdateAlertRule)
+						r.Delete("/alerts/rules/{id}", s.handleDeleteAlertRule)
+						r.Post("/alerts/test", s.handleTestNotification)
+					})
+				}
+
 				// Admin-only group (mutation endpoints added in future iterations).
 				r.Group(func(r chi.Router) {
 					r.Use(auth.RequireRole(auth.RoleAdmin, writeErrorRaw))
@@ -102,6 +134,17 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances", s.handleListInstances)
 				r.Get("/instances/{id}", s.handleGetInstance)
 				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
+
+				// Alert routes (only when alerting enabled).
+				if s.alertRuleStore != nil {
+					r.Get("/alerts", s.handleGetActiveAlerts)
+					r.Get("/alerts/history", s.handleGetAlertHistory)
+					r.Get("/alerts/rules", s.handleGetAlertRules)
+					r.Post("/alerts/rules", s.handleCreateAlertRule)
+					r.Put("/alerts/rules/{id}", s.handleUpdateAlertRule)
+					r.Delete("/alerts/rules/{id}", s.handleDeleteAlertRule)
+					r.Post("/alerts/test", s.handleTestNotification)
+				}
 			})
 		}
 	})
