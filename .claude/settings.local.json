@@ -7,7 +7,15 @@
       "Bash(go build:*)",
       "Bash(go version:*)",
       "Bash(TMPDIR=\"$HOME/tmp\" && mkdir -p \"$TMPDIR\" && cd \"C:/Users/Archer/Projects/PGPulse_01\" && go mod tidy 2>&1)",
-      "Bash(TMPDIR=/tmp echo hello:*)"
+      "Bash(TMPDIR=/tmp echo hello:*)",
+      "Bash(test:*)",
+      "Bash(ls:*)",
+      "Bash(go:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(cp:*)"
     ]
   }
 }

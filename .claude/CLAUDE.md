@@ -30,23 +30,31 @@ PostgreSQL Health & Activity Monitor — Go rewrite of legacy PGAM PHP tool.
 Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
 
 ## Stack
-- Language: Go 1.25.7 (auto-upgraded for pgx v5.8.0)
-- PG Driver: jackc/pgx v5
-- HTTP: go-chi/chi v5
-- Storage: PostgreSQL + TimescaleDB
-- Frontend: Svelte + Tailwind CSS (embedded via go:embed)
-- ML: gonum.org/v1/gonum (Phase 1)
-- Config: koanf (YAML + env vars)
+- Language: Go 1.24.0
+- PG Driver: jackc/pgx v5 (5.8.0)
+- HTTP: go-chi/chi v5 (5.2.5)
+- JWT: golang-jwt/jwt v5 (5.2.2)
+- Crypto: x/crypto (bcrypt)
+- Storage: PostgreSQL + TimescaleDB (conditional)
+- Config: koanf v2 (YAML + env vars)
 - Logging: log/slog
 - Testing: testing + testcontainers-go
+- Linter: golangci-lint v2.10.1 (v2 config format)
+- Frontend: Svelte + Tailwind CSS (embedded via go:embed, M5)
+- ML: gonum.org/v1/gonum (M8)
 
 ## Agent Teams Configuration
 This project uses Claude Code Agent Teams (in-process mode on Windows/Git Bash).
 
-### ⚠️ Windows Bash Bug
-Claude Code's Bash() tool is broken on Windows (EINVAL temp path, all versions tested).
-**Hybrid workflow:** agents create files, developer runs bash commands manually.
-See `docs/save-points/LATEST.md` for full details.
+### Build & Test
+Claude Code v2.1.63 — bash works on Windows. EINVAL temp path bug is FIXED.
+Agents run go build, go test, golangci-lint, git commit directly.
+No hybrid workflow needed.
+
+All team prompts should include validation steps:
+  go mod tidy && go build ./... && go vet ./...
+  go test -race ./... && golangci-lint run
+Fix any issues before declaring done.
 
 ### Team Structure
 - **Team Lead**: Reads this file + design.md, decomposes tasks, coordinates
@@ -72,9 +80,9 @@ shared task list.
 
 ## Project Structure
 - cmd/ — binary entrypoints (server + agent)
-- internal/ — all business logic (collector, storage, api, auth, alert, ml, rca, version)
+- internal/ — all business logic (collector, storage, api, auth, alert, config, orchestrator, version)
 - web/ — embedded frontend (future: M5)
-- migrations/ — SQL migrations for PGPulse metadata DB
+- migrations/ — SQL migrations embedded in internal/storage/migrations/
 - deploy/ — Docker, Helm, systemd
 - docs/ — documentation, iterations, legacy reference, save points
 - docs/save-points/ — project snapshots for continuity and disaster recovery
@@ -85,16 +93,20 @@ shared task list.
 - Legacy repo: https://github.com/ios9000/pgam-legacy
 - Query-to-file mapping:
   - analiz2.php queries 1–19 → internal/collector/ (server_info, connections, cache, etc.)
-  - analiz2.php queries 20–41 → internal/collector/replication.go
-  - analiz2.php queries 42–47 → internal/collector/progress.go
-  - analiz2.php queries 48–52 → internal/collector/statements.go
-  - analiz2.php queries 53–58 → internal/collector/locks.go
-  - analiz_db.php queries 1–18 → internal/collector/database.go
+  - analiz2.php queries 20–41 → internal/collector/replication_*.go
+  - analiz2.php queries 42–47 → internal/collector/progress_*.go
+  - analiz2.php queries 48–52 → internal/collector/statements_*.go
+  - analiz2.php queries 53–58 → internal/collector/ (wait_events, lock_tree, long_transactions)
+  - analiz_db.php queries 1–18 → internal/collector/database.go (future)
 
 ## Shared Interfaces
 
 ```go
 // internal/collector/collector.go
+
+type InstanceContext struct {
+    IsRecovery bool
+}
 
 type MetricPoint struct {
     InstanceID string
@@ -104,9 +116,18 @@ type MetricPoint struct {
     Timestamp  time.Time
 }
 
+type MetricQuery struct {
+    InstanceID string
+    Metric     string
+    Labels     map[string]string
+    Start      time.Time
+    End        time.Time
+    Limit      int
+}
+
 type Collector interface {
     Name() string
-    Collect(ctx context.Context, conn *pgx.Conn) ([]MetricPoint, error)
+    Collect(ctx context.Context, conn *pgx.Conn, ic InstanceContext) ([]MetricPoint, error)
     Interval() time.Duration
 }
 
@@ -121,6 +142,20 @@ type AlertEvaluator interface {
 }
 ```
 
+```go
+// internal/auth/ (added M3)
+
+type UserStore interface {
+    GetByUsername(ctx context.Context, username string) (*User, error)
+    Create(ctx context.Context, username, passwordHash, role string) (*User, error)
+    Count(ctx context.Context) (int64, error)
+}
+
+// JWT: HS256, access (24h) + refresh (7d), stateless
+// RBAC: admin (full access), viewer (read-only)
+// Rate limiting: 10 failed attempts / 15 min window on login
+```
+
 ## Rules
 - Code in English, comments in English
 - All SQL must use parameterized queries (pgx named args) — NEVER string concatenation
@@ -130,28 +165,26 @@ type AlertEvaluator interface {
 - No COPY TO PROGRAM — OS metrics via Go agent only
 - Monitoring user: pg_monitor role, never superuser
 - Test against PG 14, 15, 16, 17 using testcontainers-go
-- Agents CANNOT run bash on Windows — create files only, developer runs bash
+- Design docs: always write full paths, never use "..." or abbreviations
+- Design docs: never use XXXXXXXX or similar placeholders for dates — use real dates or omit the path until the date is known
+- Iteration deliverables: prefix files with iteration ID (e.g. M4_01_requirements.md)
 
 ## Current Iteration
 
-M2_02 — Storage Layer & Migrations
-See: docs/iterations/M2_02_02262026_storage-layer/
+[UPDATED BY DEVELOPER BEFORE EACH TEAM SESSION]
+
+M3 complete. 
+M4_01 — Alert Evaluator & Rules Engine  is next.
+See: docs/iterations/M4_01_03012026_alert-evaluator/
 
 ### What was just completed
-M2_01 — Config & Orchestrator. PGPulse now starts as a running process:
-reads YAML config, connects to monitored PG instances, runs 20 collectors
-on scheduled intervals (10s/60s/300s groups), logs collected metrics via
-LogStore placeholder. Graceful shutdown on SIGINT/SIGTERM.
-
-New packages: internal/config/ (koanf YAML + env vars), internal/orchestrator/
-(Orchestrator → instanceRunner → intervalGroup lifecycle).
+M3_01 — Auth & Security. JWT authentication (HS256, access+refresh tokens),
+bcrypt password hashing, RBAC (admin/viewer), rate limiting on login,
+UserStore (PG-backed), initial admin seeding, auth middleware, 3 new API endpoints.
+28 auth unit tests + 7 API auth tests. All prior tests pass (zero regressions).
 
 ### What's next
-M2_02 replaces LogStore with PG-backed PGStore. Adds: embedded SQL migrations,
-metrics table + indexes, pgx.CopyFrom batch writes, dynamic metric query builder,
-pgxpool for concurrent writes. main.go wires PGStore when storage.dsn is set,
-falls back to LogStore when empty.
-
-### Key files for this iteration
-- docs/iterations/M2_02_02262026_storage-layer/prompt.md — Claude Code prompt
-- docs/iterations/M2_02_02262026_storage-layer/design.md — full design spec
+M4_01 — Alert Engine & Notifications. Evaluator with state machine
+(OK→WARNING→CRITICAL→OK), hysteresis, cooldown. 14 PGAM threshold rules + 6 new.
+Notifiers: Telegram, Slack, Email, Webhook. Dispatcher with retry logic.
+API endpoints for alert management. Alert history table.
