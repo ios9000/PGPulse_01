@@ -182,8 +182,8 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 	}()
 
 	if err := orch.Start(ctx); err != nil {
-		logger.Error("failed to start orchestrator", "err", err)
-		os.Exit(1)
+		logger.Warn("orchestrator not started, HTTP server will continue serving",
+			"err", err)
 	}
 
 	logger.Info("PGPulse server running",
