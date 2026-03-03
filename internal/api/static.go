@@ -25,7 +25,7 @@ func (s *APIServer) staticHandler() http.Handler {
 		// Try to serve the exact file.
 		if path != "/" && !strings.HasSuffix(path, "/") {
 			if f, err := distFS.Open(strings.TrimPrefix(path, "/")); err == nil {
-				f.Close()
+				_ = f.Close()
 				// Set cache headers for hashed assets.
 				if strings.Contains(path, "/assets/") {
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

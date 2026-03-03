@@ -170,6 +170,7 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 	evaluator *alert.Evaluator, dispatcher *alert.Dispatcher) {
 
 	orch := orchestrator.New(cfg, store, logger, evaluator, dispatcher)
+	apiServer.SetConnProvider(orch)
 
 	httpServer := &http.Server{
 		Addr:         cfg.Server.Listen,
