@@ -12,8 +12,8 @@ server:
 # PGPulse metadata storage — where PGPulse persists collected metrics.
 # Must be a PostgreSQL database (with TimescaleDB extension for hypertables).
 storage:
-  dsn: "postgres://pgpulse:secret@localhost:5432/pgpulse?sslmode=prefer"
-  use_timescaledb: true  # set false for plain PostgreSQL (no hypertables)
+  dsn: "postgres://pgpulse:pgpulse@localhost:5432/pgpulse?sslmode=disable"
+  use_timescaledb: false  # set false for plain PostgreSQL (no hypertables)
   retention_days: 30     # delete metric data older than this many days
 
 # Authentication — JWT-based auth and RBAC.
