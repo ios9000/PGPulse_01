@@ -40,7 +40,7 @@ Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
 - Logging: log/slog
 - Testing: testing + testcontainers-go
 - Linter: golangci-lint v2.10.1 (v2 config format)
-- Frontend: Svelte + Tailwind CSS (embedded via go:embed, M5)
+- Frontend: React + TypeScript + Tailwind CSS + Apache ECharts (embedded via go:embed, M5)
 - ML: gonum.org/v1/gonum (M8)
 
 ## Agent Teams Configuration
@@ -173,8 +173,8 @@ type UserStore interface {
 
 [UPDATED BY DEVELOPER BEFORE EACH TEAM SESSION]
 
-   M5_01 — Frontend Scaffold & Application Shell
-   See: docs/iterations/M5_01_03022026_frontend-scaffold/
+   M5_03 Requirements — Live Data Integration: Fleet Overview + Server Detail
+   See: docs/iterations/M5_03_03032026_live-data/
 
 ### What was just completed
 M3_01 — Auth & Security. JWT authentication (HS256, access+refresh tokens),

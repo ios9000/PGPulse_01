@@ -287,7 +287,7 @@ where to find everything. It is the index, not the content.
 
 | Milestone | New Agent | Specialty | Owns |
 |---|---|---|---|
-| M5 | **Frontend Agent** | Svelte/React, Tailwind CSS, Recharts | `web/*` |
+| M5 | **Frontend Agent** | React + TypeScript + Tailwind CSS + Apache ECharts | `web/*` |
 | M6 | **OS Agent Specialist** | procfs, sysfs, Patroni/ETCD plugin | `cmd/pgpulse-agent/`, `internal/collector/os.go`, `internal/collector/cluster.go` |
 | M8 | **ML Agent** | gonum, STL decomposition, anomaly detection | `internal/ml/*`, `internal/rca/*` |
 
@@ -415,7 +415,7 @@ Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
 - PG Driver: jackc/pgx v5
 - HTTP: go-chi/chi v5
 - Storage: PostgreSQL + TimescaleDB
-- Frontend: Svelte + Tailwind CSS (embedded via go:embed)
+- Frontend: React + TypeScript + Tailwind CSS + Apache ECharts (embedded via go:embed)
 - ML: gonum.org/v1/gonum (Phase 1)
 - Config: koanf (YAML + env vars)
 - Logging: log/slog
@@ -844,7 +844,7 @@ API & SECURITY AGENT:
 - Add API versioning headers
 
 FRONTEND AGENT (NEW):
-- Initialize web/ directory with Svelte + Tailwind CSS
+- Initialize web/ directory with React + TypeScript + Tailwind CSS + Apache ECharts
 - Create dashboard views:
   - Server list / overview (all instances at a glance)
   - Instance dashboard (connections, cache, replication, WAL)
