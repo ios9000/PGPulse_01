@@ -5,6 +5,82 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## 2026-03-01
+
+### M4_03 — Alert API, Orchestrator Wiring & Integration
+- Added 7 alert REST API endpoints: CRUD rules, active alerts, alert history, test notification
+- Orchestrator post-collect evaluateAlerts() hook — evaluator runs after each collector group
+- AlertEvaluator/AlertDispatcher interfaces in orchestrator package (clean dependency direction)
+- main.go: full alert pipeline wiring (stores → seed → evaluator → notifiers → dispatcher)
+- Updated graceful shutdown order: HTTP → Orchestrator → Dispatcher → Store
+- History cleanup goroutine (1-hour interval, configurable retention)
+- Builtin rules cannot be deleted via API (409 Conflict); only disabled
+- Rule mutations (create/update/delete) refresh evaluator cache immediately
+
+### M4_02 — Email Notifier & Dispatcher
+- Notifier interface + NotifierRegistry for pluggable notification channels
+- SMTP EmailNotifier: STARTTLS, PLAIN auth, MIME multipart/alternative (Go stdlib only)
+- Rich HTML email templates: color-coded severity header, details table, dashboard link, plain text fallback
+- Resolution emails: green header, duration, resolved timestamp
+- Async Dispatcher: buffered channel (100), non-blocking for evaluator
+- Cooldown enforcement per rule+instance+severity (resolutions always pass)
+- Channel routing: global default_channels + per-rule override
+- Retry with exponential backoff (1s, 2s, 4s), then log and drop
+- Graceful shutdown drains buffered events
+- Config: EmailConfig (host, port, from, recipients, TLS), DashboardURL
+
+### M4_01 — Alert Evaluator Engine
+- Alert data model: Rule, AlertEvent, Severity (info/warning/critical), Operator (6 ops), AlertState (ok/pending/firing), RuleSource (builtin/custom)
+- Evaluator state machine: OK → PENDING → FIRING → OK with per-rule hysteresis
+- Hysteresis: default 3 consecutive breaches before firing, configurable per rule
+- Cooldown tracking: default 15 min, state transitions always notify immediately
+- 19 builtin rules: 14 PGAM thresholds + 2 new replication lag + 3 deferred (enabled: false)
+- AlertRuleStore + AlertHistoryStore interfaces with PG implementations
+- Migration 004_alerts.sql: alert_rules (CHECK constraints, JSONB labels/channels) + alert_history (FK, partial index on unresolved)
+- UpsertBuiltin: INSERT ON CONFLICT preserves user-modified threshold/enabled/channels
+- SeedBuiltinRules: idempotent startup seeding
+- In-memory state with restart recovery from unresolved alert_history
+- Config: AlertingConfig (enabled, consecutive_count, cooldown_minutes, evaluation_timeout, history_retention_days)
+- Label-aware state keys for per-slot/per-DB alert tracking
+
+### M4 Milestone Complete
+- Complete alerting pipeline: Evaluate → Notify → History
+- 19 alert rules (14 PGAM + 5 new), email notifications, async dispatch
+- 7 new API endpoints (14 total)
+- 4 DB migrations (001-004)
+
+### M3_01 — Auth & Security
+- JWT authentication: HS256, access (24h) + refresh (7d), stateless
+- Password hashing: bcrypt with configurable cost
+- RBAC: admin (full access) + viewer (read-only), HasRole() level comparison
+- User storage: users table (003_users.sql), PGUserStore
+- Initial admin seeded from config on first run
+- Rate limiting: in-memory per-IP, 10 failed / 15 min window on login
+- Auth middleware: RequireAuth (JWT), RequireRole (RBAC), errorWriter callback
+- Auth toggle: auth.enabled=false → authStubMiddleware
+- API endpoints: POST /auth/login, POST /auth/refresh, GET /auth/me
+- Config validation: jwt_secret ≥ 32 chars, auth requires storage DSN
+
+## 2026-02-27
+
+### M2_03 — REST API + Wiring
+- REST API with chi v5 router: health, instances, metric query endpoints
+- Middleware stack: request ID, structured logging, panic recovery, CORS
+- JSON and CSV response formats for metric queries
+- HTTP server lifecycle with graceful shutdown
+- 24 API unit tests covering all endpoints and middleware
+
+### M2_02 — Storage Layer
+- PGStore: CopyFrom batch writes (10s timeout), dynamic WHERE queries (30s timeout)
+- Migration runner: embedded SQL files, schema_migrations tracking, idempotent
+- Migrations: 001_metrics (table + indexes), 002_timescaledb (conditional hypertable)
+- Connection pool: pgxpool with 5 max connections
+
+### M2_01 — Config + Orchestrator
+- Config loader via koanf v2: YAML + env var overrides, duration parsing
+- Orchestrator: per-instance goroutines, 3 interval groups (high/med/low)
+- LogStore fallback for development without PostgreSQL
+
 ## 2026-02-26
 
 ### M1_05 — Locks & Wait Events

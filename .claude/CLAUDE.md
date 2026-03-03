@@ -173,9 +173,8 @@ type UserStore interface {
 
 [UPDATED BY DEVELOPER BEFORE EACH TEAM SESSION]
 
-M3 complete. 
-M4_01 — Alert Evaluator & Rules Engine  is next.
-See: docs/iterations/M4_01_03012026_alert-evaluator/
+   M5_01 — Frontend Scaffold & Application Shell
+   See: docs/iterations/M5_01_03022026_frontend-scaffold/
 
 ### What was just completed
 M3_01 — Auth & Security. JWT authentication (HS256, access+refresh tokens),

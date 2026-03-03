@@ -81,7 +81,7 @@ func (s *APIServer) Routes() http.Handler {
 	r.Use(loggerMiddleware(s.logger))
 	r.Use(recovererMiddleware(s.logger))
 	if s.serverCfg.CORSEnabled {
-		r.Use(corsMiddleware)
+		r.Use(corsMiddleware(s.serverCfg.CORSOrigin))
 	}
 
 	r.Route("/api/v1", func(r chi.Router) {
@@ -148,6 +148,9 @@ func (s *APIServer) Routes() http.Handler {
 			})
 		}
 	})
+
+	// Serve embedded frontend — catch-all after API routes.
+	r.Handle("/*", s.staticHandler())
 
 	return r
 }
