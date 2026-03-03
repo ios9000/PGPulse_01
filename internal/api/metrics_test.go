@@ -15,6 +15,7 @@ import (
 
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
 // testInstance is a convenience helper for a single instance.
@@ -192,4 +193,133 @@ func TestQueryMetrics_EmptyResult(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &env))
 	assert.Empty(t, env.Data)
 	assert.Equal(t, 0, env.Meta.Count)
+}
+
+// --- GET /api/v1/instances/{id}/metrics/current ---
+
+func TestHandleCurrentMetrics_Success(t *testing.T) {
+	now := time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC)
+	store := &mockMetricsStore{
+		currentResult: &storage.CurrentMetricsResult{
+			InstanceID:  "inst1",
+			CollectedAt: now,
+			Metrics: map[string]storage.MetricValue{
+				"pgpulse.conn.active": {Value: 42, Labels: map[string]string{"state": "active"}},
+				"pgpulse.cache.ratio": {Value: 0.99},
+			},
+		},
+	}
+	s := newTestServer(t, store, nil, testInstance("inst1"))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/instances/inst1/metrics/current", nil)
+	s.Routes().ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Header().Get("Content-Type"), "application/json")
+
+	var env struct {
+		Data storage.CurrentMetricsResult `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &env))
+	assert.Equal(t, "inst1", env.Data.InstanceID)
+	assert.Len(t, env.Data.Metrics, 2)
+	assert.InDelta(t, 42.0, env.Data.Metrics["pgpulse.conn.active"].Value, 0.01)
+}
+
+func TestHandleCurrentMetrics_InstanceNotFound(t *testing.T) {
+	store := &mockMetricsStore{}
+	s := newTestServer(t, store, nil, testInstance("inst1"))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/instances/unknown/metrics/current", nil)
+	s.Routes().ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+// --- GET /api/v1/instances/{id}/metrics/history ---
+
+func TestHandleMetricsHistory_Success(t *testing.T) {
+	from := time.Date(2026, 3, 3, 10, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 3, 3, 11, 0, 0, 0, time.UTC)
+	store := &mockMetricsStore{
+		historyResult: &storage.HistoryResult{
+			InstanceID: "inst1",
+			From:       from,
+			To:         to,
+			Step:       "5m",
+			Series: map[string][]storage.TimeSeriesPoint{
+				"pgpulse.conn.active": {
+					{T: from, V: 10},
+					{T: from.Add(5 * time.Minute), V: 12},
+				},
+			},
+		},
+	}
+	s := newTestServer(t, store, nil, testInstance("inst1"))
+
+	path := fmt.Sprintf("/api/v1/instances/inst1/metrics/history?metric=pgpulse.conn.active&from=%s&to=%s&step=5m",
+		from.Format(time.RFC3339), to.Format(time.RFC3339))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	s.Routes().ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var env struct {
+		Data storage.HistoryResult `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &env))
+	assert.Equal(t, "inst1", env.Data.InstanceID)
+	assert.Len(t, env.Data.Series["pgpulse.conn.active"], 2)
+}
+
+func TestHandleMetricsHistory_InvalidStep(t *testing.T) {
+	store := &mockMetricsStore{}
+	s := newTestServer(t, store, nil, testInstance("inst1"))
+
+	path := "/api/v1/instances/inst1/metrics/history?metric=pgpulse.conn.active&step=2m"
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	s.Routes().ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	var errResp ErrorResponse
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &errResp))
+	assert.Equal(t, "bad_request", errResp.Error.Code)
+}
+
+func TestHandleMetricsHistory_MissingMetric(t *testing.T) {
+	store := &mockMetricsStore{}
+	s := newTestServer(t, store, nil, testInstance("inst1"))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/instances/inst1/metrics/history", nil)
+	s.Routes().ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	var errResp ErrorResponse
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &errResp))
+	assert.Equal(t, "bad_request", errResp.Error.Code)
+}
+
+func TestHandleMetricsHistory_FromAfterTo(t *testing.T) {
+	store := &mockMetricsStore{}
+	s := newTestServer(t, store, nil, testInstance("inst1"))
+
+	from := time.Date(2026, 3, 3, 12, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 3, 3, 10, 0, 0, 0, time.UTC)
+	path := fmt.Sprintf("/api/v1/instances/inst1/metrics/history?metric=pgpulse.conn.active&from=%s&to=%s",
+		from.Format(time.RFC3339), to.Format(time.RFC3339))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	s.Routes().ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }

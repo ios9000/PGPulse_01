@@ -40,6 +40,7 @@ type APIServer struct {
 	evaluator         *alert.Evaluator          // nil when alerting disabled
 	notifierRegistry  *alert.NotifierRegistry   // nil when alerting disabled
 	alertingCfg       config.AlertingConfig
+	connProvider      InstanceConnProvider      // nil until SetConnProvider called
 }
 
 // New creates an APIServer. jwtSvc and userStore are nil when auth is disabled.
@@ -71,6 +72,13 @@ func New(cfg config.Config, store collector.MetricStore, pool Pinger,
 		notifierRegistry:  registry,
 		alertingCfg:       cfg.Alerting,
 	}
+}
+
+// SetConnProvider sets the connection provider for live-query endpoints
+// (replication, activity). Called from main.go after both API server and
+// orchestrator are created.
+func (s *APIServer) SetConnProvider(cp InstanceConnProvider) {
+	s.connProvider = cp
 }
 
 // Routes builds the chi router with all middleware and endpoints.
@@ -105,6 +113,11 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances", s.handleListInstances)
 				r.Get("/instances/{id}", s.handleGetInstance)
 				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
+				r.Get("/instances/{id}/metrics/current", s.handleCurrentMetrics)
+				r.Get("/instances/{id}/metrics/history", s.handleMetricsHistory)
+				r.Get("/instances/{id}/replication", s.handleReplication)
+				r.Get("/instances/{id}/activity/wait-events", s.handleWaitEvents)
+				r.Get("/instances/{id}/activity/long-transactions", s.handleLongTransactions)
 
 				// Alert routes (only when alerting enabled).
 				if s.alertRuleStore != nil {
@@ -138,6 +151,11 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances", s.handleListInstances)
 				r.Get("/instances/{id}", s.handleGetInstance)
 				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
+				r.Get("/instances/{id}/metrics/current", s.handleCurrentMetrics)
+				r.Get("/instances/{id}/metrics/history", s.handleMetricsHistory)
+				r.Get("/instances/{id}/replication", s.handleReplication)
+				r.Get("/instances/{id}/activity/wait-events", s.handleWaitEvents)
+				r.Get("/instances/{id}/activity/long-transactions", s.handleLongTransactions)
 
 				// Alert routes (only when alerting enabled).
 				if s.alertRuleStore != nil {
