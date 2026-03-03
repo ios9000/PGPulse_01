@@ -2,11 +2,20 @@ import { Link, useLocation } from 'react-router-dom'
 import { LayoutGrid, Bell, Settings, Database } from 'lucide-react'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import type { Permission } from '@/lib/permissions'
+import { useAuth } from '@/hooks/useAuth'
 
-const navItems = [
+interface NavItem {
+  label: string
+  icon: typeof LayoutGrid
+  path: string
+  permission?: Permission
+}
+
+const navItems: NavItem[] = [
   { label: 'Fleet Overview', icon: LayoutGrid, path: '/fleet' },
   { label: 'Alerts', icon: Bell, path: '/alerts' },
-  { label: 'Administration', icon: Settings, path: '/admin' },
+  { label: 'Administration', icon: Settings, path: '/admin', permission: 'user_management' },
 ]
 
 const mockServers = [
@@ -18,8 +27,11 @@ const mockServers = [
 export function Sidebar() {
   const collapsed = useLayoutStore((s) => s.sidebarCollapsed)
   const location = useLocation()
+  const { can } = useAuth()
 
   const isActive = (path: string) => location.pathname.startsWith(path)
+
+  const visibleNavItems = navItems.filter((item) => !item.permission || can(item.permission))
 
   return (
     <aside
@@ -38,7 +50,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2">
         <ul className="space-y-1 px-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = isActive(item.path)
             return (
               <li key={item.path}>

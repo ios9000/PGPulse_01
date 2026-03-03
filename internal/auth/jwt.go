@@ -18,10 +18,11 @@ const (
 // Claims are the JWT payload for PGPulse tokens.
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID   int64     `json:"uid"`
-	Username string    `json:"usr"`
-	Role     string    `json:"role"`
-	Type     TokenType `json:"type"`
+	UserID      int64     `json:"uid"`
+	Username    string    `json:"usr"`
+	Role        string    `json:"role"`
+	Type        TokenType `json:"type"`
+	Permissions []string  `json:"perms,omitempty"`
 }
 
 // TokenPair holds the access and refresh tokens returned on login.
@@ -34,14 +35,16 @@ type TokenPair struct {
 // JWTService handles token generation and validation.
 type JWTService struct {
 	secret          []byte
+	refreshSecret   []byte
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
 }
 
-// NewJWTService creates a JWTService with the given signing secret and TTLs.
-func NewJWTService(secret string, accessTTL, refreshTTL time.Duration) *JWTService {
+// NewJWTService creates a JWTService with the given signing secrets and TTLs.
+func NewJWTService(secret, refreshSecret string, accessTTL, refreshTTL time.Duration) *JWTService {
 	return &JWTService{
 		secret:          []byte(secret),
+		refreshSecret:   []byte(refreshSecret),
 		accessTokenTTL:  accessTTL,
 		refreshTokenTTL: refreshTTL,
 	}
@@ -83,13 +86,19 @@ func (s *JWTService) generateToken(user *User, tokenType TokenType, now time.Tim
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},
-		UserID:   user.ID,
-		Username: user.Username,
-		Role:     user.Role,
-		Type:     tokenType,
+		UserID:      user.ID,
+		Username:    user.Username,
+		Role:        user.Role,
+		Type:        tokenType,
+		Permissions: PermissionsForRole(Role(user.Role)),
+	}
+	// Use refresh secret for refresh tokens, access secret for access tokens.
+	secret := s.secret
+	if tokenType == TokenRefresh {
+		secret = s.refreshSecret
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(s.secret)
+	return token.SignedString(secret)
 }
 
 // ValidateToken parses and validates a JWT string. Returns claims on success.
@@ -107,6 +116,26 @@ func (s *JWTService) ValidateToken(tokenString string) (*Claims, error) {
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
 		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	return claims, nil
+}
+
+// ValidateRefreshToken parses and validates a refresh JWT using the refresh secret.
+func (s *JWTService) ValidateRefreshToken(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return s.refreshSecret, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("parse refresh token: %w", err)
+	}
+
+	claims, ok := token.Claims.(*Claims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("invalid refresh token claims")
 	}
 
 	return claims, nil

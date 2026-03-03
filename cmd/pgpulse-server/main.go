@@ -132,7 +132,7 @@ func main() {
 					logger.Error("failed to hash initial admin password", "err", err)
 					os.Exit(1)
 				}
-				if _, err := userStore.Create(ctx, cfg.Auth.InitialAdmin.Username, hash, auth.RoleAdmin); err != nil {
+				if _, err := userStore.Create(ctx, cfg.Auth.InitialAdmin.Username, hash, string(auth.RoleSuperAdmin)); err != nil {
 					logger.Error("failed to create initial admin user", "err", err)
 					os.Exit(1)
 				}
@@ -140,7 +140,11 @@ func main() {
 					"username", cfg.Auth.InitialAdmin.Username)
 			}
 
-			jwtSvc := auth.NewJWTService(cfg.Auth.JWTSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
+			refreshSecret := cfg.Auth.RefreshSecret
+			if refreshSecret == "" {
+				refreshSecret = cfg.Auth.JWTSecret
+			}
+			jwtSvc := auth.NewJWTService(cfg.Auth.JWTSecret, refreshSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 			apiServer := api.New(cfg, store, pinger, jwtSvc, userStore, logger,
 				alertRuleStore, alertHistoryStore, evaluator, notifierRegistry)
 			startServer(ctx, stop, cfg, apiServer, store, logger, evaluator, alertDispatcher)

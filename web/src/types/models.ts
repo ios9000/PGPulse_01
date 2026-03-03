@@ -33,10 +33,11 @@ export interface Alert {
 export type UserRole = 'super_admin' | 'roles_admin' | 'dba' | 'app_admin'
 
 export interface User {
-  id: string
+  id: number
   username: string
   role: UserRole
-  email?: string
+  active: boolean
+  permissions?: string[]
 }
 
 export interface HealthResponse {

@@ -22,6 +22,7 @@ storage:
 auth:
   enabled: false
   jwt_secret: "change-me-to-at-least-32-characters-long"
+  refresh_secret: ""  # separate secret for refresh tokens; defaults to jwt_secret if empty
   access_token_ttl: 24h
   refresh_token_ttl: 168h   # 7 days
   bcrypt_cost: 12

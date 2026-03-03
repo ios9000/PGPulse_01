@@ -2,44 +2,76 @@ package auth
 
 import "testing"
 
-func TestHasRole_AdminHasAdmin(t *testing.T) {
-	if !HasRole(RoleAdmin, RoleAdmin) {
-		t.Error("admin should satisfy admin requirement")
+func TestHasPermission_SuperAdminHasAll(t *testing.T) {
+	perms := []Permission{PermUserManagement, PermInstanceManagement, PermAlertManagement, PermViewAll, PermSelfManagement}
+	for _, p := range perms {
+		if !HasPermission(RoleSuperAdmin, p) {
+			t.Errorf("super_admin should have permission %q", p)
+		}
 	}
 }
 
-func TestHasRole_AdminHasViewer(t *testing.T) {
-	if !HasRole(RoleAdmin, RoleViewer) {
-		t.Error("admin should satisfy viewer requirement")
+func TestHasPermission_RolesAdminSubset(t *testing.T) {
+	if !HasPermission(RoleRolesAdmin, PermUserManagement) {
+		t.Error("roles_admin should have user_management")
+	}
+	if HasPermission(RoleRolesAdmin, PermInstanceManagement) {
+		t.Error("roles_admin should NOT have instance_management")
 	}
 }
 
-func TestHasRole_ViewerHasViewer(t *testing.T) {
-	if !HasRole(RoleViewer, RoleViewer) {
-		t.Error("viewer should satisfy viewer requirement")
+func TestHasPermission_DBASubset(t *testing.T) {
+	if !HasPermission(RoleDBA, PermInstanceManagement) {
+		t.Error("dba should have instance_management")
+	}
+	if !HasPermission(RoleDBA, PermAlertManagement) {
+		t.Error("dba should have alert_management")
+	}
+	if HasPermission(RoleDBA, PermUserManagement) {
+		t.Error("dba should NOT have user_management")
 	}
 }
 
-func TestHasRole_ViewerNotAdmin(t *testing.T) {
-	if HasRole(RoleViewer, RoleAdmin) {
-		t.Error("viewer should NOT satisfy admin requirement")
+func TestHasPermission_AppAdminSubset(t *testing.T) {
+	if !HasPermission(RoleAppAdmin, PermAlertManagement) {
+		t.Error("app_admin should have alert_management")
+	}
+	if HasPermission(RoleAppAdmin, PermInstanceManagement) {
+		t.Error("app_admin should NOT have instance_management")
+	}
+	if HasPermission(RoleAppAdmin, PermUserManagement) {
+		t.Error("app_admin should NOT have user_management")
 	}
 }
 
-func TestHasRole_UnknownRole(t *testing.T) {
-	if HasRole("superuser", RoleAdmin) {
+func TestHasPermission_UnknownRole(t *testing.T) {
+	if HasPermission("superuser", PermViewAll) {
 		t.Error("unknown role should return false")
 	}
 }
 
-func TestValidRole(t *testing.T) {
-	if !ValidRole(RoleAdmin) {
-		t.Errorf("ValidRole(%q) = false, want true", RoleAdmin)
+func TestPermissionsForRole(t *testing.T) {
+	perms := PermissionsForRole(RoleSuperAdmin)
+	if len(perms) != 5 {
+		t.Errorf("PermissionsForRole(super_admin) = %d permissions, want 5", len(perms))
 	}
-	if !ValidRole(RoleViewer) {
-		t.Errorf("ValidRole(%q) = false, want true", RoleViewer)
+	perms = PermissionsForRole("unknown")
+	if perms != nil {
+		t.Errorf("PermissionsForRole(unknown) = %v, want nil", perms)
+	}
+}
+
+func TestValidRole(t *testing.T) {
+	if !ValidRole(string(RoleSuperAdmin)) {
+		t.Errorf("ValidRole(%q) = false, want true", RoleSuperAdmin)
+	}
+	if !ValidRole(string(RoleDBA)) {
+		t.Errorf("ValidRole(%q) = false, want true", RoleDBA)
 	}
 	if ValidRole("unknown") {
 		t.Error("ValidRole(unknown) = true, want false")
+	}
+	if ValidRole("admin") {
+		t.Error("ValidRole(admin) = true, want false (legacy role)")
 	}
 }

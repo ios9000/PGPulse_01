@@ -54,7 +54,7 @@ func TestPGUserStore_CreateAndGet(t *testing.T) {
 	store := auth.NewPGUserStore(pool)
 	ctx := context.Background()
 
-	created, err := store.Create(ctx, "testuser", "$2a$12$hash", auth.RoleViewer)
+	created, err := store.Create(ctx, "testuser", "$2a$12$hash", string(auth.RoleDBA))
 	if err != nil {
 		t.Fatalf("Create error: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestPGUserStore_Count(t *testing.T) {
 		t.Errorf("Count = %d, want 0 on fresh DB", count)
 	}
 
-	_, _ = store.Create(ctx, "user1", "hash", auth.RoleAdmin)
+	_, _ = store.Create(ctx, "user1", "hash", string(auth.RoleSuperAdmin))
 	count, _ = store.Count(ctx)
 	if count != 1 {
 		t.Errorf("Count = %d, want 1 after insert", count)

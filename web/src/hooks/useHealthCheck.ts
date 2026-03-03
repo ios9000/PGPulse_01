@@ -6,7 +6,10 @@ import { POLLING_INTERVALS } from '@/lib/constants'
 export function useHealthCheck() {
   const { data, isSuccess, dataUpdatedAt } = useQuery({
     queryKey: ['health'],
-    queryFn: () => apiFetch<HealthResponse>('/health'),
+    queryFn: async () => {
+      const res = await apiFetch('/health', { skipAuth: true })
+      return res.json() as Promise<HealthResponse>
+    },
     refetchInterval: POLLING_INTERVALS.health,
     retry: 1,
   })

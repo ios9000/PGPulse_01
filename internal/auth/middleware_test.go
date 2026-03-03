@@ -20,12 +20,12 @@ func testErrorWriter(t *testing.T) (func(w http.ResponseWriter, code int, errCod
 }
 
 func newAuthMiddlewareJWT() *JWTService {
-	return NewJWTService("test-secret-that-is-at-least-32-chars!", time.Hour, 7*24*time.Hour)
+	return NewJWTService("test-secret-that-is-at-least-32-chars!", "test-refresh-secret-at-least-32-chars!", time.Hour, 7*24*time.Hour)
 }
 
 func TestRequireAuth_ValidToken(t *testing.T) {
 	svc := newAuthMiddlewareJWT()
-	user := &User{ID: 1, Username: "bob", Role: RoleViewer}
+	user := &User{ID: 1, Username: "bob", Role: string(RoleDBA), Active: true}
 	pair, _ := svc.GenerateTokenPair(user)
 
 	ew, code, _ := testErrorWriter(t)
@@ -84,9 +84,9 @@ func TestRequireAuth_MalformedHeader(t *testing.T) {
 }
 
 func TestRequireAuth_ExpiredToken(t *testing.T) {
-	svc := NewJWTService("test-secret-that-is-at-least-32-chars!", -time.Second, time.Hour)
+	svc := NewJWTService("test-secret-that-is-at-least-32-chars!", "test-refresh-secret-at-least-32-chars!", -time.Second, time.Hour)
 	ew, code, _ := testErrorWriter(t)
-	user := &User{ID: 1, Username: "alice", Role: RoleAdmin}
+	user := &User{ID: 1, Username: "alice", Role: string(RoleSuperAdmin), Active: true}
 	pair, _ := svc.GenerateTokenPair(user)
 
 	// Validate with a fresh service (same secret) — token already expired.
@@ -107,7 +107,7 @@ func TestRequireAuth_ExpiredToken(t *testing.T) {
 
 func TestRequireAuth_RefreshTokenRejected(t *testing.T) {
 	svc := newAuthMiddlewareJWT()
-	user := &User{ID: 1, Username: "alice", Role: RoleAdmin}
+	user := &User{ID: 1, Username: "alice", Role: string(RoleSuperAdmin), Active: true}
 	pair, _ := svc.GenerateTokenPair(user)
 
 	ew, code, _ := testErrorWriter(t)
@@ -125,17 +125,17 @@ func TestRequireAuth_RefreshTokenRejected(t *testing.T) {
 	}
 }
 
-func TestRequireRole_AdminBlocksViewer(t *testing.T) {
+func TestRequirePermission_BlocksUnauthorized(t *testing.T) {
 	svc := newAuthMiddlewareJWT()
-	// User with viewer role.
-	user := &User{ID: 2, Username: "carol", Role: RoleViewer}
+	// app_admin does NOT have user_management permission.
+	user := &User{ID: 2, Username: "carol", Role: string(RoleAppAdmin), Active: true}
 	pair, _ := svc.GenerateTokenPair(user)
 
 	ew, code, _ := testErrorWriter(t)
 
-	// Chain: RequireAuth → RequireRole(admin).
-	inner := RequireRole(RoleAdmin, ew)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("handler should not be called for viewer on admin route")
+	// Chain: RequireAuth → RequirePermission(user_management).
+	inner := RequirePermission(PermUserManagement, ew)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("handler should not be called for app_admin on user_management route")
 	}))
 	handler := RequireAuth(svc, ew)(inner)
 
