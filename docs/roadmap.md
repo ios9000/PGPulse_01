@@ -20,6 +20,16 @@
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
 
+## M5 Web UI (MVP) - In Progress - M5_01 scaffold done, 4 iterations remain
+  M5_01 Frontend Scaffold - Done 2026-03-03
+  M5_02 Auth + RBAC UI - Next
+  M5_03 Fleet and Server Views - Planned
+  M5_04 Database and Query Views - Planned
+  M5_05 Alerts UI + Polish - Planned
+
+MVP estimated completion: approx 2026-03-17
+
+
 ## M4 Sub-Iterations
 
 | Iteration | Scope | Status |
