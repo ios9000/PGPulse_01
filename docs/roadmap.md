@@ -20,11 +20,11 @@
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
 
-## M5 Web UI (MVP) - In Progress - M5_02 done, 3 iterations remain
+## M5 Web UI (MVP) - In Progress - M5_03 done, 2 iterations remain
   M5_01 Frontend Scaffold - Done 2026-03-03
   M5_02 Auth + RBAC UI - Done 2026-03-03
-  M5_03 Fleet and Server Views - Next
-  M5_04 Database and Query Views - Planned
+  M5_03 Live data: Fleet Overview + Server Detail (8 sections) - Done 2026-03-03
+  M5_04 Database and Query Views - Next
   M5_05 Alerts UI + Polish - Planned
 
 MVP estimated completion: approx 2026-03-17
@@ -86,7 +86,7 @@ MVP estimated completion: approx 2026-03-17
 | Deferred (need M6/M8 data) | 3 | ⏸️ enabled=false |
 | **Total** | **19** | |
 
-## REST API Endpoints (19 total)
+## REST API Endpoints (24 total)
 
 | Method | Path | Added |
 |--------|------|-------|
@@ -101,6 +101,11 @@ MVP estimated completion: approx 2026-03-17
 | GET | /api/v1/instances | M2 |
 | GET | /api/v1/instances/{id} | M2 |
 | GET | /api/v1/instances/{id}/metrics | M2 |
+| GET | /api/v1/instances/{id}/metrics/current | M5_03 |
+| GET | /api/v1/instances/{id}/metrics/history | M5_03 |
+| GET | /api/v1/instances/{id}/replication | M5_03 |
+| GET | /api/v1/instances/{id}/wait-events | M5_03 |
+| GET | /api/v1/instances/{id}/long-transactions | M5_03 |
 | GET | /api/v1/alerts | M4 |
 | GET | /api/v1/alerts/history | M4 |
 | GET | /api/v1/alerts/rules | M4 |

@@ -1,3 +1,34 @@
+## [M5_03] — 2026-03-03 — Live Data Integration
+
+### Added
+- **5 new API endpoints**: GET metrics/current, metrics/history, replication, wait-events, long-transactions (24 total)
+- **InstanceConnProvider interface**: Live pgx.Conn per API request to monitored instances (separate from collector connections)
+- **Orchestrator.ConnFor()**: Opens fresh connection by instance ID with 5s timeout and application_name = pgpulse_api
+- **Storage query methods**: CurrentMetrics (DISTINCT ON), HistoryMetrics (date_trunc aggregation), CurrentMetricValues (fleet enrichment)
+- **Fleet enrichment**: `?include=metrics,alerts` query param on GET /instances for one-call fleet loading
+- **Fleet Overview page**: Real data via useInstances hook, InstanceCard grid with status dots, metric sparklines, alert badges
+- **Server Detail page**: 8 sections — header, key metrics row, time range selector, connection/cache charts, replication, wait events, long transactions, alerts
+- **TimeRangeSelector component**: Preset buttons (1h, 6h, 24h, 7d, 30d) + custom date range picker
+- **ECharts components**: TimeSeriesChart (line/area with reference lines), ConnectionGauge (semicircular green/amber/red), WaitEventsChart (horizontal bars)
+- **TanStack Query hooks**: useInstances, useCurrentMetrics, useMetricsHistory, useReplication, useWaitEvents, useLongTransactions, useInstanceAlerts
+- **Zustand timeRangeStore**: Preset-based time ranges computing from/to at query time
+- **Formatter library**: formatBytes, formatUptime, formatDuration, formatPercent, formatPGVersion, formatTimestamp, thresholdColor
+- **ECharts dark theme**: pgpulse-dark registered globally with brand color palette
+- **Server detail components**: HeaderCard, KeyMetricsRow, ReplicationSection, WaitEventsSection, LongTransactionsTable, InstanceAlerts
+- **AlertBadge component**: Pill badges for critical/warning counts on fleet cards
+- **68 API tests passing** (6 new for metrics, 6 for activity, 3 for replication)
+
+### Changed
+- Fleet Overview and Server Detail pages fully rewritten — all mock data removed
+- Sidebar dynamically loads instance list from API via useInstances()
+- `?include=metrics,alerts` enriches instance list response with latest metric values and active alert counts
+- ECharts MarkLineComponent added to echarts-setup for reference lines
+
+### Housekeeping
+- Fixed static.go errcheck: `f.Close()` → `_ = f.Close()`
+- Wired `apiServer.SetConnProvider(orch)` in main.go so replication/activity endpoints work with real instances
+- golangci-lint: 0 issues (was 1 pre-existing + 3 new, all fixed)
+
 ## [M5_02] — 2026-03-03 — Auth + RBAC UI
 
 ### Added
