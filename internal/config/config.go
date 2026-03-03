@@ -56,6 +56,7 @@ type ServerConfig struct {
 	Listen          string        `koanf:"listen"`
 	LogLevel        string        `koanf:"log_level"`
 	CORSEnabled     bool          `koanf:"cors_enabled"`
+	CORSOrigin      string        `koanf:"cors_origin"`
 	ReadTimeout     time.Duration `koanf:"read_timeout"`
 	WriteTimeout    time.Duration `koanf:"write_timeout"`
 	ShutdownTimeout time.Duration `koanf:"shutdown_timeout"`

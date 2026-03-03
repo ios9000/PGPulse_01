@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --pgp-bg-primary: #ffffff;
+    --pgp-bg-secondary: #f8fafc;
+    --pgp-bg-card: #ffffff;
+    --pgp-bg-hover: #f1f5f9;
+    --pgp-border: #e2e8f0;
+    --pgp-accent: #3b82f6;
+    --pgp-accent-hover: #2563eb;
+    --pgp-ok: #14b8a6;
+    --pgp-warning: #f59e0b;
+    --pgp-critical: #ef4444;
+    --pgp-info: #6366f1;
+    --pgp-text-primary: #0f172a;
+    --pgp-text-secondary: #475569;
+    --pgp-text-muted: #94a3b8;
+  }
+
+  .dark {
+    --pgp-bg-primary: #0f1117;
+    --pgp-bg-secondary: #1a1d23;
+    --pgp-bg-card: #21252b;
+    --pgp-bg-hover: #2a2f38;
+    --pgp-border: #2e3440;
+    --pgp-accent: #3b82f6;
+    --pgp-accent-hover: #60a5fa;
+    --pgp-ok: #14b8a6;
+    --pgp-warning: #f59e0b;
+    --pgp-critical: #ef4444;
+    --pgp-info: #818cf8;
+    --pgp-text-primary: #f8fafc;
+    --pgp-text-secondary: #94a3b8;
+    --pgp-text-muted: #64748b;
+  }
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  background-color: var(--pgp-bg-primary);
+  color: var(--pgp-text-primary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--pgp-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pgp-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pgp-text-muted);
+}

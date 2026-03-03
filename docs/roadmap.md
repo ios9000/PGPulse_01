@@ -12,13 +12,21 @@
 | M1 | Core Collector | ✅ Done | 2026-02-26 |
 | M2 | Storage & API | ✅ Done | 2026-02-27 |
 | M3 | Auth & Security | ✅ Done | 2026-03-01 |
-| M4 | Alerting | 🔲 Next | — |
-| M5 | Web UI (MVP) | 🔲 Not Started | — |
+| M4 | Alerting | ✅ Done | 2026-03-01 |
+| M5 | Web UI (MVP) | 🔲 Next | — |
 | M6 | Agent Mode | 🔲 Not Started | — |
 | M7 | P1 Features | 🔲 Not Started | — |
 | M8 | ML Phase 1 | 🔲 Not Started | — |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
+
+## M4 Sub-Iterations
+
+| Iteration | Scope | Status |
+|---|---|---|
+| M4_01 | Evaluator engine, 19 rules, stores, migration 004_alerts.sql | ✅ Done 2026-03-01 |
+| M4_02 | Email notifier (SMTP), async dispatcher, HTML templates | ✅ Done 2026-03-01 |
+| M4_03 | 7 API endpoints, orchestrator wiring, main.go integration, cleanup | ✅ Done 2026-03-01 |
 
 ## M3 Sub-Iterations
 
@@ -58,3 +66,31 @@
 | analiz_db.php Q1–Q18 | 18 | 0 | 0 | 18 |
 | New (not in PGAM) | — | 2 (checkpoint, pg_stat_io) | — | — |
 | **Total** | **76** | **33** | **11** | **33** |
+
+## Alert Rules Summary (M4)
+
+| Category | Count | Status |
+|---|---|---|
+| PGAM thresholds ported | 14 | ✅ Active |
+| New replication lag rules | 2 | ✅ Active |
+| Deferred (need M6/M8 data) | 3 | ⏸️ enabled=false |
+| **Total** | **19** | |
+
+## REST API Endpoints (14 total)
+
+| Method | Path | Added |
+|--------|------|-------|
+| GET | /api/v1/health | M2 |
+| POST | /api/v1/auth/login | M3 |
+| POST | /api/v1/auth/refresh | M3 |
+| GET | /api/v1/auth/me | M3 |
+| GET | /api/v1/instances | M2 |
+| GET | /api/v1/instances/{id} | M2 |
+| GET | /api/v1/instances/{id}/metrics | M2 |
+| GET | /api/v1/alerts | M4 |
+| GET | /api/v1/alerts/history | M4 |
+| GET | /api/v1/alerts/rules | M4 |
+| POST | /api/v1/alerts/rules | M4 |
+| PUT | /api/v1/alerts/rules/{id} | M4 |
+| DELETE | /api/v1/alerts/rules/{id} | M4 |
+| POST | /api/v1/alerts/test | M4 |

@@ -5,7 +5,7 @@ build:
 	go build -o pgpulse-agent ./cmd/pgpulse-agent/
 
 test:
-	go test -race ./...
+	go test -race ./cmd/... ./internal/...
 
 lint:
 	golangci-lint run

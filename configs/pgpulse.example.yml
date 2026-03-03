@@ -6,6 +6,8 @@
 server:
   listen: ":8080"       # TCP address to listen on (host:port)
   log_level: "info"     # debug | info | warn | error
+  cors_enabled: false   # Enable for development with separate Vite dev server
+  cors_origin: "http://localhost:5173"  # Allowed origin when CORS is enabled
 
 # PGPulse metadata storage — where PGPulse persists collected metrics.
 # Must be a PostgreSQL database (with TimescaleDB extension for hypertables).

@@ -72,6 +72,9 @@ func validate(cfg *Config) error {
 	if cfg.Server.ShutdownTimeout == 0 {
 		cfg.Server.ShutdownTimeout = 10 * time.Second
 	}
+	if cfg.Server.CORSOrigin == "" {
+		cfg.Server.CORSOrigin = "http://localhost:5173"
+	}
 
 	if cfg.Storage.RetentionDays == 0 {
 		cfg.Storage.RetentionDays = 30
