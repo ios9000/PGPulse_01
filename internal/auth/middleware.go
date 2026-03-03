@@ -65,7 +65,28 @@ func RequireRole(requiredRole string, errorWriter func(w http.ResponseWriter, co
 				return
 			}
 
-			if !HasRole(claims.Role, requiredRole) {
+			if !HasPermission(Role(claims.Role), PermViewAll) {
+				errorWriter(w, http.StatusForbidden, "FORBIDDEN", "insufficient permissions")
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequirePermission returns chi middleware that verifies the authenticated user
+// has the specified permission. Must be used after RequireAuth.
+func RequirePermission(perm Permission, errorWriter func(w http.ResponseWriter, code int, errCode, message string)) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims := ClaimsFromContext(r.Context())
+			if claims == nil {
+				errorWriter(w, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
+				return
+			}
+
+			if !HasPermission(Role(claims.Role), perm) {
 				errorWriter(w, http.StatusForbidden, "FORBIDDEN", "insufficient permissions")
 				return
 			}

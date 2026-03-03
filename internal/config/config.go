@@ -39,6 +39,7 @@ type EmailConfig struct {
 type AuthConfig struct {
 	Enabled         bool                `koanf:"enabled"`           // default false
 	JWTSecret       string              `koanf:"jwt_secret"`        // required when enabled
+	RefreshSecret   string              `koanf:"refresh_secret"`    // separate secret for refresh tokens; defaults to jwt_secret
 	AccessTokenTTL  time.Duration       `koanf:"access_token_ttl"`  // default 24h
 	RefreshTokenTTL time.Duration       `koanf:"refresh_token_ttl"` // default 168h (7d)
 	BcryptCost      int                 `koanf:"bcrypt_cost"`       // default 12

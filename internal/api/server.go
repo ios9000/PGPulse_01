@@ -78,6 +78,7 @@ func (s *APIServer) Routes() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(requestIDMiddleware)
+	r.Use(securityHeadersMiddleware)
 	r.Use(loggerMiddleware(s.logger))
 	r.Use(recovererMiddleware(s.logger))
 	if s.serverCfg.CORSEnabled {
@@ -111,9 +112,9 @@ func (s *APIServer) Routes() http.Handler {
 					r.Get("/alerts/history", s.handleGetAlertHistory)
 					r.Get("/alerts/rules", s.handleGetAlertRules)
 
-					// Admin-only alert management.
+					// Alert management — require alert_management permission.
 					r.Group(func(r chi.Router) {
-						r.Use(auth.RequireRole(auth.RoleAdmin, writeErrorRaw))
+						r.Use(auth.RequirePermission(auth.PermAlertManagement, writeErrorRaw))
 						r.Post("/alerts/rules", s.handleCreateAlertRule)
 						r.Put("/alerts/rules/{id}", s.handleUpdateAlertRule)
 						r.Delete("/alerts/rules/{id}", s.handleDeleteAlertRule)
@@ -121,11 +122,14 @@ func (s *APIServer) Routes() http.Handler {
 					})
 				}
 
-				// Admin-only group (mutation endpoints added in future iterations).
+				// User management routes — require user_management permission.
 				r.Group(func(r chi.Router) {
-					r.Use(auth.RequireRole(auth.RoleAdmin, writeErrorRaw))
-					// POST/PUT/DELETE endpoints go here.
+					r.Use(auth.RequirePermission(auth.PermUserManagement, writeErrorRaw))
+					r.Post("/auth/register", s.handleRegister)
+					r.Get("/auth/users", s.handleListUsers)
+					r.Put("/auth/users/{id}", s.handleUpdateUser)
 				})
+				r.Put("/auth/me/password", s.handleChangePassword)
 			})
 		} else {
 			// Auth disabled — preserve current open behaviour.

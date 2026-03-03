@@ -17,13 +17,18 @@ import (
 
 // mockUserStore implements auth.UserStore for unit tests (no DB required).
 type mockUserStore struct {
-	users map[string]*auth.User
+	users   map[string]*auth.User
+	usersID map[int64]*auth.User
 }
 
 func newMockUserStore(users ...*auth.User) *mockUserStore {
-	m := &mockUserStore{users: make(map[string]*auth.User)}
+	m := &mockUserStore{
+		users:   make(map[string]*auth.User),
+		usersID: make(map[int64]*auth.User),
+	}
 	for _, u := range users {
 		m.users[u.Username] = u
+		m.usersID[u.ID] = u
 	}
 	return m
 }
@@ -36,14 +41,58 @@ func (m *mockUserStore) GetByUsername(_ context.Context, username string) (*auth
 	return u, nil
 }
 
+func (m *mockUserStore) GetByID(_ context.Context, id int64) (*auth.User, error) {
+	u, ok := m.usersID[id]
+	if !ok {
+		return nil, auth.ErrUserNotFound
+	}
+	return u, nil
+}
+
 func (m *mockUserStore) Create(_ context.Context, username, passwordHash, role string) (*auth.User, error) {
-	u := &auth.User{ID: int64(len(m.users) + 1), Username: username, PasswordHash: passwordHash, Role: role}
+	u := &auth.User{ID: int64(len(m.users) + 1), Username: username, PasswordHash: passwordHash, Role: role, Active: true}
 	m.users[username] = u
+	m.usersID[u.ID] = u
 	return u, nil
 }
 
 func (m *mockUserStore) Count(_ context.Context) (int64, error) {
 	return int64(len(m.users)), nil
+}
+
+func (m *mockUserStore) List(_ context.Context) ([]*auth.User, error) {
+	var result []*auth.User
+	for _, u := range m.users {
+		result = append(result, u)
+	}
+	return result, nil
+}
+
+func (m *mockUserStore) Update(_ context.Context, id int64, fields auth.UpdateFields) error {
+	u, ok := m.usersID[id]
+	if !ok {
+		return auth.ErrUserNotFound
+	}
+	if fields.Role != nil {
+		u.Role = *fields.Role
+	}
+	if fields.Active != nil {
+		u.Active = *fields.Active
+	}
+	return nil
+}
+
+func (m *mockUserStore) UpdatePassword(_ context.Context, id int64, passwordHash string) error {
+	u, ok := m.usersID[id]
+	if !ok {
+		return auth.ErrUserNotFound
+	}
+	u.PasswordHash = passwordHash
+	return nil
+}
+
+func (m *mockUserStore) UpdateLastLogin(_ context.Context, _ int64) error {
+	return nil
 }
 
 // newAuthTestServer creates an APIServer with auth enabled and a mock store.
@@ -59,7 +108,7 @@ func newAuthTestServer(t *testing.T, userStore auth.UserStore, jwtSvc *auth.JWTS
 }
 
 func testJWTSvc() *auth.JWTService {
-	return auth.NewJWTService("test-secret-at-least-32-characters!", time.Hour, 7*24*time.Hour)
+	return auth.NewJWTService("test-secret-at-least-32-characters!", "test-refresh-secret-at-least-32-chars!", time.Hour, 7*24*time.Hour)
 }
 
 // hashedPassword returns the bcrypt hash of "password" at cost 4.
@@ -86,7 +135,7 @@ func postJSON(handler http.Handler, path string, body any) *httptest.ResponseRec
 func TestHandleLogin_Success(t *testing.T) {
 	jwtSvc := testJWTSvc()
 	hash := hashedPassword(t)
-	user := &auth.User{ID: 1, Username: "alice", PasswordHash: hash, Role: auth.RoleAdmin}
+	user := &auth.User{ID: 1, Username: "alice", PasswordHash: hash, Role: string(auth.RoleSuperAdmin), Active: true}
 	srv := newAuthTestServer(t, newMockUserStore(user), jwtSvc)
 
 	rr := postJSON(srv.Routes(), "/api/v1/auth/login", map[string]string{
@@ -97,22 +146,25 @@ func TestHandleLogin_Success(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200; body = %s", rr.Code, rr.Body.String())
 	}
-	var pair auth.TokenPair
-	if err := json.NewDecoder(rr.Body).Decode(&pair); err != nil {
+	var resp loginResponse
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if pair.AccessToken == "" {
+	if resp.AccessToken == "" {
 		t.Error("access_token is empty")
 	}
-	if pair.RefreshToken == "" {
+	if resp.RefreshToken == "" {
 		t.Error("refresh_token is empty")
+	}
+	if resp.User.Username != "alice" {
+		t.Errorf("user.username = %q, want %q", resp.User.Username, "alice")
 	}
 }
 
 func TestHandleLogin_WrongPassword(t *testing.T) {
 	jwtSvc := testJWTSvc()
 	hash := hashedPassword(t)
-	user := &auth.User{ID: 1, Username: "alice", PasswordHash: hash, Role: auth.RoleAdmin}
+	user := &auth.User{ID: 1, Username: "alice", PasswordHash: hash, Role: string(auth.RoleSuperAdmin), Active: true}
 	srv := newAuthTestServer(t, newMockUserStore(user), jwtSvc)
 
 	rr := postJSON(srv.Routes(), "/api/v1/auth/login", map[string]string{
@@ -151,10 +203,25 @@ func TestHandleLogin_EmptyBody(t *testing.T) {
 	}
 }
 
+func TestHandleLogin_DeactivatedUser(t *testing.T) {
+	jwtSvc := testJWTSvc()
+	hash := hashedPassword(t)
+	user := &auth.User{ID: 1, Username: "alice", PasswordHash: hash, Role: string(auth.RoleSuperAdmin), Active: false}
+	srv := newAuthTestServer(t, newMockUserStore(user), jwtSvc)
+
+	rr := postJSON(srv.Routes(), "/api/v1/auth/login", map[string]string{
+		"username": "alice",
+		"password": "password",
+	})
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401 for deactivated user", rr.Code)
+	}
+}
+
 func TestHandleRefresh_Valid(t *testing.T) {
 	jwtSvc := testJWTSvc()
 	hash := hashedPassword(t)
-	user := &auth.User{ID: 1, Username: "bob", PasswordHash: hash, Role: auth.RoleViewer}
+	user := &auth.User{ID: 1, Username: "bob", PasswordHash: hash, Role: string(auth.RoleDBA), Active: true}
 	store := newMockUserStore(user)
 	srv := newAuthTestServer(t, store, jwtSvc)
 
@@ -175,7 +242,7 @@ func TestHandleRefresh_Valid(t *testing.T) {
 
 func TestHandleRefresh_WithAccessToken(t *testing.T) {
 	jwtSvc := testJWTSvc()
-	user := &auth.User{ID: 1, Username: "bob", Role: auth.RoleViewer}
+	user := &auth.User{ID: 1, Username: "bob", Role: string(auth.RoleDBA), Active: true}
 	pair, _ := jwtSvc.GenerateTokenPair(user)
 	srv := newAuthTestServer(t, newMockUserStore(user), jwtSvc)
 
@@ -202,7 +269,7 @@ func TestHandleRefresh_Invalid(t *testing.T) {
 
 func TestHandleMe_ValidToken(t *testing.T) {
 	jwtSvc := testJWTSvc()
-	user := &auth.User{ID: 42, Username: "charlie", Role: auth.RoleAdmin}
+	user := &auth.User{ID: 42, Username: "charlie", Role: string(auth.RoleSuperAdmin), Active: true}
 	pair, _ := jwtSvc.GenerateTokenPair(user)
 	srv := newAuthTestServer(t, newMockUserStore(user), jwtSvc)
 
@@ -223,6 +290,12 @@ func TestHandleMe_ValidToken(t *testing.T) {
 	}
 	if resp.ID != 42 {
 		t.Errorf("ID = %d, want 42", resp.ID)
+	}
+	if !resp.Active {
+		t.Error("Active = false, want true")
+	}
+	if len(resp.Permissions) == 0 {
+		t.Error("Permissions should not be empty for super_admin")
 	}
 }
 
