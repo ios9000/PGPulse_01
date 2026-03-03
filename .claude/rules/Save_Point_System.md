@@ -81,7 +81,7 @@ fixing every architectural and security flaw.
 | HTTP Router | go-chi/chi v5 | 5.2.5 | Lightweight, middleware-friendly |
 | JWT | golang-jwt/jwt v5 | 5.2.2 | Authentication tokens |
 | Storage | PostgreSQL + TimescaleDB | — | Time-series hypertables for metrics |
-| Frontend | Svelte + Tailwind | — | Embedded via go:embed |
+| Frontend | React + TypeScript + Tailwind CSS + Apache ECharts | — | Embedded via go:embed |
 | Config | koanf v2 | — | YAML + env vars |
 | Logging | log/slog | stdlib | Structured logging |
 | Testing | testcontainers-go | — | Real PG instances in tests |
@@ -106,7 +106,7 @@ fixing every architectural and security flaw.
 │                                         │
 │  ┌─────────┐  ┌──────────────────┐      │
 │  │  Alert  │  │  Web UI (embed)  │      │
-│  │ Engine  │  │  Svelte+Tailwind │      │
+│  │ Engine  │  │  React+Tailwind  │      │
 │  └─────────┘  └──────────────────┘      │
 └─────────────────────────────────────────┘
          │
