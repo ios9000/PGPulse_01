@@ -6,6 +6,9 @@ import { KeyMetricsRow } from '@/components/server/KeyMetricsRow'
 import { ReplicationSection } from '@/components/server/ReplicationSection'
 import { WaitEventsSection } from '@/components/server/WaitEventsSection'
 import { LongTransactionsTable } from '@/components/server/LongTransactionsTable'
+import { StatementsSection } from '@/components/server/StatementsSection'
+import { LockTreeSection } from '@/components/server/LockTreeSection'
+import { ProgressSection } from '@/components/server/ProgressSection'
 import { InstanceAlerts } from '@/components/server/InstanceAlerts'
 import { TimeRangeSelector } from '@/components/shared/TimeRangeSelector'
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart'
@@ -77,6 +80,8 @@ export function ServerDetail() {
         currentMetrics={currentMetrics}
       />
 
+      <ProgressSection instanceId={serverId} />
+
       <KeyMetricsRow currentMetrics={currentMetrics} />
 
       <TimeRangeSelector />
@@ -112,6 +117,10 @@ export function ServerDetail() {
         <WaitEventsSection instanceId={serverId} />
         <LongTransactionsTable instanceId={serverId} />
       </div>
+
+      <StatementsSection instanceId={serverId} />
+
+      <LockTreeSection instanceId={serverId} />
 
       <InstanceAlerts instanceId={serverId} />
     </div>
