@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import * as echarts from 'echarts/core'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PermissionGate } from '@/components/auth/PermissionGate'
@@ -13,12 +14,14 @@ import { UsersPage } from '@/pages/admin/UsersPage'
 import { Login } from '@/pages/Login'
 import { NotFound } from '@/pages/NotFound'
 import { useAuthStore } from '@/stores/authStore'
+import { pgpulseTheme } from '@/lib/echartsTheme'
 
 export function App() {
   const initialize = useAuthStore((s) => s.initialize)
 
   useEffect(() => {
     initialize()
+    echarts.registerTheme('pgpulse', pgpulseTheme)
   }, [initialize])
 
   return (

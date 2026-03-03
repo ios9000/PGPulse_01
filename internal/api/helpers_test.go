@@ -8,6 +8,7 @@ import (
 
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
 // mockStore is a collector.MetricStore that returns preset results.
@@ -27,6 +28,29 @@ func (m *mockStore) Query(_ context.Context, q collector.MetricQuery) ([]collect
 }
 
 func (m *mockStore) Close() error { return nil }
+
+// mockMetricsStore extends mockStore with MetricsQuerier methods.
+type mockMetricsStore struct {
+	mockStore
+	currentResult *storage.CurrentMetricsResult
+	historyResult *storage.HistoryResult
+	metricValues  map[string]float64
+	currentErr    error
+	historyErr    error
+	valuesErr     error
+}
+
+func (m *mockMetricsStore) CurrentMetrics(_ context.Context, _ string) (*storage.CurrentMetricsResult, error) {
+	return m.currentResult, m.currentErr
+}
+
+func (m *mockMetricsStore) HistoryMetrics(_ context.Context, _ storage.HistoryRequest) (*storage.HistoryResult, error) {
+	return m.historyResult, m.historyErr
+}
+
+func (m *mockMetricsStore) CurrentMetricValues(_ context.Context, _ string) (map[string]float64, error) {
+	return m.metricValues, m.valuesErr
+}
 
 // mockPinger is an api.Pinger that returns a preset error.
 type mockPinger struct {

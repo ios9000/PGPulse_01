@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/ios9000/PGPulse_01/internal/alert"
 	"github.com/ios9000/PGPulse_01/internal/config"
 )
 
@@ -20,15 +21,96 @@ type InstanceResponse struct {
 	Enabled     bool   `json:"enabled"`
 }
 
+// EnrichedInstanceResponse extends InstanceResponse with optional metrics and alert counts.
+type EnrichedInstanceResponse struct {
+	InstanceResponse
+	Metrics     map[string]float64 `json:"metrics,omitempty"`
+	AlertCounts map[string]int     `json:"alert_counts,omitempty"` // severity -> count
+}
+
 func (s *APIServer) handleListInstances(w http.ResponseWriter, r *http.Request) {
-	items := make([]InstanceResponse, 0, len(s.instances))
-	for _, inst := range s.instances {
-		items = append(items, toInstanceResponse(inst))
+	includes := r.URL.Query()["include"]
+	includeMetrics := containsStr(includes, "metrics")
+	includeAlerts := containsStr(includes, "alerts")
+
+	// If no enrichment requested, use the fast path.
+	if !includeMetrics && !includeAlerts {
+		items := make([]InstanceResponse, 0, len(s.instances))
+		for _, inst := range s.instances {
+			items = append(items, toInstanceResponse(inst))
+		}
+		writeJSON(w, http.StatusOK, Envelope{
+			Data: items,
+			Meta: map[string]int{"count": len(items)},
+		})
+		return
 	}
+
+	// Build per-instance alert counts if requested.
+	var alertCountsByInstance map[string]map[string]int
+	if includeAlerts && s.alertHistoryStore != nil {
+		events, err := s.alertHistoryStore.ListUnresolved(r.Context())
+		if err != nil {
+			s.logger.ErrorContext(r.Context(), "failed to list unresolved alerts for enrichment", "error", err)
+		} else {
+			alertCountsByInstance = buildAlertCounts(events)
+		}
+	}
+
+	items := make([]EnrichedInstanceResponse, 0, len(s.instances))
+	for _, inst := range s.instances {
+		enriched := EnrichedInstanceResponse{
+			InstanceResponse: toInstanceResponse(inst),
+		}
+
+		if includeMetrics {
+			mq := s.metricsQuerier()
+			if mq != nil {
+				vals, err := mq.CurrentMetricValues(r.Context(), inst.ID)
+				if err != nil {
+					s.logger.ErrorContext(r.Context(), "failed to get metrics for instance",
+						"instance_id", inst.ID, "error", err)
+				} else if len(vals) > 0 {
+					enriched.Metrics = vals
+				}
+			}
+		}
+
+		if includeAlerts && alertCountsByInstance != nil {
+			if counts, ok := alertCountsByInstance[inst.ID]; ok {
+				enriched.AlertCounts = counts
+			}
+		}
+
+		items = append(items, enriched)
+	}
+
 	writeJSON(w, http.StatusOK, Envelope{
 		Data: items,
 		Meta: map[string]int{"count": len(items)},
 	})
+}
+
+// buildAlertCounts groups unresolved alert events by instance ID and severity.
+func buildAlertCounts(events []alert.AlertEvent) map[string]map[string]int {
+	result := make(map[string]map[string]int)
+	for _, ev := range events {
+		if _, ok := result[ev.InstanceID]; !ok {
+			result[ev.InstanceID] = make(map[string]int)
+		}
+		result[ev.InstanceID][string(ev.Severity)]++
+	}
+	return result
+}
+
+// containsStr checks if a string slice contains a given value.
+func containsStr(ss []string, s string) bool {
+	for _, v := range ss {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *APIServer) handleGetInstance(w http.ResponseWriter, r *http.Request) {

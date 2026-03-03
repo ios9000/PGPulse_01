@@ -13,6 +13,7 @@ import {
   LegendComponent,
   DataZoomComponent,
   ToolboxComponent,
+  MarkLineComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 
@@ -28,6 +29,7 @@ echarts.use([
   LegendComponent,
   DataZoomComponent,
   ToolboxComponent,
+  MarkLineComponent,
   CanvasRenderer,
 ])
 

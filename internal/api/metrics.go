@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -12,7 +13,15 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/ios9000/PGPulse_01/internal/collector"
+	"github.com/ios9000/PGPulse_01/internal/storage"
 )
+
+// MetricsQuerier provides access to advanced metric query methods.
+type MetricsQuerier interface {
+	CurrentMetrics(ctx context.Context, instanceID string) (*storage.CurrentMetricsResult, error)
+	HistoryMetrics(ctx context.Context, req storage.HistoryRequest) (*storage.HistoryResult, error)
+	CurrentMetricValues(ctx context.Context, instanceID string) (map[string]float64, error)
+}
 
 func (s *APIServer) handleQueryMetrics(w http.ResponseWriter, r *http.Request) {
 	instanceID := chi.URLParam(r, "id")
@@ -127,4 +136,121 @@ func writeCSV(w http.ResponseWriter, points []collector.MetricPoint) {
 			p.Timestamp.Format(time.RFC3339),
 		})
 	}
+}
+
+// metricsQuerier attempts to obtain a MetricsQuerier from the store via type assertion.
+func (s *APIServer) metricsQuerier() MetricsQuerier {
+	if mq, ok := s.store.(MetricsQuerier); ok {
+		return mq
+	}
+	return nil
+}
+
+// handleCurrentMetrics returns the latest value of each metric for an instance.
+func (s *APIServer) handleCurrentMetrics(w http.ResponseWriter, r *http.Request) {
+	instanceID := chi.URLParam(r, "id")
+
+	if !s.instanceExists(instanceID) {
+		writeError(w, http.StatusNotFound, "not_found",
+			fmt.Sprintf("instance '%s' not found", instanceID))
+		return
+	}
+
+	mq := s.metricsQuerier()
+	if mq == nil {
+		writeError(w, http.StatusServiceUnavailable, "not_available",
+			"metrics querier not available")
+		return
+	}
+
+	result, err := mq.CurrentMetrics(r.Context(), instanceID)
+	if err != nil {
+		s.logger.ErrorContext(r.Context(), "current metrics query failed",
+			"instance_id", instanceID, "error", err)
+		writeError(w, http.StatusInternalServerError, "internal_error",
+			"failed to query current metrics")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Envelope{Data: result})
+}
+
+// handleMetricsHistory returns time series data for one or more metrics.
+func (s *APIServer) handleMetricsHistory(w http.ResponseWriter, r *http.Request) {
+	instanceID := chi.URLParam(r, "id")
+
+	if !s.instanceExists(instanceID) {
+		writeError(w, http.StatusNotFound, "not_found",
+			fmt.Sprintf("instance '%s' not found", instanceID))
+		return
+	}
+
+	metrics := r.URL.Query()["metric"]
+	if len(metrics) == 0 {
+		writeError(w, http.StatusBadRequest, "bad_request",
+			"at least one 'metric' query parameter is required")
+		return
+	}
+
+	now := time.Now()
+	from := now.Add(-1 * time.Hour)
+	to := now
+
+	if s := r.URL.Query().Get("from"); s != "" {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "bad_request",
+				"invalid 'from' parameter: must be RFC3339")
+			return
+		}
+		from = t
+	}
+
+	if s := r.URL.Query().Get("to"); s != "" {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "bad_request",
+				"invalid 'to' parameter: must be RFC3339")
+			return
+		}
+		to = t
+	}
+
+	if !from.Before(to) {
+		writeError(w, http.StatusBadRequest, "bad_request",
+			"'from' must be before 'to'")
+		return
+	}
+
+	step := r.URL.Query().Get("step")
+	if step != "" {
+		if err := storage.ValidStep(step); err != nil {
+			writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+			return
+		}
+	}
+
+	mq := s.metricsQuerier()
+	if mq == nil {
+		writeError(w, http.StatusServiceUnavailable, "not_available",
+			"metrics querier not available")
+		return
+	}
+
+	result, err := mq.HistoryMetrics(r.Context(), storage.HistoryRequest{
+		InstanceID: instanceID,
+		Metrics:    metrics,
+		From:       from,
+		To:         to,
+		Step:       step,
+	})
+	if err != nil {
+		s.logger.ErrorContext(r.Context(), "metrics history query failed",
+			"instance_id", instanceID, "error", err)
+		writeError(w, http.StatusInternalServerError, "internal_error",
+			"failed to query metrics history")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Envelope{Data: result})
 }

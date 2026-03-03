@@ -4,6 +4,7 @@ import { useLayoutStore } from '@/stores/layoutStore'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Permission } from '@/lib/permissions'
 import { useAuth } from '@/hooks/useAuth'
+import { useInstances } from '@/hooks/useInstances'
 
 interface NavItem {
   label: string
@@ -18,16 +19,11 @@ const navItems: NavItem[] = [
   { label: 'Administration', icon: Settings, path: '/admin', permission: 'user_management' },
 ]
 
-const mockServers = [
-  { id: 'prod-1', name: 'prod-primary', status: 'ok' as const },
-  { id: 'prod-2', name: 'prod-replica', status: 'ok' as const },
-  { id: 'stg-1', name: 'staging', status: 'warning' as const },
-]
-
 export function Sidebar() {
   const collapsed = useLayoutStore((s) => s.sidebarCollapsed)
   const location = useLocation()
   const { can } = useAuth()
+  const { data: instances } = useInstances()
 
   const isActive = (path: string) => location.pathname.startsWith(path)
 
@@ -82,7 +78,7 @@ export function Sidebar() {
             </p>
           )}
           <ul className="space-y-1">
-            {mockServers.map((server) => (
+            {(instances ?? []).map((server) => (
               <li key={server.id}>
                 <Link
                   to={`/servers/${server.id}`}
@@ -95,7 +91,7 @@ export function Sidebar() {
                   }`}
                   title={collapsed ? server.name : undefined}
                 >
-                  <StatusBadge status={server.status} size="sm" />
+                  <StatusBadge status="ok" size="sm" />
                   {!collapsed && <span className="truncate">{server.name}</span>}
                 </Link>
               </li>
