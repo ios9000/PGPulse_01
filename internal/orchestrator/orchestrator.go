@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
@@ -74,6 +77,56 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 
 	o.logger.Info("orchestrator started", "instance_count", len(o.runners))
 	return nil
+}
+
+// ConnFor opens a fresh connection to the monitored instance identified by instanceID.
+// The caller is responsible for closing the returned connection.
+func (o *Orchestrator) ConnFor(ctx context.Context, instanceID string) (*pgx.Conn, error) {
+	for _, r := range o.runners {
+		if r.cfg.ID == instanceID {
+			connConfig, err := pgx.ParseConfig(r.cfg.DSN)
+			if err != nil {
+				return nil, fmt.Errorf("parse DSN for instance %q: %w", instanceID, err)
+			}
+			connConfig.ConnectTimeout = 5 * time.Second
+			if connConfig.RuntimeParams == nil {
+				connConfig.RuntimeParams = make(map[string]string)
+			}
+			connConfig.RuntimeParams["application_name"] = "pgpulse_api"
+
+			conn, err := pgx.ConnectConfig(ctx, connConfig)
+			if err != nil {
+				return nil, fmt.Errorf("connect to instance %q: %w", instanceID, err)
+			}
+			return conn, nil
+		}
+	}
+
+	// Also check config for instances that failed to connect at startup.
+	for _, instCfg := range o.cfg.Instances {
+		if instCfg.ID == instanceID {
+			if instCfg.Enabled != nil && !*instCfg.Enabled {
+				return nil, fmt.Errorf("instance %q is disabled", instanceID)
+			}
+			connConfig, err := pgx.ParseConfig(instCfg.DSN)
+			if err != nil {
+				return nil, fmt.Errorf("parse DSN for instance %q: %w", instanceID, err)
+			}
+			connConfig.ConnectTimeout = 5 * time.Second
+			if connConfig.RuntimeParams == nil {
+				connConfig.RuntimeParams = make(map[string]string)
+			}
+			connConfig.RuntimeParams["application_name"] = "pgpulse_api"
+
+			conn, err := pgx.ConnectConfig(ctx, connConfig)
+			if err != nil {
+				return nil, fmt.Errorf("connect to instance %q: %w", instanceID, err)
+			}
+			return conn, nil
+		}
+	}
+
+	return nil, fmt.Errorf("instance %q not found", instanceID)
 }
 
 // Stop signals all goroutines to stop, waits for them, then closes all connections.
