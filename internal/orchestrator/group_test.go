@@ -65,10 +65,13 @@ func makePoint(metric string) collector.MetricPoint {
 	return collector.MetricPoint{InstanceID: "test", Metric: metric, Value: 1}
 }
 
-// newTestGroup builds an intervalGroup with injected icFunc and a nil conn (no real DB).
+// newTestGroup builds an intervalGroup with injected icFunc and no real DB.
+// skipAcquire bypasses pool.Acquire; staticICFunc and mockCollector both ignore the conn.
 func newTestGroup(collectors []collector.Collector, store collector.MetricStore) *intervalGroup {
-	g := newIntervalGroup("test", 10*time.Second, collectors, nil, store, discardLogger(), nil, nil)
+	g := newIntervalGroup("test", 10*time.Second, collectors, nil, store, discardLogger(),
+		&NoOpAlertEvaluator{}, &NoOpAlertDispatcher{})
 	g.icFunc = staticICFunc
+	g.skipAcquire = true
 	return g
 }
 
@@ -182,6 +185,7 @@ func newTestGroupWithEvaluator(collectors []collector.Collector, store collector
 	eval AlertEvaluator, disp AlertDispatcher) *intervalGroup {
 	g := newIntervalGroup("test", 10*time.Second, collectors, nil, store, discardLogger(), eval, disp)
 	g.icFunc = staticICFunc
+	g.skipAcquire = true
 	return g
 }
 
@@ -216,14 +220,14 @@ func TestGroupCollect_WithEvaluator(t *testing.T) {
 	}
 }
 
-// TestGroupCollect_EvaluatorNil: evaluator=nil → no panic, store still written.
-func TestGroupCollect_EvaluatorNil(t *testing.T) {
+// TestGroupCollect_NoOpEvaluator: NoOp evaluator → no events, store still written.
+func TestGroupCollect_NoOpEvaluator(t *testing.T) {
 	store := &mockStore{}
 	cols := []collector.Collector{
 		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
 	}
 
-	g := newTestGroupWithEvaluator(cols, store, nil, nil)
+	g := newTestGroupWithEvaluator(cols, store, &NoOpAlertEvaluator{}, &NoOpAlertDispatcher{})
 	g.collect(context.Background())
 
 	if len(store.written) != 1 {
@@ -266,7 +270,7 @@ func TestGroupCollect_NoPoints(t *testing.T) {
 		&mockCollector{name: "a", points: nil, err: nil},
 	}
 
-	g := newTestGroupWithEvaluator(cols, store, ev, nil)
+	g := newTestGroupWithEvaluator(cols, store, ev, &NoOpAlertDispatcher{})
 	g.collect(context.Background())
 
 	ev.mu.Lock()

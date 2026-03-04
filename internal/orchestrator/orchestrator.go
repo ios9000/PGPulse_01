@@ -22,12 +22,11 @@ type Orchestrator struct {
 	wg         sync.WaitGroup
 	cancel     context.CancelFunc
 	logger     *slog.Logger
-	evaluator  AlertEvaluator  // nil when alerting disabled
-	dispatcher AlertDispatcher // nil when alerting disabled
+	evaluator  AlertEvaluator
+	dispatcher AlertDispatcher
 }
 
 // New creates an Orchestrator. Call Start to begin collection.
-// evaluator and dispatcher may be nil when alerting is disabled.
 func New(cfg config.Config, store collector.MetricStore, logger *slog.Logger,
 	evaluator AlertEvaluator, dispatcher AlertDispatcher) *Orchestrator {
 	return &Orchestrator{

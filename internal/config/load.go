@@ -105,6 +105,9 @@ func validate(cfg *Config) error {
 			v := true
 			inst.Enabled = &v
 		}
+		if inst.MaxConns == 0 {
+			inst.MaxConns = 5
+		}
 		if inst.Intervals.High == 0 {
 			inst.Intervals.High = 10 * time.Second
 		}

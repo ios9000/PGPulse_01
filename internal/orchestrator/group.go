@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ios9000/PGPulse_01/internal/alert"
 	"github.com/ios9000/PGPulse_01/internal/collector"
@@ -32,19 +33,20 @@ type intervalGroup struct {
 	name       string
 	interval   time.Duration
 	collectors []collector.Collector
-	conn       *pgx.Conn
+	pool       *pgxpool.Pool
 	store      collector.MetricStore
 	logger     *slog.Logger
-	icFunc     icQueryFunc // defaults to queryInstanceContext; injectable for tests
-	evaluator  AlertEvaluator  // nil when alerting disabled
-	dispatcher AlertDispatcher // nil when alerting disabled
+	icFunc     icQueryFunc    // defaults to queryInstanceContext; injectable for tests
+	evaluator  AlertEvaluator
+	dispatcher AlertDispatcher
+	skipAcquire bool     // when true, collect() skips pool.Acquire (for tests with injected icFunc)
 }
 
 func newIntervalGroup(
 	name string,
 	interval time.Duration,
 	collectors []collector.Collector,
-	conn *pgx.Conn,
+	pool *pgxpool.Pool,
 	store collector.MetricStore,
 	logger *slog.Logger,
 	evaluator AlertEvaluator,
@@ -54,7 +56,7 @@ func newIntervalGroup(
 		name:       name,
 		interval:   interval,
 		collectors: collectors,
-		conn:       conn,
+		pool:       pool,
 		store:      store,
 		logger:     logger,
 		icFunc:     queryInstanceContext,
@@ -82,9 +84,23 @@ func (g *intervalGroup) run(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
-// collect queries InstanceContext once, then runs all collectors, batching results for a single Write.
+// collect acquires a connection from the pool, queries InstanceContext once,
+// then runs all collectors, batching results for a single Write.
 func (g *intervalGroup) collect(ctx context.Context) {
-	ic, err := g.icFunc(ctx, g.conn)
+	var rawConn *pgx.Conn
+	if g.skipAcquire {
+		// Test path: no pool, callers inject icFunc and mock collectors that ignore conn.
+	} else {
+		poolConn, err := g.pool.Acquire(ctx)
+		if err != nil {
+			g.logger.Warn("failed to acquire connection", "group", g.name, "err", err)
+			return
+		}
+		defer poolConn.Release()
+		rawConn = poolConn.Conn()
+	}
+
+	ic, err := g.icFunc(ctx, rawConn)
 	if err != nil {
 		g.logger.Warn("failed to query instance context, skipping cycle",
 			"group", g.name, "err", err)
@@ -93,7 +109,7 @@ func (g *intervalGroup) collect(ctx context.Context) {
 
 	var batch []collector.MetricPoint
 	for _, c := range g.collectors {
-		points, err := c.Collect(ctx, g.conn, ic)
+		points, err := c.Collect(ctx, rawConn, ic)
 		if err != nil {
 			g.logger.Warn("collector error",
 				"group", g.name, "collector", c.Name(), "err", err)
@@ -113,7 +129,7 @@ func (g *intervalGroup) collect(ctx context.Context) {
 	}
 	g.logger.Debug("metrics written", "group", g.name, "points", len(batch))
 
-	if g.evaluator != nil && len(batch) > 0 {
+	if len(batch) > 0 {
 		g.evaluateAlerts(ctx, batch)
 	}
 }
@@ -129,11 +145,9 @@ func (g *intervalGroup) evaluateAlerts(ctx context.Context, points []collector.M
 	}
 
 	for _, event := range events {
-		if g.dispatcher != nil {
-			if !g.dispatcher.Dispatch(event) {
-				g.logger.Warn("alert event dropped (dispatcher buffer full)",
-					"rule", event.RuleID, "instance", event.InstanceID)
-			}
+		if !g.dispatcher.Dispatch(event) {
+			g.logger.Warn("alert event dropped (dispatcher buffer full)",
+				"rule", event.RuleID, "instance", event.InstanceID)
 		}
 	}
 
