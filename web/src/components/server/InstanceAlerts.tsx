@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useInstanceAlerts } from '@/hooks/useAlerts'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Spinner } from '@/components/ui/Spinner'
@@ -45,6 +46,14 @@ export function InstanceAlerts({ instanceId }: InstanceAlertsProps) {
           })}
         </div>
       )}
+      <div className="mt-4 border-t border-pgp-border pt-3">
+        <Link
+          to={`/alerts?instance_id=${instanceId}`}
+          className="text-sm text-blue-400 hover:text-blue-300"
+        >
+          View all alerts &rarr;
+        </Link>
+      </div>
     </div>
   )
 }
