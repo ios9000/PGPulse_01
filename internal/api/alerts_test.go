@@ -151,7 +151,7 @@ func newAlertTestServer(t *testing.T, ruleStore alert.AlertRuleStore, historySto
 		},
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(cfg, &mockStore{}, nil, nil, nil, logger, ruleStore, historyStore, nil, registry)
+	return New(cfg, &mockStore{}, nil, nil, nil, logger, ruleStore, historyStore, nil, registry, nil)
 }
 
 // --- GET /api/v1/alerts ---
