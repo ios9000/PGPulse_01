@@ -13,6 +13,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
 // Version is set at build time; defaults to "dev".
@@ -41,15 +42,18 @@ type APIServer struct {
 	notifierRegistry  *alert.NotifierRegistry   // nil when alerting disabled
 	alertingCfg       config.AlertingConfig
 	connProvider      InstanceConnProvider      // nil until SetConnProvider called
+	instanceStore     storage.InstanceStore     // nil when no storage DSN
 }
 
 // New creates an APIServer. jwtSvc and userStore are nil when auth is disabled.
 // pool may be nil (LogStore/no-storage mode).
 // alertRuleStore, alertHistoryStore, evaluator, and registry are nil when alerting is disabled.
+// instanceStore is nil when no storage DSN is configured.
 func New(cfg config.Config, store collector.MetricStore, pool Pinger,
 	jwtSvc *auth.JWTService, userStore auth.UserStore, logger *slog.Logger,
 	alertRuleStore alert.AlertRuleStore, alertHistoryStore alert.AlertHistoryStore,
 	evaluator *alert.Evaluator, registry *alert.NotifierRegistry,
+	instanceStore storage.InstanceStore,
 ) *APIServer {
 	var rl *auth.RateLimiter
 	if cfg.Auth.Enabled {
@@ -71,6 +75,7 @@ func New(cfg config.Config, store collector.MetricStore, pool Pinger,
 		evaluator:         evaluator,
 		notifierRegistry:  registry,
 		alertingCfg:       cfg.Alerting,
+		instanceStore:     instanceStore,
 	}
 }
 
@@ -138,6 +143,18 @@ func (s *APIServer) Routes() http.Handler {
 					})
 				}
 
+				// Instance management — require instance_management permission.
+				if s.instanceStore != nil {
+					r.Group(func(r chi.Router) {
+						r.Use(auth.RequirePermission(auth.PermInstanceManagement, writeErrorRaw))
+						r.Post("/instances", s.handleCreateInstance)
+						r.Put("/instances/{id}", s.handleUpdateInstance)
+						r.Delete("/instances/{id}", s.handleDeleteInstance)
+						r.Post("/instances/bulk", s.handleBulkImport)
+						r.Post("/instances/{id}/test", s.handleTestConnection)
+					})
+				}
+
 				// User management routes — require user_management permission.
 				r.Group(func(r chi.Router) {
 					r.Use(auth.RequirePermission(auth.PermUserManagement, writeErrorRaw))
@@ -173,6 +190,15 @@ func (s *APIServer) Routes() http.Handler {
 					r.Delete("/alerts/rules/{id}", s.handleDeleteAlertRule)
 					r.Post("/alerts/test", s.handleTestNotification)
 				}
+
+				// Instance management (no auth check when auth disabled).
+				if s.instanceStore != nil {
+					r.Post("/instances", s.handleCreateInstance)
+					r.Put("/instances/{id}", s.handleUpdateInstance)
+					r.Delete("/instances/{id}", s.handleDeleteInstance)
+					r.Post("/instances/bulk", s.handleBulkImport)
+					r.Post("/instances/{id}/test", s.handleTestConnection)
+				}
 			})
 		}
 	})
@@ -203,8 +229,14 @@ func (s *APIServer) rateLimitMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// instanceExists reports whether an instance with the given ID is configured.
+// instanceExists reports whether an instance with the given ID is known (DB store or config).
 func (s *APIServer) instanceExists(id string) bool {
+	if s.instanceStore != nil {
+		rec, err := s.instanceStore.Get(context.Background(), id)
+		if err == nil && rec != nil {
+			return true
+		}
+	}
 	for _, inst := range s.instances {
 		if inst.ID == id {
 			return true

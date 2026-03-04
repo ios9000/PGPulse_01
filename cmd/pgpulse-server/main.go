@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/ios9000/PGPulse_01/internal/alert"
@@ -69,6 +71,10 @@ func main() {
 		store = pgStore
 		pinger = pgStore.Pool()
 		logger.Info("storage initialized with PostgreSQL")
+
+		// Instance store: create and seed from YAML config.
+		instanceStore := storage.NewPGInstanceStore(pgPool)
+		seedInstancesFromConfig(ctx, instanceStore, cfg.Instances, logger)
 
 		// Alert pipeline setup.
 		var (
@@ -150,23 +156,70 @@ func main() {
 			}
 			jwtSvc := auth.NewJWTService(cfg.Auth.JWTSecret, refreshSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 			apiServer := api.New(cfg, store, pinger, jwtSvc, userStore, logger,
-				alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry)
+				alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore)
 			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
 			return
 		}
 
 		// Auth disabled with storage.
 		apiServer := api.New(cfg, store, pinger, nil, nil, logger,
-			alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry)
+			alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore)
 		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
 	} else {
 		store = orchestrator.NewLogStore(logger)
 		logger.Info("no storage DSN configured, using log-only mode")
 
-		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil)
+		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil, nil)
 		startServer(ctx, stop, cfg, apiServer, store, logger,
 			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil)
 	}
+}
+
+// seedInstancesFromConfig seeds YAML-configured instances into the database.
+// Uses INSERT ON CONFLICT DO NOTHING so existing records are untouched.
+func seedInstancesFromConfig(ctx context.Context, store *storage.PGInstanceStore, instances []config.InstanceConfig, logger *slog.Logger) {
+	for _, inst := range instances {
+		enabled := inst.Enabled == nil || *inst.Enabled
+		host, port := extractHostPort(inst.DSN)
+		maxConns := inst.MaxConns
+		if maxConns == 0 {
+			maxConns = 5
+		}
+
+		rec := storage.InstanceRecord{
+			ID:       inst.ID,
+			Name:     inst.Name,
+			DSN:      inst.DSN,
+			Host:     host,
+			Port:     port,
+			Enabled:  enabled,
+			MaxConns: maxConns,
+		}
+
+		if err := store.Seed(ctx, rec); err != nil {
+			logger.Warn("failed to seed instance", "id", inst.ID, "error", err)
+		} else {
+			logger.Debug("seeded instance from config", "id", inst.ID)
+		}
+	}
+}
+
+// extractHostPort parses a postgres URL DSN and returns host and port.
+func extractHostPort(dsn string) (string, int) {
+	u, err := url.Parse(dsn)
+	if err != nil || u.Host == "" {
+		return "", 5432
+	}
+	host := u.Hostname()
+	portStr := u.Port()
+	if portStr == "" {
+		return host, 5432
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return host, 5432
+	}
+	return host, port
 }
 
 // startServer wires the HTTP server and orchestrator, then blocks until shutdown.

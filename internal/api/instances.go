@@ -10,15 +10,18 @@ import (
 
 	"github.com/ios9000/PGPulse_01/internal/alert"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
 // InstanceResponse is the JSON representation of a monitored PostgreSQL instance.
 type InstanceResponse struct {
 	ID          string `json:"id"`
+	Name        string `json:"name,omitempty"`
 	Host        string `json:"host"`
 	Port        int    `json:"port"`
 	Description string `json:"description,omitempty"`
 	Enabled     bool   `json:"enabled"`
+	Source      string `json:"source,omitempty"`
 }
 
 // EnrichedInstanceResponse extends InstanceResponse with optional metrics and alert counts.
@@ -33,15 +36,14 @@ func (s *APIServer) handleListInstances(w http.ResponseWriter, r *http.Request) 
 	includeMetrics := containsStr(includes, "metrics")
 	includeAlerts := containsStr(includes, "alerts")
 
+	// Resolve instance list: prefer DB store, fall back to config.
+	responses := s.resolveInstanceList(r)
+
 	// If no enrichment requested, use the fast path.
 	if !includeMetrics && !includeAlerts {
-		items := make([]InstanceResponse, 0, len(s.instances))
-		for _, inst := range s.instances {
-			items = append(items, toInstanceResponse(inst))
-		}
 		writeJSON(w, http.StatusOK, Envelope{
-			Data: items,
-			Meta: map[string]int{"count": len(items)},
+			Data: responses,
+			Meta: map[string]int{"count": len(responses)},
 		})
 		return
 	}
@@ -57,19 +59,19 @@ func (s *APIServer) handleListInstances(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	items := make([]EnrichedInstanceResponse, 0, len(s.instances))
-	for _, inst := range s.instances {
+	items := make([]EnrichedInstanceResponse, 0, len(responses))
+	for _, resp := range responses {
 		enriched := EnrichedInstanceResponse{
-			InstanceResponse: toInstanceResponse(inst),
+			InstanceResponse: resp,
 		}
 
 		if includeMetrics {
 			mq := s.metricsQuerier()
 			if mq != nil {
-				vals, err := mq.CurrentMetricValues(r.Context(), inst.ID)
+				vals, err := mq.CurrentMetricValues(r.Context(), resp.ID)
 				if err != nil {
 					s.logger.ErrorContext(r.Context(), "failed to get metrics for instance",
-						"instance_id", inst.ID, "error", err)
+						"instance_id", resp.ID, "error", err)
 				} else if len(vals) > 0 {
 					enriched.Metrics = vals
 				}
@@ -77,7 +79,7 @@ func (s *APIServer) handleListInstances(w http.ResponseWriter, r *http.Request) 
 		}
 
 		if includeAlerts && alertCountsByInstance != nil {
-			if counts, ok := alertCountsByInstance[inst.ID]; ok {
+			if counts, ok := alertCountsByInstance[resp.ID]; ok {
 				enriched.AlertCounts = counts
 			}
 		}
@@ -115,6 +117,20 @@ func containsStr(ss []string, s string) bool {
 
 func (s *APIServer) handleGetInstance(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+
+	// Try DB store first.
+	if s.instanceStore != nil {
+		rec, err := s.instanceStore.Get(r.Context(), id)
+		if err != nil {
+			s.logger.ErrorContext(r.Context(), "failed to get instance from store", "id", id, "error", err)
+		}
+		if rec != nil {
+			writeJSON(w, http.StatusOK, Envelope{Data: instanceRecordToResponse(*rec)})
+			return
+		}
+	}
+
+	// Fall back to config.
 	for _, inst := range s.instances {
 		if inst.ID == id {
 			writeJSON(w, http.StatusOK, Envelope{Data: toInstanceResponse(inst)})
@@ -123,6 +139,41 @@ func (s *APIServer) handleGetInstance(w http.ResponseWriter, r *http.Request) {
 	}
 	writeError(w, http.StatusNotFound, "not_found",
 		fmt.Sprintf("instance '%s' not found", id))
+}
+
+// resolveInstanceList returns instances from DB store if available, otherwise from config.
+func (s *APIServer) resolveInstanceList(r *http.Request) []InstanceResponse {
+	if s.instanceStore != nil {
+		records, err := s.instanceStore.List(r.Context())
+		if err != nil {
+			s.logger.ErrorContext(r.Context(), "failed to list instances from store, falling back to config", "error", err)
+		} else {
+			items := make([]InstanceResponse, 0, len(records))
+			for _, rec := range records {
+				items = append(items, instanceRecordToResponse(rec))
+			}
+			return items
+		}
+	}
+
+	items := make([]InstanceResponse, 0, len(s.instances))
+	for _, inst := range s.instances {
+		items = append(items, toInstanceResponse(inst))
+	}
+	return items
+}
+
+// instanceRecordToResponse converts a storage.InstanceRecord to InstanceResponse.
+func instanceRecordToResponse(r storage.InstanceRecord) InstanceResponse {
+	return InstanceResponse{
+		ID:          r.ID,
+		Host:        r.Host,
+		Port:        r.Port,
+		Name:        r.Name,
+		Description: "",
+		Enabled:     r.Enabled,
+		Source:      r.Source,
+	}
 }
 
 // toInstanceResponse maps config.InstanceConfig to the API response shape.
