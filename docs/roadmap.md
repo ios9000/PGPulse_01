@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-03
+**Last updated:** 2026-03-04
 
 ---
 
@@ -20,14 +20,12 @@
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
 
-## M5 Web UI (MVP) - In Progress - M5_03 done, 2 iterations remain
+## M5 Web UI (MVP) - In Progress - M5_05 done, polish remains
   M5_01 Frontend Scaffold - Done 2026-03-03
   M5_02 Auth + RBAC UI - Done 2026-03-03
   M5_03 Live data: Fleet Overview + Server Detail (8 sections) - Done 2026-03-03
-  M5_04 Database and Query Views - Next
-  M5_05 Alerts UI + Polish - Planned
-
-MVP estimated completion: approx 2026-03-17
+  M5_04 Statements, Lock Tree, Progress Monitoring - Done 2026-03-03
+  M5_05 Alert Management UI - Done 2026-03-04
 
 
 ## M4 Sub-Iterations

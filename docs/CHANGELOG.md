@@ -1,3 +1,44 @@
+## [M5_05] — 2026-03-04 — Alert Management UI
+
+### Added
+- **AlertsDashboard page**: Full active alerts view replacing placeholder — severity/state/instance filters, sortable table with live duration, count badge, "All clear" empty state with CheckCircle icon
+- **AlertRules page**: Full rule management replacing placeholder — create/edit/delete rules, enable/disable toggle, system rule protection, channel management
+- **RuleFormModal component**: Create/edit alert rule form with validation — builtin rules restrict editable fields (threshold, cooldown, channels, enabled only), test notification button, escape/click-outside to close
+- **DeleteConfirmModal component**: Confirmation dialog for custom rule deletion with useDeleteAlertRule mutation
+- **AlertFilters component**: Toggle buttons for severity (All/Warning/Critical) and state (Firing/Resolved/All) with instance dropdown, matching TimeRangeSelector button style
+- **AlertRow component**: Table row with severity badge, rule name, instance, metric, value vs threshold, state, fired timestamp, live/static duration — click navigates to server detail
+- **RuleRow component**: Table row with system badge for builtin rules, operator/threshold display, severity, cooldown, channel chips, toggle switch, edit/delete action buttons
+- **useAlerts hook**: Fetches GET /api/v1/alerts with client-side filtering (backend has no query params), 30s refetch
+- **useAlertHistory hook**: Fetches GET /api/v1/alerts/history with server-side query params (instance_id, severity, unresolved, limit)
+- **useAlertRules hook**: Fetches GET /api/v1/alerts/rules (60s refetch), useSaveAlertRule (POST/PUT mutation), useDeleteAlertRule (DELETE), useTestNotification (POST single channel)
+- **AlertRule TypeScript type**: Matches Go alert.Rule struct exactly (operator, source, single threshold+severity, consecutive_count, cooldown_minutes)
+- **AlertSeverityFilter, AlertStateFilter types**: Filter state types for alerts page
+
+### Changed
+- InstanceAlerts component now includes "View all alerts" link navigating to `/alerts?instance_id=${instanceId}`
+- useInstanceAlerts fixed: removed misleading query param from GET /alerts (backend ignores it), now filters client-side
+
+### Notes
+- Frontend-only iteration — zero backend changes
+- All TypeScript types aligned to actual Go backend structs (not design doc assumptions)
+- 11 files, ~1,415 lines of frontend code
+- tsc, eslint, vite build, go build, go test, golangci-lint all pass
+
+## [M5_04] — 2026-03-03 — Statements, Lock Tree & Progress Monitoring
+
+### Added
+- **StatementsSection component**: Top-N query table with sort by total_time/io_time/cpu_time/calls/rows, pg_stat_statements config display, fill percentage indicator
+- **LockTreeSection component**: Hierarchical lock tree with indented depth display, root blocker highlighting, blocked-by/blocking counts, summary card
+- **ProgressSection component**: Active maintenance operations (vacuum, analyze, create_index, cluster, basebackup, copy) with phase display and progress bar
+- **useStatements hook**: Fetches GET /instances/{id}/activity/statements with sort and limit params, 10s refetch
+- **useLockTree hook**: Fetches GET /instances/{id}/activity/locks, 10s refetch
+- **useProgress hook**: Fetches GET /instances/{id}/activity/progress, 10s refetch
+- **3 new API endpoints**: GET statements, GET locks, GET progress (added to server detail activity group)
+- **TypeScript types**: StatementsResponse, StatementEntry, StatementsConfig, LockTreeResponse, LockEntry, LockTreeSummary, ProgressResponse, ProgressOperation
+
+### Changed
+- Server Detail page expanded from 8 to 11 sections with statements, lock tree, and progress tabs
+
 ## [M5_03] — 2026-03-03 — Live Data Integration
 
 ### Added
