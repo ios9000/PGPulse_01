@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-04
+**Last updated:** 2026-03-05
 
 ---
 
@@ -20,12 +20,13 @@
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
 
-## M5 Web UI (MVP) - In Progress - M5_05 done, polish remains
+## M5 Web UI (MVP) - In Progress - M5_06 done, polish remains
   M5_01 Frontend Scaffold - Done 2026-03-03
   M5_02 Auth + RBAC UI - Done 2026-03-03
   M5_03 Live data: Fleet Overview + Server Detail (8 sections) - Done 2026-03-03
   M5_04 Statements, Lock Tree, Progress Monitoring - Done 2026-03-03
   M5_05 Alert Management UI - Done 2026-03-04
+  M5_06 Stabilization + Instance Management - Done 2026-03-04
 
 
 ## M4 Sub-Iterations
@@ -84,7 +85,7 @@
 | Deferred (need M6/M8 data) | 3 | ⏸️ enabled=false |
 | **Total** | **19** | |
 
-## REST API Endpoints (24 total)
+## REST API Endpoints (29 total)
 
 | Method | Path | Added |
 |--------|------|-------|
@@ -98,6 +99,11 @@
 | PUT | /api/v1/auth/users/{id} | M5_02 |
 | GET | /api/v1/instances | M2 |
 | GET | /api/v1/instances/{id} | M2 |
+| POST | /api/v1/instances | M5_06 |
+| PUT | /api/v1/instances/{id} | M5_06 |
+| DELETE | /api/v1/instances/{id} | M5_06 |
+| POST | /api/v1/instances/bulk | M5_06 |
+| POST | /api/v1/instances/{id}/test | M5_06 |
 | GET | /api/v1/instances/{id}/metrics | M2 |
 | GET | /api/v1/instances/{id}/metrics/current | M5_03 |
 | GET | /api/v1/instances/{id}/metrics/history | M5_03 |
