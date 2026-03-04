@@ -341,7 +341,7 @@ func (s *APIServer) handleTestConnection(w http.ResponseWriter, r *http.Request)
 		})
 		return
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 
 	var version string
 	if err := conn.QueryRow(testCtx, "SELECT version()").Scan(&version); err != nil {
