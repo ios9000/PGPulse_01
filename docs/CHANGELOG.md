@@ -1,3 +1,43 @@
+## [M5_06] — 2026-03-04 — Stabilization + Instance Management
+
+### Added
+- **Connection pool refactor**: Replaced single `*pgx.Conn` per instance with `*pgxpool.Pool` (min 1, max configurable via `max_conns`) — eliminates connection contention between collectors
+- **NoOp evaluator pattern**: `NoOpAlertEvaluator` and `NoOpAlertDispatcher` in orchestrator package — evaluator/dispatcher are never nil, removing nil-guard crashes when alerting is disabled
+- **Instance name field**: Added `Name` and `MaxConns` to `InstanceConfig` with koanf tags and defaults
+- **Instance store**: `PGInstanceStore` with full CRUD + `Seed()` (INSERT ON CONFLICT DO NOTHING) — DB is source of truth for instances
+- **Migration 006_instances.sql**: `instances` table (id, name, dsn, host, port, enabled, source, max_conns, timestamps)
+- **YAML seeding**: Startup seeds instances from config YAML with `source='yaml'`, DB overrides after first run
+- **Orchestrator hot-reload**: Polls `InstanceStore` every 60s, starts/stops/restarts runners on instance changes without server restart
+- **5 new API endpoints** (29 total):
+  - `POST /api/v1/instances` — Create instance (requires `instance_management` permission)
+  - `PUT /api/v1/instances/{id}` — Update instance
+  - `DELETE /api/v1/instances/{id}` — Delete instance
+  - `POST /api/v1/instances/bulk` — CSV bulk import (partial success, per-row results)
+  - `POST /api/v1/instances/{id}/test` — Test connection (5s timeout, SELECT version(), reports latency)
+- **DSN masking**: All API responses mask DSN passwords (`postgres://user:***@host:port/db`)
+- **Administration page**: Tabbed layout (Instances + Users) replacing placeholder, permission-gated per tab
+- **InstancesTab component**: Table with name, host:port, source badge (yaml=blue, manual=green), enabled toggle, edit/delete actions
+- **InstanceForm modal**: Create/edit form with name, DSN (monospace), max connections, enabled toggle, test connection button (edit mode)
+- **BulkImportModal**: CSV textarea + file upload + preview table + per-row import results
+- **DeleteInstanceModal**: Confirmation dialog with yaml-source reappearance warning
+- **useInstanceManagement hooks**: 6 hooks — useManagedInstances, useCreateInstance, useUpdateInstance, useDeleteInstance, useTestConnection, useBulkImport
+- **ManagedInstance types**: TypeScript interfaces for instance CRUD request/response shapes
+
+### Changed
+- Orchestrator runners changed from slice to `map[string]*instanceRunner` for efficient lookup during hot-reload
+- `startServer()` accepts `orchestrator.AlertEvaluator` interface instead of `*alert.Evaluator` concrete type
+- `intervalGroup` acquires connection from pool per collect cycle (`pool.Acquire` + `defer conn.Release`)
+- Instance list/get endpoints read from `InstanceStore` DB with config fallback, response includes `name` and `source` fields
+- `api.New()` signature expanded to accept `InstanceStore`
+- Sidebar shows Administration nav for users with `user_management` OR `instance_management` permission
+- Sidebar server name uses fallback chain: `name || id || host:port`
+- Removed `PermissionGate` from `/admin` route — page handles its own tab-level permissions
+
+### Notes
+- 4 commits: pool refactor, instance backend, frontend UI, lint fix
+- Backend: 3 new files, 8 modified — go build, go vet, go test, golangci-lint all pass
+- Frontend: 5 new files, 4 modified — 935 lines added, tsc + vite build pass
+
 ## [M5_05] — 2026-03-04 — Alert Management UI
 
 ### Added
