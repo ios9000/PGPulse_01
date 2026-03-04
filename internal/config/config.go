@@ -73,9 +73,11 @@ type StorageConfig struct {
 // InstanceConfig holds configuration for a single monitored PostgreSQL instance.
 type InstanceConfig struct {
 	ID          string         `koanf:"id"`
+	Name        string         `koanf:"name"`
 	DSN         string         `koanf:"dsn"`
 	Description string         `koanf:"description"` // optional human-readable label
 	Enabled     *bool          `koanf:"enabled"`     // pointer: nil means "not set" → default true
+	MaxConns    int            `koanf:"max_conns"`   // max pool connections per instance; default 5
 	Intervals   IntervalConfig `koanf:"intervals"`
 }
 

@@ -72,11 +72,13 @@ func main() {
 
 		// Alert pipeline setup.
 		var (
-			evaluator         *alert.Evaluator
-			alertDispatcher   *alert.Dispatcher
+			orchEvaluator     orchestrator.AlertEvaluator  = &orchestrator.NoOpAlertEvaluator{}
+			orchDispatcher    orchestrator.AlertDispatcher  = &orchestrator.NoOpAlertDispatcher{}
+			realDispatcher    *alert.Dispatcher
 			notifierRegistry  *alert.NotifierRegistry
 			alertRuleStore    alert.AlertRuleStore
 			alertHistoryStore alert.AlertHistoryStore
+			apiEvaluator      *alert.Evaluator // concrete type for API alert management
 		)
 
 		if cfg.Alerting.Enabled {
@@ -88,16 +90,17 @@ func main() {
 				os.Exit(1)
 			}
 
-			evaluator = alert.NewEvaluator(alertRuleStore, alertHistoryStore, logger)
-			if err := evaluator.LoadRules(ctx); err != nil {
+			apiEvaluator = alert.NewEvaluator(alertRuleStore, alertHistoryStore, logger)
+			if err := apiEvaluator.LoadRules(ctx); err != nil {
 				logger.Error("failed to load alert rules", "error", err)
 				os.Exit(1)
 			}
-			if err := evaluator.RestoreState(ctx); err != nil {
+			if err := apiEvaluator.RestoreState(ctx); err != nil {
 				logger.Error("failed to restore alert state", "error", err)
 				os.Exit(1)
 			}
-			evaluator.StartCleanup(ctx, cfg.Alerting.HistoryRetentionDays)
+			apiEvaluator.StartCleanup(ctx, cfg.Alerting.HistoryRetentionDays)
+			orchEvaluator = apiEvaluator
 
 			notifierRegistry = alert.NewNotifierRegistry()
 			if cfg.Alerting.Email != nil {
@@ -105,8 +108,9 @@ func main() {
 				notifierRegistry.Register(emailNotifier)
 			}
 
-			alertDispatcher = alert.NewDispatcher(notifierRegistry, cfg.Alerting.DefaultChannels, cfg.Alerting.DefaultCooldownMinutes, logger)
-			alertDispatcher.Start()
+			realDispatcher = alert.NewDispatcher(notifierRegistry, cfg.Alerting.DefaultChannels, cfg.Alerting.DefaultCooldownMinutes, logger)
+			realDispatcher.Start()
+			orchDispatcher = realDispatcher
 
 			logger.Info("alerting pipeline started",
 				"channels", notifierRegistry.Names())
@@ -146,28 +150,30 @@ func main() {
 			}
 			jwtSvc := auth.NewJWTService(cfg.Auth.JWTSecret, refreshSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 			apiServer := api.New(cfg, store, pinger, jwtSvc, userStore, logger,
-				alertRuleStore, alertHistoryStore, evaluator, notifierRegistry)
-			startServer(ctx, stop, cfg, apiServer, store, logger, evaluator, alertDispatcher)
+				alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry)
+			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
 			return
 		}
 
 		// Auth disabled with storage.
 		apiServer := api.New(cfg, store, pinger, nil, nil, logger,
-			alertRuleStore, alertHistoryStore, evaluator, notifierRegistry)
-		startServer(ctx, stop, cfg, apiServer, store, logger, evaluator, alertDispatcher)
+			alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry)
+		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
 	} else {
 		store = orchestrator.NewLogStore(logger)
 		logger.Info("no storage DSN configured, using log-only mode")
 
 		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil)
-		startServer(ctx, stop, cfg, apiServer, store, logger, nil, nil)
+		startServer(ctx, stop, cfg, apiServer, store, logger,
+			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil)
 	}
 }
 
 // startServer wires the HTTP server and orchestrator, then blocks until shutdown.
 func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config,
 	apiServer *api.APIServer, store collector.MetricStore, logger *slog.Logger,
-	evaluator *alert.Evaluator, dispatcher *alert.Dispatcher) {
+	evaluator orchestrator.AlertEvaluator, dispatcher orchestrator.AlertDispatcher,
+	realDispatcher *alert.Dispatcher) {
 
 	orch := orchestrator.New(cfg, store, logger, evaluator, dispatcher)
 	apiServer.SetConnProvider(orch)
@@ -213,9 +219,9 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 	orch.Stop()
 
 	// Drain buffered alert events before closing storage.
-	if dispatcher != nil {
+	if realDispatcher != nil {
 		logger.Info("stopping alert dispatcher")
-		dispatcher.Stop()
+		realDispatcher.Stop()
 	}
 
 	logger.Info("closing storage")

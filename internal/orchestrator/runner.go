@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
@@ -15,39 +15,49 @@ import (
 )
 
 // instanceRunner manages a single monitored PostgreSQL instance:
-// one persistent connection, version detection, and a set of interval groups.
+// a connection pool, version detection, and a set of interval groups.
 type instanceRunner struct {
 	cfg        config.InstanceConfig
-	conn       *pgx.Conn
+	pool       *pgxpool.Pool
 	pgVersion  version.PGVersion
 	store      collector.MetricStore
 	groups     []*intervalGroup
 	logger     *slog.Logger
-	evaluator  AlertEvaluator  // nil when alerting disabled
-	dispatcher AlertDispatcher // nil when alerting disabled
+	evaluator  AlertEvaluator
+	dispatcher AlertDispatcher
 }
 
-// connect opens a connection to the instance, detects the PG version, and stores both.
+// connect opens a connection pool to the instance, detects the PG version, and stores both.
 func (r *instanceRunner) connect(ctx context.Context) error {
-	connConfig, err := pgx.ParseConfig(r.cfg.DSN)
+	poolCfg, err := pgxpool.ParseConfig(r.cfg.DSN)
 	if err != nil {
 		return fmt.Errorf("parse DSN for instance %q: %w", r.cfg.ID, err)
 	}
-	connConfig.ConnectTimeout = 5 * time.Second
-	if connConfig.RuntimeParams == nil {
-		connConfig.RuntimeParams = make(map[string]string)
+	poolCfg.MinConns = 1
+	poolCfg.MaxConns = int32(r.cfg.MaxConns)
+	poolCfg.ConnConfig.ConnectTimeout = 5 * time.Second
+	if poolCfg.ConnConfig.RuntimeParams == nil {
+		poolCfg.ConnConfig.RuntimeParams = make(map[string]string)
 	}
-	connConfig.RuntimeParams["application_name"] = "pgpulse_orchestrator"
+	poolCfg.ConnConfig.RuntimeParams["application_name"] = "pgpulse_collector"
 
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return fmt.Errorf("connect to instance %q: %w", r.cfg.ID, err)
 	}
-	r.conn = conn
+	r.pool = pool
 
-	v, err := version.Detect(ctx, r.conn)
+	// Detect version using an acquired connection.
+	conn, err := pool.Acquire(ctx)
 	if err != nil {
-		_ = r.conn.Close(context.Background())
+		pool.Close()
+		return fmt.Errorf("acquire conn for version detect on %q: %w", r.cfg.ID, err)
+	}
+	defer conn.Release()
+
+	v, err := version.Detect(ctx, conn.Conn())
+	if err != nil {
+		pool.Close()
 		return fmt.Errorf("detect PG version for instance %q: %w", r.cfg.ID, err)
 	}
 	r.pgVersion = v
@@ -95,9 +105,9 @@ func (r *instanceRunner) buildCollectors() {
 	}
 
 	r.groups = []*intervalGroup{
-		newIntervalGroup("high", r.cfg.Intervals.High, high, r.conn, r.store, r.logger, r.evaluator, r.dispatcher),
-		newIntervalGroup("medium", r.cfg.Intervals.Medium, medium, r.conn, r.store, r.logger, r.evaluator, r.dispatcher),
-		newIntervalGroup("low", r.cfg.Intervals.Low, low, r.conn, r.store, r.logger, r.evaluator, r.dispatcher),
+		newIntervalGroup("high", r.cfg.Intervals.High, high, r.pool, r.store, r.logger, r.evaluator, r.dispatcher),
+		newIntervalGroup("medium", r.cfg.Intervals.Medium, medium, r.pool, r.store, r.logger, r.evaluator, r.dispatcher),
+		newIntervalGroup("low", r.cfg.Intervals.Low, low, r.pool, r.store, r.logger, r.evaluator, r.dispatcher),
 	}
 }
 
@@ -109,9 +119,9 @@ func (r *instanceRunner) start(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
-// close releases the database connection.
+// close releases the connection pool.
 func (r *instanceRunner) close() {
-	if r.conn != nil {
-		_ = r.conn.Close(context.Background())
+	if r.pool != nil {
+		r.pool.Close()
 	}
 }
