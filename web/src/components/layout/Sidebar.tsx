@@ -16,7 +16,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Fleet Overview', icon: LayoutGrid, path: '/fleet' },
   { label: 'Alerts', icon: Bell, path: '/alerts' },
-  { label: 'Administration', icon: Settings, path: '/admin', permission: 'user_management' },
+  { label: 'Administration', icon: Settings, path: '/admin' },
 ]
 
 export function Sidebar() {
@@ -27,7 +27,10 @@ export function Sidebar() {
 
   const isActive = (path: string) => location.pathname.startsWith(path)
 
-  const visibleNavItems = navItems.filter((item) => !item.permission || can(item.permission))
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.path === '/admin') return can('user_management') || can('instance_management')
+    return !item.permission || can(item.permission)
+  })
 
   return (
     <aside
@@ -89,10 +92,10 @@ export function Sidebar() {
                       ? 'bg-pgp-bg-hover text-pgp-text-primary'
                       : ''
                   }`}
-                  title={collapsed ? server.name : undefined}
+                  title={collapsed ? (server.name || server.id || `${server.host}:${server.port}`) : undefined}
                 >
                   <StatusBadge status="ok" size="sm" />
-                  {!collapsed && <span className="truncate">{server.name}</span>}
+                  {!collapsed && <span className="truncate">{server.name || server.id || `${server.host}:${server.port}`}</span>}
                 </Link>
               </li>
             ))}

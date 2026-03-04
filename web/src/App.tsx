@@ -36,7 +36,7 @@ export function App() {
           <Route path="servers/:serverId/databases/:dbName" element={<DatabaseDetail />} />
           <Route path="alerts" element={<AlertsDashboard />} />
           <Route path="alerts/rules" element={<AlertRules />} />
-          <Route path="admin" element={<PermissionGate permission="user_management"><Administration /></PermissionGate>} />
+          <Route path="admin" element={<Administration />} />
           <Route path="admin/users" element={<PermissionGate permission="user_management"><UsersPage /></PermissionGate>} />
           <Route path="*" element={<NotFound />} />
         </Route>

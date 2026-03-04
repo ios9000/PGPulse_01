@@ -228,6 +228,50 @@ export interface StatementsResponse {
 
 export type StatementSortField = 'total_time' | 'io_time' | 'cpu_time' | 'calls' | 'rows'
 
+// --- Instance Management API types ---
+
+export interface ManagedInstance {
+  id: string
+  name: string
+  dsn_masked: string
+  host: string
+  port: number
+  enabled: boolean
+  source: 'yaml' | 'manual'
+  max_conns: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateInstanceRequest {
+  id?: string
+  name: string
+  dsn: string
+  enabled: boolean
+  max_conns?: number
+}
+
+export interface UpdateInstanceRequest {
+  name?: string
+  dsn?: string
+  enabled?: boolean
+  max_conns?: number
+}
+
+export interface TestConnectionResult {
+  success: boolean
+  version?: string
+  error?: string
+  latency_ms?: number
+}
+
+export interface BulkImportResult {
+  row: number
+  id?: string
+  success: boolean
+  error?: string
+}
+
 // --- Lock Tree API response types ---
 
 export interface LockTreeSummary {
