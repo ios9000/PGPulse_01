@@ -155,6 +155,9 @@ export interface LongTransactionsResponse {
 
 // --- Alert API response types ---
 
+export type AlertSeverityFilter = 'all' | 'warning' | 'critical'
+export type AlertStateFilter = 'all' | 'firing' | 'resolved'
+
 export interface AlertEvent {
   rule_id: string
   rule_name: string
@@ -169,6 +172,22 @@ export interface AlertEvent {
   fired_at: string
   resolved_at?: string
   is_resolution: boolean
+}
+
+export interface AlertRule {
+  id: string
+  name: string
+  description?: string
+  metric: string
+  operator: '>' | '>=' | '<' | '<=' | '==' | '!='
+  threshold: number
+  severity: 'info' | 'warning' | 'critical'
+  labels?: Record<string, string>
+  consecutive_count: number
+  cooldown_minutes: number
+  channels?: string[]
+  source: 'builtin' | 'custom'
+  enabled: boolean
 }
 
 // --- Statements API response types ---
