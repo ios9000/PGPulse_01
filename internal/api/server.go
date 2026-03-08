@@ -126,6 +126,8 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/activity/statements", s.handleStatements)
 				r.Get("/instances/{id}/activity/locks", s.handleLockTree)
 				r.Get("/instances/{id}/activity/progress", s.handleProgress)
+				r.Get("/instances/{id}/os", s.handleOSMetrics)
+				r.Get("/instances/{id}/cluster", s.handleClusterMetrics)
 
 				// Alert routes (only when alerting enabled).
 				if s.alertRuleStore != nil {
@@ -181,6 +183,8 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/activity/statements", s.handleStatements)
 				r.Get("/instances/{id}/activity/locks", s.handleLockTree)
 				r.Get("/instances/{id}/activity/progress", s.handleProgress)
+				r.Get("/instances/{id}/os", s.handleOSMetrics)
+				r.Get("/instances/{id}/cluster", s.handleClusterMetrics)
 
 				// Alert routes (only when alerting enabled).
 				if s.alertRuleStore != nil {

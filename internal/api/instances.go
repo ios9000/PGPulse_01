@@ -15,13 +15,14 @@ import (
 
 // InstanceResponse is the JSON representation of a monitored PostgreSQL instance.
 type InstanceResponse struct {
-	ID          string `json:"id"`
-	Name        string `json:"name,omitempty"`
-	Host        string `json:"host"`
-	Port        int    `json:"port"`
-	Description string `json:"description,omitempty"`
-	Enabled     bool   `json:"enabled"`
-	Source      string `json:"source,omitempty"`
+	ID             string `json:"id"`
+	Name           string `json:"name,omitempty"`
+	Host           string `json:"host"`
+	Port           int    `json:"port"`
+	Description    string `json:"description,omitempty"`
+	Enabled        bool   `json:"enabled"`
+	Source         string `json:"source,omitempty"`
+	AgentAvailable bool   `json:"agent_available"`
 }
 
 // EnrichedInstanceResponse extends InstanceResponse with optional metrics and alert counts.
@@ -182,11 +183,12 @@ func toInstanceResponse(ic config.InstanceConfig) InstanceResponse {
 	host, port := extractHostPort(ic.DSN)
 	enabled := ic.Enabled == nil || *ic.Enabled
 	return InstanceResponse{
-		ID:          ic.ID,
-		Host:        host,
-		Port:        port,
-		Description: ic.Description,
-		Enabled:     enabled,
+		ID:             ic.ID,
+		Host:           host,
+		Port:           port,
+		Description:    ic.Description,
+		Enabled:        enabled,
+		AgentAvailable: ic.AgentURL != "",
 	}
 }
 

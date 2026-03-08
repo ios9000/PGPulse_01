@@ -317,3 +317,89 @@ export interface ProgressOperation {
 export interface ProgressResponse {
   operations: ProgressOperation[]
 }
+
+// --- OS Metrics API response types (M6) ---
+
+export interface OSMetrics {
+  collected_at: string
+  hostname: string
+  os_release: { name: string; version: string; id: string }
+  uptime_seconds: number
+  load_avg: { '1m': number; '5m': number; '15m': number }
+  memory: {
+    total_kb: number
+    available_kb: number
+    used_kb: number
+    commit_limit_kb: number
+    committed_as_kb: number
+  }
+  cpu: {
+    user_pct: number
+    system_pct: number
+    iowait_pct: number
+    idle_pct: number
+    num_cpus: number
+  }
+  disks: OSDiskInfo[]
+  diskstats: OSDiskStatInfo[]
+}
+
+export interface OSDiskInfo {
+  mount: string
+  device: string
+  fstype: string
+  total_bytes: number
+  used_bytes: number
+  free_bytes: number
+  inodes_total: number
+  inodes_used: number
+}
+
+export interface OSDiskStatInfo {
+  device: string
+  reads_completed: number
+  writes_completed: number
+  read_kb: number
+  write_kb: number
+  io_in_progress: number
+  read_await_ms: number
+  write_await_ms: number
+  util_pct: number
+}
+
+// --- Cluster Metrics API response types (M6) ---
+
+export interface ClusterMetrics {
+  patroni: PatroniClusterState | null
+  etcd: ETCDState | null
+}
+
+export interface PatroniClusterState {
+  cluster_name: string
+  members: PatroniMember[]
+}
+
+export interface PatroniMember {
+  name: string
+  host: string
+  port: number
+  role: string
+  state: string
+  timeline: number
+  lag: number
+}
+
+export interface ETCDState {
+  members: ETCDMember[]
+  health: Record<string, boolean>
+}
+
+export interface ETCDMember {
+  id: string
+  name: string
+  peer_url: string
+  client_url: string
+  is_leader: boolean
+  status: string
+  db_size: number
+}

@@ -1,0 +1,21 @@
+# PGPulse Agent — Example Configuration
+# Copy to configs/pgpulse-agent.yml and edit as needed.
+
+agent:
+  # HTTP listen address for the agent.
+  listen_addr: "0.0.0.0:9187"
+
+  # Patroni integration (optional).
+  # patroni_url: "http://localhost:8008"
+  # patroni_config: "/etc/patroni/patroni.yml"
+  # patroni_ctl_path: "/usr/bin/patronictl"
+
+  # ETCD integration (optional).
+  # etcd_endpoints:
+  #   - "http://localhost:2379"
+  # etcd_ctl_path: "/usr/local/bin/etcdctl"
+
+  # Disk mount points to monitor (empty = all non-tmpfs mounts).
+  # mount_points:
+  #   - "/"
+  #   - "/pgdata"

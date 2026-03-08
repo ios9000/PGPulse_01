@@ -10,6 +10,10 @@ import { StatementsSection } from '@/components/server/StatementsSection'
 import { LockTreeSection } from '@/components/server/LockTreeSection'
 import { ProgressSection } from '@/components/server/ProgressSection'
 import { InstanceAlerts } from '@/components/server/InstanceAlerts'
+import { OSSystemSection } from '@/components/server/OSSystemSection'
+import { DiskSection } from '@/components/server/DiskSection'
+import { IOStatsSection } from '@/components/server/IOStatsSection'
+import { ClusterSection } from '@/components/server/ClusterSection'
 import { TimeRangeSelector } from '@/components/shared/TimeRangeSelector'
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart'
 import { Spinner } from '@/components/ui/Spinner'
@@ -123,6 +127,14 @@ export function ServerDetail() {
       <LockTreeSection instanceId={serverId} />
 
       <InstanceAlerts instanceId={serverId} />
+
+      <OSSystemSection instanceId={serverId} />
+
+      <DiskSection instanceId={serverId} />
+
+      <IOStatsSection instanceId={serverId} />
+
+      <ClusterSection instanceId={serverId} />
     </div>
   )
 }
