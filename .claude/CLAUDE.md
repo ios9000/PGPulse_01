@@ -52,8 +52,10 @@ Agents run go build, go test, golangci-lint, git commit directly.
 No hybrid workflow needed.
 
 All team prompts should include validation steps:
+  cd web && npm run build && npm run lint && npm run typecheck && cd ..
   go mod tidy && go build ./... && go vet ./...
-  go test -race ./... && golangci-lint run
+  go test -race ./cmd/... ./internal/... && golangci-lint run
+Note: NEVER use `go test ./...` — it scans web/node_modules/ and fails.
 Fix any issues before declaring done.
 
 ### Team Structure
@@ -69,8 +71,8 @@ shared task list.
 
 | Agent | Owns | Does NOT touch |
 |-------|------|----------------|
-| Collector | internal/collector/*, internal/version/*, cmd/pgpulse-agent/ | internal/api/*, internal/auth/*, internal/storage/* |
-| API & Security | internal/api/*, internal/auth/*, internal/alert/*, internal/storage/*, migrations/*, configs/* | internal/collector/*, internal/version/* |
+| Collector | internal/collector/*, internal/version/*, internal/agent/*, internal/cluster/*, cmd/pgpulse-agent/ | internal/api/*, internal/auth/*, internal/storage/* |
+| API & Security | internal/api/*, internal/auth/*, internal/alert/*, internal/storage/*, migrations/*, configs/* | internal/collector/*, internal/version/*, internal/agent/*, internal/cluster/* |
 | QA & Review | *_test.go, .golangci.yml, testdata/, .github/workflows/ | Production code (only tests and CI) |
 
 ### Merge Rules
@@ -81,7 +83,7 @@ shared task list.
 ## Project Structure
 - cmd/ — binary entrypoints (server + agent)
 - internal/ — all business logic (collector, storage, api, auth, alert, config, orchestrator, version)
-- web/ — embedded frontend (future: M5)
+- web/ — embedded frontend (React/TS/Tailwind/ECharts, complete as of M5, go:embed)
 - migrations/ — SQL migrations embedded in internal/storage/migrations/
 - deploy/ — Docker, Helm, systemd
 - docs/ — documentation, iterations, legacy reference, save points
@@ -97,7 +99,7 @@ shared task list.
   - analiz2.php queries 42–47 → internal/collector/progress_*.go
   - analiz2.php queries 48–52 → internal/collector/statements_*.go
   - analiz2.php queries 53–58 → internal/collector/ (wait_events, lock_tree, long_transactions)
-  - analiz_db.php queries 1–18 → internal/collector/database.go (future)
+  - analiz_db.php queries 1–18 → internal/collector/database.go (M7)
 
 ## Shared Interfaces
 
@@ -143,16 +145,27 @@ type AlertEvaluator interface {
 ```
 
 ```go
-// internal/auth/ (added M3)
+// internal/auth/ (complete as of M5_07)
 
 type UserStore interface {
     GetByUsername(ctx context.Context, username string) (*User, error)
+    GetByID(ctx context.Context, id int64) (*User, error)
     Create(ctx context.Context, username, passwordHash, role string) (*User, error)
     Count(ctx context.Context) (int64, error)
+    CountActiveByRole(ctx context.Context, role string) (int64, error)
+    List(ctx context.Context) ([]*User, error)
+    Update(ctx context.Context, id int64, fields UpdateFields) error
+    UpdatePassword(ctx context.Context, id int64, passwordHash string) error
+    UpdateLastLogin(ctx context.Context, id int64) error
+    Delete(ctx context.Context, id int64) error
 }
 
 // JWT: HS256, access (24h) + refresh (7d), stateless
-// RBAC: admin (full access), viewer (read-only)
+// RBAC — 4 roles:
+//   super_admin: user_management + instance_management + alert_management + view_all + self_management
+//   roles_admin: user_management + view_all + self_management
+//   dba:         instance_management + alert_management + view_all + self_management
+//   app_admin:   alert_management + view_all + self_management
 // Rate limiting: 10 failed attempts / 15 min window on login
 ```
 
@@ -168,22 +181,35 @@ type UserStore interface {
 - Design docs: always write full paths, never use "..." or abbreviations
 - Design docs: never use XXXXXXXX or similar placeholders for dates — use real dates or omit the path until the date is known
 - Iteration deliverables: prefix files with iteration ID (e.g. M4_01_requirements.md)
+- All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
 
 [UPDATED BY DEVELOPER BEFORE EACH TEAM SESSION]
 
-   M5_03 Requirements — Live Data Integration: Fleet Overview + Server Detail
-   See: docs/iterations/M5_03_03032026_live-data/
+   M6_01: OS Agent
+   See: docs/iterations/M6_01_03082026_os-agent/
 
-### What was just completed
-M3_01 — Auth & Security. JWT authentication (HS256, access+refresh tokens),
-bcrypt password hashing, RBAC (admin/viewer), rate limiting on login,
-UserStore (PG-backed), initial admin seeding, auth middleware, 3 new API endpoints.
-28 auth unit tests + 7 API auth tests. All prior tests pass (zero regressions).
+### What Was Just Completed
+M5_07 — User Management UI. Users tab on the Administration page:
+backend added UserStore.Delete + UserStore.CountActiveByRole, handleDeleteUser
+(self-deletion guard, last-active-super_admin guard), handleAdminResetPassword
+(no current password required, min 8 chars). All 5 user management routes
+registered under PermUserManagement group. Frontend: UsersTab with role-colored
+badges, UserFormModal (create/edit, role filtering by caller's role),
+DeleteUserModal, ResetPasswordModal. useDeleteUser + useResetUserPassword hooks.
+Administration.tsx wired up. Build: go build ✅ go vet ✅ golangci-lint 0 issues ✅
+npm run build ✅. M5 complete.
 
-### What's next
-M4_01 — Alert Engine & Notifications. Evaluator with state machine
-(OK→WARNING→CRITICAL→OK), hysteresis, cooldown. 14 PGAM threshold rules + 6 new.
-Notifiers: Telegram, Slack, Email, Webhook. Dispatcher with retry logic.
-API endpoints for alert management. Alert history table.
+### What's Next
+M6_01 — OS Agent. Port all 19 PGAM OS/cluster queries (Q4–Q8, Q22–Q35)
+from COPY-TO-PROGRAM to native Go. New pgpulse-agent binary reads procfs/sysfs
+directly (build-tagged linux only). Main server scrapes agent via HTTP or reads
+local procfs if same-host; graceful "no OS data" when no agent configured.
+Patroni: Smart Provider pattern — RESTProvider (port 8008) → ShellProvider
+(patronictl) fallback via FallbackProvider interface. ETCD: same pattern.
+New packages: internal/agent/, internal/cluster/patroni/, internal/cluster/etcd/.
+New collectors: os.go, cluster.go. Config extended with agent_url, patroni_url,
+etcd_endpoints per instance. Frontend: System, Disk, I/O, and Cluster sections
+on ServerDetail page with no-agent placeholder.
+See: docs/iterations/M6_01_03082026_os-agent/
