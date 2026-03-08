@@ -142,6 +142,25 @@ type MetricStore interface {
 type AlertEvaluator interface {
     Evaluate(ctx context.Context, metric string, value float64, labels map[string]string) error
 }
+
+// M7 — per-database analysis interfaces (append only — do NOT modify above)
+
+// Queryer is the minimal SQL execution interface.
+// Both *pgx.Conn and *pgxpool.Pool satisfy it natively.
+// Use Queryer in DBCollectors to enable mock injection in unit tests.
+type Queryer interface {
+    Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+    QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// DBCollector collects metrics for a single database.
+// Dispatched once per discovered database per cycle by DBRunner.
+// Parallel interface to Collector — DO NOT merge them.
+type DBCollector interface {
+    Name() string
+    Interval() time.Duration
+    CollectDB(ctx context.Context, q Queryer, dbName string, ic InstanceContext) ([]MetricPoint, error)
+}
 ```
 
 ```go
@@ -187,29 +206,32 @@ type UserStore interface {
 
 [UPDATED BY DEVELOPER BEFORE EACH TEAM SESSION]
 
-   M6_01: OS Agent
-   See: docs/iterations/M6_01_03082026_os-agent/
+   M7_01: Per-Database Analysis
+   See: docs/iterations/M7_01_03082026_per-database-analysis/
 
 ### What Was Just Completed
-M5_07 — User Management UI. Users tab on the Administration page:
-backend added UserStore.Delete + UserStore.CountActiveByRole, handleDeleteUser
-(self-deletion guard, last-active-super_admin guard), handleAdminResetPassword
-(no current password required, min 8 chars). All 5 user management routes
-registered under PermUserManagement group. Frontend: UsersTab with role-colored
-badges, UserFormModal (create/edit, role filtering by caller's role),
-DeleteUserModal, ResetPasswordModal. useDeleteUser + useResetUserPassword hooks.
-Administration.tsx wired up. Build: go build ✅ go vet ✅ golangci-lint 0 issues ✅
-npm run build ✅. M5 complete.
+M6_01 — OS Agent. Ported all 19 PGAM OS/cluster queries (Q4–Q8, Q22–Q35) from
+COPY-TO-PROGRAM to native Go. New pgpulse-agent binary reads procfs/sysfs directly
+(//go:build linux, with //go:build !linux stubs — dev machine is Windows).
+Patroni: FallbackProvider(RESTProvider → ShellProvider). ETCD: same pattern.
+New packages: internal/agent/, internal/cluster/patroni/, internal/cluster/etcd/.
+New collectors: os.go, cluster.go. InstanceConfig extended with AgentURL,
+PatroniURL, PatroniConfig, PatroniCtlPath, ETCDEndpoints, ETCDCtlPath.
+Frontend: DiskSection, IOStatsSection, ClusterSection added to ServerDetail.
+DBRunner wired into Runner with 5-minute ticker. Build: go build ✅ go vet ✅
+golangci-lint 0 issues ✅ npm run build ✅. M6 complete.
 
 ### What's Next
-M6_01 — OS Agent. Port all 19 PGAM OS/cluster queries (Q4–Q8, Q22–Q35)
-from COPY-TO-PROGRAM to native Go. New pgpulse-agent binary reads procfs/sysfs
-directly (build-tagged linux only). Main server scrapes agent via HTTP or reads
-local procfs if same-host; graceful "no OS data" when no agent configured.
-Patroni: Smart Provider pattern — RESTProvider (port 8008) → ShellProvider
-(patronictl) fallback via FallbackProvider interface. ETCD: same pattern.
-New packages: internal/agent/, internal/cluster/patroni/, internal/cluster/etcd/.
-New collectors: os.go, cluster.go. Config extended with agent_url, patroni_url,
-etcd_endpoints per instance. Frontend: System, Disk, I/O, and Cluster sections
-on ServerDetail page with no-agent placeholder.
-See: docs/iterations/M6_01_03082026_os-agent/
+M7_01 — Per-Database Analysis. Port analiz_db.php Q2–Q18 (18 queries) to Go.
+New DBCollector interface + Queryer abstraction (already added to collector.go above).
+New DBRunner (internal/orchestrator/db_runner.go): dynamic pool map per database,
+TTL eviction at 3 missed cycles, semaphore fan-out (MaxConcurrentDBs=5 default),
+5 internal telemetry MetricPoints per cycle. Discovery: pg_database WHERE NOT
+datistemplate AND datallowconn → include_databases / exclude_databases glob filters
+from config. Per-DB pool MaxConns=2, statement_timeout=60s. Partial success in
+CollectDB — one failing sub-function must not block the rest. New API endpoints:
+GET /instances/:id/databases, GET /instances/:id/databases/:dbname/metrics.
+New frontend page: DatabaseAnalysisPage (/instances/:id/databases/:dbname) with
+Tables, Vacuum Health, Indexes, Schema Sizes (ECharts bar), Large Objects, Unlogged,
+Sequences, Functions sections. Database names in ServerDetail become clickable links.
+See: docs/iterations/M7_01_03082026_per-database-analysis/
