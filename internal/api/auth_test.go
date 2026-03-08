@@ -95,6 +95,26 @@ func (m *mockUserStore) UpdateLastLogin(_ context.Context, _ int64) error {
 	return nil
 }
 
+func (m *mockUserStore) CountActiveByRole(_ context.Context, role string) (int64, error) {
+	var count int64
+	for _, u := range m.usersID {
+		if u.Role == role && u.Active {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (m *mockUserStore) Delete(_ context.Context, id int64) error {
+	u, ok := m.usersID[id]
+	if !ok {
+		return auth.ErrUserNotFound
+	}
+	delete(m.usersID, id)
+	delete(m.users, u.Username)
+	return nil
+}
+
 // newAuthTestServer creates an APIServer with auth enabled and a mock store.
 func newAuthTestServer(t *testing.T, userStore auth.UserStore, jwtSvc *auth.JWTService) *APIServer {
 	t.Helper()

@@ -271,6 +271,97 @@ func (s *APIServer) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
 
+// adminResetPasswordRequest is the JSON body for PUT /api/v1/auth/users/{id}/password.
+type adminResetPasswordRequest struct {
+	NewPassword string `json:"new_password"`
+}
+
+func (s *APIServer) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid user ID")
+		return
+	}
+
+	claims := auth.ClaimsFromContext(r.Context())
+	if claims != nil && claims.UserID == id {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "cannot delete your own account")
+		return
+	}
+
+	user, err := s.userStore.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, auth.ErrUserNotFound) {
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "user not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch user")
+		return
+	}
+
+	if user.Role == string(auth.RoleSuperAdmin) {
+		count, err := s.userStore.CountActiveByRole(r.Context(), string(auth.RoleSuperAdmin))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to check super admin count")
+			return
+		}
+		if count <= 1 {
+			writeError(w, http.StatusBadRequest, "BAD_REQUEST", "cannot delete the last active super admin")
+			return
+		}
+	}
+
+	if err := s.userStore.Delete(r.Context(), id); err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to delete user")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (s *APIServer) handleAdminResetPassword(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid user ID")
+		return
+	}
+
+	var req adminResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		return
+	}
+
+	if len(req.NewPassword) < 8 {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "password must be at least 8 characters")
+		return
+	}
+
+	if _, err := s.userStore.GetByID(r.Context(), id); err != nil {
+		if errors.Is(err, auth.ErrUserNotFound) {
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "user not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch user")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.NewPassword, s.authCfg.BcryptCost)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to hash password")
+		return
+	}
+
+	if err := s.userStore.UpdatePassword(r.Context(), id, hash); err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to reset password")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "password reset"})
+}
+
 func (s *APIServer) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	var req changePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
