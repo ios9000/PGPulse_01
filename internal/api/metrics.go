@@ -185,10 +185,23 @@ func (s *APIServer) handleMetricsHistory(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	metrics := r.URL.Query()["metric"]
+	// Accept both forms:
+	//   ?metrics=a,b,c        (comma-separated, sent by the frontend)
+	//   ?metric=a&metric=b    (repeated params, legacy/API clients)
+	var metrics []string
+	if csv := r.URL.Query().Get("metrics"); csv != "" {
+		for _, m := range strings.Split(csv, ",") {
+			if m = strings.TrimSpace(m); m != "" {
+				metrics = append(metrics, m)
+			}
+		}
+	}
+	if len(metrics) == 0 {
+		metrics = r.URL.Query()["metric"]
+	}
 	if len(metrics) == 0 {
 		writeError(w, http.StatusBadRequest, "bad_request",
-			"at least one 'metric' query parameter is required")
+			"at least one 'metric' or 'metrics' query parameter is required")
 		return
 	}
 

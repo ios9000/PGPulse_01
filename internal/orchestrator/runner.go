@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/ios9000/PGPulse_01/internal/cluster/etcd"
+	"github.com/ios9000/PGPulse_01/internal/cluster/patroni"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
 	"github.com/ios9000/PGPulse_01/internal/version"
@@ -94,6 +96,25 @@ func (r *instanceRunner) buildCollectors() {
 		collector.NewBasebackupProgressCollector(id, v),
 		collector.NewCopyProgressCollector(id, v),
 	}
+
+	// OS and cluster collectors (M6 — graceful degradation if not configured).
+	osCollector := collector.NewOSCollector(id, r.cfg.DSN, r.cfg.AgentURL)
+	clusterCollector := collector.NewClusterCollector(id,
+		patroni.NewProvider(patroni.PatroniConfig{
+			PatroniURL:     r.cfg.PatroniURL,
+			PatroniConfig:  r.cfg.PatroniConfig,
+			PatroniCtlPath: r.cfg.PatroniCtlPath,
+		}),
+		etcd.NewProvider(etcd.ETCDConfig{
+			Endpoints: r.cfg.ETCDEndpoints,
+			CtlPath:   r.cfg.ETCDCtlPath,
+		}),
+		r.logger,
+	)
+
+	high = append(high, osCollector)
+
+	medium = append(medium, clusterCollector)
 
 	low := []collector.Collector{
 		collector.NewServerInfoCollector(id, v),

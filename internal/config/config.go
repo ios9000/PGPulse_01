@@ -79,6 +79,29 @@ type InstanceConfig struct {
 	Enabled     *bool          `koanf:"enabled"`     // pointer: nil means "not set" → default true
 	MaxConns    int            `koanf:"max_conns"`   // max pool connections per instance; default 5
 	Intervals   IntervalConfig `koanf:"intervals"`
+
+	// OS Agent (M6)
+	AgentURL string `koanf:"agent_url"` // optional: "http://host:9187"
+
+	// Patroni (M6)
+	PatroniURL     string `koanf:"patroni_url"`      // optional: "http://host:8008"
+	PatroniConfig  string `koanf:"patroni_config"`   // optional: "/etc/patroni/patroni.yml"
+	PatroniCtlPath string `koanf:"patroni_ctl_path"` // optional: "/usr/bin/patronictl"
+
+	// ETCD (M6)
+	ETCDEndpoints []string `koanf:"etcd_endpoints"` // optional: ["http://host:2379"]
+	ETCDCtlPath   string   `koanf:"etcd_ctl_path"`  // optional: "/usr/local/bin/etcdctl"
+}
+
+// AgentConfig holds configuration for the pgpulse-agent binary.
+type AgentConfig struct {
+	ListenAddr     string   `koanf:"listen_addr"`      // default: "0.0.0.0:9187"
+	PatroniURL     string   `koanf:"patroni_url"`
+	PatroniConfig  string   `koanf:"patroni_config"`
+	PatroniCtlPath string   `koanf:"patroni_ctl_path"`
+	ETCDEndpoints  []string `koanf:"etcd_endpoints"`
+	ETCDCtlPath    string   `koanf:"etcd_ctl_path"`
+	MountPoints    []string `koanf:"mount_points"` // empty = all non-tmpfs
 }
 
 // IntervalConfig defines collection frequency tiers for an instance.

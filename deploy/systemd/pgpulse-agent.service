@@ -1,0 +1,19 @@
+[Unit]
+Description=PGPulse Agent — OS Metrics Collector
+Documentation=https://github.com/ios9000/PGPulse_01
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pgpulse
+Group=pgpulse
+ExecStart=/usr/local/bin/pgpulse-agent -config /etc/pgpulse/pgpulse-agent.yml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
