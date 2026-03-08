@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { InstancesTab } from '@/components/admin/InstancesTab'
+import { UsersTab } from '@/components/admin/UsersTab'
 import { useAuth } from '@/hooks/useAuth'
 
 type Tab = 'instances' | 'users'
@@ -49,15 +50,7 @@ export function Administration() {
 
       {activeTab === 'instances' && canManageInstances && <InstancesTab />}
 
-      {activeTab === 'users' && canManageUsers && (
-        <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-8 text-center text-pgp-text-muted">
-          User management is available at the dedicated{' '}
-          <a href="/admin/users" className="text-pgp-accent hover:underline">
-            Users page
-          </a>
-          .
-        </div>
-      )}
+      {activeTab === 'users' && canManageUsers && <UsersTab />}
     </div>
   )
 }

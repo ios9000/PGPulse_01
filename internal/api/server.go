@@ -161,6 +161,8 @@ func (s *APIServer) Routes() http.Handler {
 					r.Post("/auth/register", s.handleRegister)
 					r.Get("/auth/users", s.handleListUsers)
 					r.Put("/auth/users/{id}", s.handleUpdateUser)
+					r.Delete("/auth/users/{id}", s.handleDeleteUser)
+					r.Put("/auth/users/{id}/password", s.handleAdminResetPassword)
 				})
 				r.Put("/auth/me/password", s.handleChangePassword)
 			})

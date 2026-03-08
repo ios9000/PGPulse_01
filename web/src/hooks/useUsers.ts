@@ -68,6 +68,33 @@ export function useUpdateUser() {
   })
 }
 
+export function useDeleteUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiFetch(`/auth/users/${id}`, {
+        method: 'DELETE',
+      })
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+}
+
+export function useResetUserPassword() {
+  return useMutation({
+    mutationFn: async ({ id, newPassword }: { id: number; newPassword: string }) => {
+      const res = await apiFetch(`/auth/users/${id}/password`, {
+        method: 'PUT',
+        body: JSON.stringify({ new_password: newPassword }),
+      })
+      return res.json()
+    },
+  })
+}
+
 export function useChangePassword() {
   return useMutation({
     mutationFn: async (payload: ChangePasswordPayload) => {

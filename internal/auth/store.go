@@ -36,10 +36,12 @@ type UserStore interface {
 	GetByID(ctx context.Context, id int64) (*User, error)
 	Create(ctx context.Context, username, passwordHash, role string) (*User, error)
 	Count(ctx context.Context) (int64, error)
+	CountActiveByRole(ctx context.Context, role string) (int64, error)
 	List(ctx context.Context) ([]*User, error)
 	Update(ctx context.Context, id int64, fields UpdateFields) error
 	UpdatePassword(ctx context.Context, id int64, passwordHash string) error
 	UpdateLastLogin(ctx context.Context, id int64) error
+	Delete(ctx context.Context, id int64) error
 }
 
 // PGUserStore implements UserStore backed by PostgreSQL.
@@ -159,4 +161,24 @@ func (s *PGUserStore) UpdateLastLogin(ctx context.Context, id int64) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE users SET last_login = now() WHERE id = $1`, id)
 	return err
+}
+
+// CountActiveByRole returns the number of active users with the given role.
+func (s *PGUserStore) CountActiveByRole(ctx context.Context, role string) (int64, error) {
+	var count int64
+	err := s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM users WHERE role = $1 AND active = true`, role).Scan(&count)
+	return count, err
+}
+
+// Delete removes a user by ID. Returns ErrUserNotFound if the user does not exist.
+func (s *PGUserStore) Delete(ctx context.Context, id int64) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }
