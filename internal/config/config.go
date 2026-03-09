@@ -91,6 +91,11 @@ type InstanceConfig struct {
 	// ETCD (M6)
 	ETCDEndpoints []string `koanf:"etcd_endpoints"` // optional: ["http://host:2379"]
 	ETCDCtlPath   string   `koanf:"etcd_ctl_path"`  // optional: "/usr/local/bin/etcdctl"
+
+	// Per-database analysis (M7)
+	IncludeDatabases []string `koanf:"include_databases"`   // glob patterns; empty = include all
+	ExcludeDatabases []string `koanf:"exclude_databases"`   // glob patterns; empty = exclude none
+	MaxConcurrentDBs int      `koanf:"max_concurrent_dbs"`  // default 5 if zero
 }
 
 // AgentConfig holds configuration for the pgpulse-agent binary.

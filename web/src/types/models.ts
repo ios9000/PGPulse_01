@@ -403,3 +403,86 @@ export interface ETCDMember {
   status: string
   db_size: number
 }
+
+// --- Per-Database Analysis types (M7) ---
+
+export interface DatabaseSummary {
+  name: string
+  large_object_count: number
+  dead_tuples: number
+  unused_indexes: number
+  max_bloat_ratio: number
+  last_collected?: string
+}
+
+export interface TableMetric {
+  schema: string
+  table: string
+  total_bytes: number
+  table_bytes: number
+  bloat_ratio?: number
+  wasted_bytes?: number
+}
+
+export interface IndexMetric {
+  schema: string
+  table: string
+  index: string
+  scan_count: number
+  tup_read?: number
+  cache_hit_pct?: number
+  unused?: boolean
+  unused_bytes?: number
+  bloat_ratio?: number
+  wasted_bytes?: number
+}
+
+export interface VacuumMetric {
+  schema: string
+  table: string
+  dead_tuples: number
+  dead_pct: number
+  autovacuum_age_sec?: number
+  autoanalyze_age_sec?: number
+}
+
+export interface SchemaMetric {
+  schema: string
+  size_bytes: number
+}
+
+export interface SequenceMetric {
+  schema: string
+  sequence: string
+  last_value: number
+}
+
+export interface FunctionMetric {
+  schema: string
+  function: string
+  calls: number
+  total_time_ms: number
+  self_time_ms: number
+}
+
+export interface CatalogMetric {
+  table: string
+  size_bytes: number
+}
+
+export interface DatabaseMetrics {
+  database_name: string
+  collected_at: string
+  tables: TableMetric[]
+  indexes: IndexMetric[]
+  vacuum: VacuumMetric[]
+  schemas: SchemaMetric[]
+  sequences: SequenceMetric[]
+  functions: FunctionMetric[]
+  catalogs: CatalogMetric[]
+  large_object_count: number
+  large_object_size_bytes: number
+  unused_index_count: number
+  unlogged_count: number
+  partition_count: number
+}
