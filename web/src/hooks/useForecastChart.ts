@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useForecast } from './useForecast'
-import { buildForecastSeries } from '../components/ForecastBand'
+import { buildForecastSeries } from '../lib/forecastUtils'
 
 export function useForecastChart(instanceId: string, metric: string) {
   const forecast = useForecast(instanceId, metric)

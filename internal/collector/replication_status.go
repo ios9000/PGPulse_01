@@ -31,7 +31,7 @@ SELECT
     coalesce(status, '') AS status,
     coalesce(sender_host, '') AS sender_host,
     coalesce(sender_port::text, '0') AS sender_port,
-    coalesce(pg_wal_lsn_diff(latest_end_lsn, received_lsn), 0) AS lag_bytes
+    coalesce(pg_wal_lsn_diff(latest_end_lsn, flushed_lsn), 0) AS lag_bytes
 FROM pg_stat_wal_receiver`
 
 // ReplicationStatusCollector collects replication topology information.

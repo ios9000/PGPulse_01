@@ -54,7 +54,11 @@ var validLogLevels = map[string]bool{
 // validate applies defaults and enforces required fields.
 func validate(cfg *Config) error {
 	if cfg.Server.Listen == "" {
-		cfg.Server.Listen = ":8080"
+		if cfg.Server.Port > 0 {
+			cfg.Server.Listen = fmt.Sprintf(":%d", cfg.Server.Port)
+		} else {
+			cfg.Server.Listen = ":8080"
+		}
 	}
 	if cfg.Server.LogLevel == "" {
 		cfg.Server.LogLevel = "info"

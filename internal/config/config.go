@@ -58,6 +58,7 @@ type InitialAdminConfig struct {
 // ServerConfig holds HTTP server settings.
 type ServerConfig struct {
 	Listen          string        `koanf:"listen"`
+	Port            int           `koanf:"port"`
 	LogLevel        string        `koanf:"log_level"`
 	CORSEnabled     bool          `koanf:"cors_enabled"`
 	CORSOrigin      string        `koanf:"cors_origin"`
