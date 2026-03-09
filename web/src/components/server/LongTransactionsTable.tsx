@@ -1,7 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLongTransactions } from '@/hooks/useActivity'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { Spinner } from '@/components/ui/Spinner'
+import { SessionActions } from '@/components/SessionActions'
 import { formatDuration } from '@/lib/formatters'
 import type { LongTransaction } from '@/types/models'
 
@@ -13,6 +15,11 @@ type TxnRow = LongTransaction & Record<string, unknown>
 
 export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps) {
   const { data, isLoading } = useLongTransactions(instanceId)
+  const queryClient = useQueryClient()
+
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['activity', 'long-transactions', instanceId] })
+  }, [queryClient, instanceId])
 
   const columns: Column<TxnRow>[] = useMemo(() => [
     { key: 'pid', label: 'PID', mono: true, width: '80px' },
@@ -42,7 +49,20 @@ export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps
         </span>
       ),
     },
-  ], [])
+    {
+      key: '_actions',
+      label: '',
+      width: '120px',
+      render: (row: TxnRow) => (
+        <SessionActions
+          instanceId={instanceId}
+          pid={row.pid}
+          applicationName=""
+          onRefresh={handleRefresh}
+        />
+      ),
+    },
+  ], [instanceId, handleRefresh])
 
   return (
     <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">

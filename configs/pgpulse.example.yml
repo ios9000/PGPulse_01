@@ -86,6 +86,7 @@ ml:
   forecast:
     horizon: 60            # points ahead; at 60s collection this is 1 hour
     confidence_z: 1.96     # 95% confidence interval
+    alert_min_consecutive: 3  # consecutive forecast points crossing threshold before alert fires
   persistence:
     enabled: true
   metrics:

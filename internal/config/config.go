@@ -148,8 +148,9 @@ type MLMetricConfig struct {
 
 // ForecastConfig holds forecast horizon settings (M8_04).
 type ForecastConfig struct {
-	Horizon     int     `koanf:"horizon"`
-	ConfidenceZ float64 `koanf:"confidence_z"`
+	Horizon             int     `koanf:"horizon"`
+	ConfidenceZ         float64 `koanf:"confidence_z"`
+	AlertMinConsecutive int     `koanf:"alert_min_consecutive"`
 }
 
 // MLConfig holds ML anomaly detection settings (M8_02).

@@ -92,8 +92,9 @@ type Rule struct {
 	Channels         []string          `json:"channels,omitempty"`
 	Source           RuleSource        `json:"source"`
 	Enabled          bool              `json:"enabled"`
-	Type             string            `json:"type,omitempty"`
-	UseLowerBound    bool              `json:"use_lower_bound,omitempty"`
+	Type                      string            `json:"type,omitempty"`
+	UseLowerBound             bool              `json:"use_lower_bound,omitempty"`
+	ConsecutivePointsRequired int               `json:"consecutive_points_required,omitempty"` // 0 = use global default from MLConfig
 }
 
 // AlertEvent represents a state transition that requires action (notification).
