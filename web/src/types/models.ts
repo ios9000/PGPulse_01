@@ -142,6 +142,7 @@ export interface LongTransaction {
   pid: number
   username: string
   database: string
+  application_name: string
   state: string
   waiting: boolean
   duration_seconds: number
@@ -542,4 +543,34 @@ export interface SettingsDiffResponse {
   only_in_a: SettingEntry[]
   only_in_b: SettingEntry[]
   matching_count: number
+}
+
+// --- Logical Replication types (M8_08) ---
+
+export interface LogicalReplicationResponse {
+  subscriptions: SubscriptionStatus[]
+  total_pending_tables: number
+}
+
+export interface SubscriptionStatus {
+  database: string
+  subscription_name: string
+  tables_pending: PendingTable[]
+  stats?: SubscriptionStats
+}
+
+export interface PendingTable {
+  table_name: string
+  sync_state: string
+  sync_state_label: string
+  sync_lsn: string
+}
+
+export interface SubscriptionStats {
+  pid: number
+  received_lsn: string
+  latest_end_lsn: string
+  latest_end_time: string
+  apply_error_count?: number
+  sync_error_count?: number
 }

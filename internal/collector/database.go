@@ -60,6 +60,7 @@ func (c *DatabaseCollector) CollectDB(ctx context.Context, q Queryer, dbName str
 	appendPoints(collectToastSizes)
 	appendPoints(collectPartitions)
 	appendPoints(collectLargeObjectSizes)
+	appendPoints(collectLogicalReplication)
 
 	if len(errs) > 0 {
 		return points, fmt.Errorf("%d sub-collectors failed (first: %v)", len(errs), errs[0])
@@ -709,5 +710,47 @@ func collectLargeObjectSizes(ctx context.Context, q Queryer, dbName string) ([]M
 	return []MetricPoint{
 		dbPoint("db.large_objects.total_count", float64(loCount), dbName, nil),
 		dbPoint("db.large_objects.total_bytes", float64(loTotalBytes), dbName, nil),
+	}, nil
+}
+
+// collectLogicalReplication — PGAM Q41: logical replication sync status.
+func collectLogicalReplication(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
+	const lrSQL = `
+		SELECT s.subname,
+		       r.srrelid::regclass::text AS table_name,
+		       r.srsubstate,
+		       COALESCE(r.srsublsn::text, '') AS sync_lsn
+		FROM pg_subscription_rel r
+		JOIN pg_subscription s ON s.oid = r.srsubid
+		WHERE r.srsubstate <> 'r'`
+
+	rows, err := q.Query(ctx, lrSQL)
+	if err != nil {
+		// pg_subscription may not exist (no logical subscriptions, older PG, etc.)
+		// Return 0 pending tables — do NOT fail the collection cycle.
+		return []MetricPoint{
+			dbPoint("db.logical_replication.pending_sync_tables", 0, dbName, nil),
+		}, nil
+	}
+	defer rows.Close()
+
+	var count int
+	for rows.Next() {
+		var subname, tableName, syncState, syncLSN string
+		if err := rows.Scan(&subname, &tableName, &syncState, &syncLSN); err != nil {
+			return []MetricPoint{
+				dbPoint("db.logical_replication.pending_sync_tables", 0, dbName, nil),
+			}, nil
+		}
+		count++
+	}
+	if err := rows.Err(); err != nil {
+		return []MetricPoint{
+			dbPoint("db.logical_replication.pending_sync_tables", 0, dbName, nil),
+		}, nil
+	}
+
+	return []MetricPoint{
+		dbPoint("db.logical_replication.pending_sync_tables", float64(count), dbName, nil),
 	}, nil
 }

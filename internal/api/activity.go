@@ -32,6 +32,7 @@ type LongTransaction struct {
 	PID             int       `json:"pid"`
 	Username        string    `json:"username"`
 	Database        string    `json:"database"`
+	ApplicationName string    `json:"application_name"`
 	State           string    `json:"state"`
 	Waiting         bool      `json:"waiting"`
 	DurationSeconds float64   `json:"duration_seconds"`
@@ -166,7 +167,7 @@ func (s *APIServer) handleLongTransactions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	rows, err := conn.Query(r.Context(), `SELECT pid, usename, datname, state, wait_event IS NOT NULL AS waiting,
+	rows, err := conn.Query(r.Context(), `SELECT pid, usename, datname, COALESCE(application_name, '') AS application_name, state, wait_event IS NOT NULL AS waiting,
        EXTRACT(EPOCH FROM (now() - xact_start)) AS duration_seconds,
        LEFT(query, 200) AS query, xact_start
 FROM pg_stat_activity
@@ -187,7 +188,7 @@ ORDER BY duration_seconds DESC`, thresholdSeconds)
 	for rows.Next() {
 		var lt LongTransaction
 		if err := rows.Scan(
-			&lt.PID, &lt.Username, &lt.Database, &lt.State, &lt.Waiting,
+			&lt.PID, &lt.Username, &lt.Database, &lt.ApplicationName, &lt.State, &lt.Waiting,
 			&lt.DurationSeconds, &lt.Query, &lt.XactStart,
 		); err != nil {
 			s.logger.ErrorContext(r.Context(), "failed to scan long transaction",

@@ -35,18 +35,18 @@ type CaptureConfig struct {
 
 // PlanCapture represents a captured query execution plan.
 type PlanCapture struct {
-	ID               int64
-	InstanceID       string
-	DatabaseName     string
-	QueryFingerprint string // md5 of normalized query
-	PlanHash         string // sha256 of plan bytes
-	PlanText         string
-	TriggerType      TriggerType
-	DurationMs       int64
-	QueryText        string
-	Truncated        bool
-	Metadata         map[string]any
-	CapturedAt       time.Time
+	ID               int64          `json:"id"`
+	InstanceID       string         `json:"instance_id"`
+	DatabaseName     string         `json:"database_name"`
+	QueryFingerprint string         `json:"query_fingerprint"`
+	PlanHash         string         `json:"plan_hash"`
+	PlanText         string         `json:"plan_text,omitempty"`
+	TriggerType      TriggerType    `json:"trigger_type"`
+	DurationMs       int64          `json:"duration_ms"`
+	QueryText        string         `json:"query_text"`
+	Truncated        bool           `json:"truncated"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
+	CapturedAt       time.Time      `json:"captured_at"`
 }
 
 // CaptureStore persists captured plans.

@@ -6,6 +6,7 @@ import { useForecastChart } from '@/hooks/useForecastChart'
 import { HeaderCard } from '@/components/server/HeaderCard'
 import { KeyMetricsRow } from '@/components/server/KeyMetricsRow'
 import { ReplicationSection } from '@/components/server/ReplicationSection'
+import { LogicalReplicationSection } from '@/components/server/LogicalReplicationSection'
 import { WaitEventsSection } from '@/components/server/WaitEventsSection'
 import { LongTransactionsTable } from '@/components/server/LongTransactionsTable'
 import { StatementsSection } from '@/components/server/StatementsSection'
@@ -19,10 +20,12 @@ import { ClusterSection } from '@/components/server/ClusterSection'
 import { TimeRangeSelector } from '@/components/shared/TimeRangeSelector'
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart'
 import { InstanceSettingsDiff } from '@/components/SettingsDiff'
+import { PlanHistory } from '@/components/PlanHistory'
+import { SettingsTimeline } from '@/components/SettingsTimeline'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatPercent, formatBytes } from '@/lib/formatters'
 
-type TabKey = 'overview' | 'settings-diff'
+type TabKey = 'overview' | 'settings-diff' | 'plan-history' | 'settings-timeline'
 
 export function ServerDetail() {
   const { serverId } = useParams()
@@ -119,7 +122,9 @@ export function ServerDetail() {
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: 'overview', label: 'Overview' },
+    { key: 'plan-history', label: 'Plan History' },
     { key: 'settings-diff', label: 'Settings Diff' },
+    { key: 'settings-timeline', label: 'Settings Timeline' },
   ]
 
   return (
@@ -227,6 +232,7 @@ export function ServerDetail() {
           </div>
 
           <ReplicationSection instanceId={serverId} />
+          <LogicalReplicationSection instanceId={serverId} />
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <WaitEventsSection instanceId={serverId} />
@@ -249,12 +255,30 @@ export function ServerDetail() {
         </>
       )}
 
+      {activeTab === 'plan-history' && (
+        <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+          <h2 className="mb-4 text-lg font-semibold text-pgp-text-primary">
+            Plan Capture History
+          </h2>
+          <PlanHistory instanceId={serverId} />
+        </div>
+      )}
+
       {activeTab === 'settings-diff' && (
         <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
           <h2 className="mb-4 text-lg font-semibold text-pgp-text-primary">
             Settings Diff (vs. Defaults)
           </h2>
           <InstanceSettingsDiff instanceId={serverId} />
+        </div>
+      )}
+
+      {activeTab === 'settings-timeline' && (
+        <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+          <h2 className="mb-4 text-lg font-semibold text-pgp-text-primary">
+            Settings Timeline
+          </h2>
+          <SettingsTimeline instanceId={serverId} />
         </div>
       )}
     </div>

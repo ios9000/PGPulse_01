@@ -12,12 +12,12 @@ export function Administration() {
   const canManageInstances = can('instance_management')
   const canManageUsers = can('user_management')
 
+  const defaultTab: Tab = canManageInstances ? 'instances' : 'users'
+  const [activeTab, setActiveTab] = useState<Tab>(defaultTab)
+
   if (!canManageInstances && !canManageUsers) {
     return <Navigate to="/fleet" replace />
   }
-
-  const defaultTab: Tab = canManageInstances ? 'instances' : 'users'
-  const [activeTab, setActiveTab] = useState<Tab>(defaultTab)
 
   const tabs: { id: Tab; label: string; visible: boolean }[] = [
     { id: 'instances', label: 'Instances', visible: canManageInstances },

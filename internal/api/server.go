@@ -154,6 +154,7 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/cluster", s.handleClusterMetrics)
 				r.Get("/instances/{id}/databases", s.handleListDatabases)
 				r.Get("/instances/{id}/databases/{dbname}/metrics", s.handleGetDatabaseMetrics)
+				r.Get("/instances/{id}/logical-replication", s.handleLogicalReplication)
 
 				// Plan capture routes (M8_02).
 				r.Get("/instances/{id}/plans", s.handleListPlans)
@@ -234,6 +235,7 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/cluster", s.handleClusterMetrics)
 				r.Get("/instances/{id}/databases", s.handleListDatabases)
 				r.Get("/instances/{id}/databases/{dbname}/metrics", s.handleGetDatabaseMetrics)
+				r.Get("/instances/{id}/logical-replication", s.handleLogicalReplication)
 
 				// Plan capture routes (M8_02).
 				r.Get("/instances/{id}/plans", s.handleListPlans)
