@@ -119,6 +119,14 @@ func BuiltinRules() []Rule {
 			ConsecutiveCount: 1, CooldownMinutes: 5,
 		},
 
+		{
+			ID: "logical_repl_pending_sync", Name: "Logical Replication Pending Sync",
+			Description: "Logical replication tables not fully synchronized.",
+			Metric: "pgpulse.db.logical_replication.pending_sync_tables", Operator: OpGreater, Threshold: 0,
+			Severity: SeverityWarning, Source: SourceBuiltin, Enabled: false,
+			ConsecutiveCount: 3, CooldownMinutes: 10,
+		},
+
 		// --- Deferred rules (defined but disabled, need ML in M8) ---
 		{
 			ID: "wal_spike_warning", Name: "WAL Generation Spike",

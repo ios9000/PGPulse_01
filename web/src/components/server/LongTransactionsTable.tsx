@@ -57,7 +57,7 @@ export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps
         <SessionActions
           instanceId={instanceId}
           pid={row.pid}
-          applicationName=""
+          applicationName={row.application_name ?? ''}
           onRefresh={handleRefresh}
         />
       ),

@@ -56,9 +56,9 @@ func TestBuiltinRulesNoDuplicateIDs(t *testing.T) {
 
 func TestBuiltinRulesCount(t *testing.T) {
 	rules := BuiltinRules()
-	// 14 PGAM-ported + 2 new + 3 deferred + 2 ML anomaly = 21
-	if len(rules) != 21 {
-		t.Errorf("expected 21 builtin rules, got %d", len(rules))
+	// 14 PGAM-ported + 2 new + 3 deferred + 2 ML anomaly + 1 logical repl = 22
+	if len(rules) != 22 {
+		t.Errorf("expected 22 builtin rules, got %d", len(rules))
 	}
 }
 
