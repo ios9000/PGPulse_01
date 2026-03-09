@@ -61,3 +61,21 @@ type AlertEvaluator interface {
 	// Evaluate checks a metric value against configured thresholds.
 	Evaluate(ctx context.Context, metric string, value float64, labels map[string]string) error
 }
+
+// Queryer defines the minimal SQL execution interface.
+// Both *pgx.Conn and *pgxpool.Pool satisfy this interface natively.
+// Using Queryer instead of *pgx.Conn or *pgxpool.Pool enables mock injection
+// in unit tests without spinning up a real PostgreSQL instance.
+type Queryer interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// DBCollector collects metrics for a single database.
+// Dispatched once per discovered database per collection cycle by the orchestrator.
+// Contrast with Collector, which operates at the instance level.
+type DBCollector interface {
+	Name() string
+	Interval() time.Duration
+	CollectDB(ctx context.Context, q Queryer, dbName string, ic InstanceContext) ([]MetricPoint, error)
+}

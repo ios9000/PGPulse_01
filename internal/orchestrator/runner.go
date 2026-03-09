@@ -24,6 +24,7 @@ type instanceRunner struct {
 	pgVersion  version.PGVersion
 	store      collector.MetricStore
 	groups     []*intervalGroup
+	dbRunner   *DBRunner
 	logger     *slog.Logger
 	evaluator  AlertEvaluator
 	dispatcher AlertDispatcher
@@ -130,18 +131,69 @@ func (r *instanceRunner) buildCollectors() {
 		newIntervalGroup("medium", r.cfg.Intervals.Medium, medium, r.pool, r.store, r.logger, r.evaluator, r.dispatcher),
 		newIntervalGroup("low", r.cfg.Intervals.Low, low, r.pool, r.store, r.logger, r.evaluator, r.dispatcher),
 	}
+
+	// Per-database analysis (M7): create a DBRunner with all registered DBCollectors.
+	r.dbRunner = NewDBRunner(
+		r.cfg.ID, r.cfg.DSN, r.cfg, r.pool,
+		[]collector.DBCollector{collector.NewDatabaseCollector()},
+		r.store, r.evaluator, r.logger,
+	)
 }
 
-// start launches one goroutine per interval group.
+// start launches one goroutine per interval group and one for the per-DB runner.
 func (r *instanceRunner) start(ctx context.Context, wg *sync.WaitGroup) {
 	for _, g := range r.groups {
 		wg.Add(1)
 		go g.run(ctx, wg)
 	}
+
+	// Per-database analysis goroutine (M7).
+	if r.dbRunner != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			dbTicker := time.NewTicker(5 * time.Minute)
+			defer dbTicker.Stop()
+
+			// Run immediately on start.
+			ic := r.queryIC(ctx)
+			r.dbRunner.Run(ctx, ic)
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-dbTicker.C:
+					ic = r.queryIC(ctx)
+					r.dbRunner.Run(ctx, ic)
+				}
+			}
+		}()
+	}
 }
 
-// close releases the connection pool.
+// queryIC acquires a connection and queries InstanceContext for the per-DB runner.
+func (r *instanceRunner) queryIC(ctx context.Context) collector.InstanceContext {
+	conn, err := r.pool.Acquire(ctx)
+	if err != nil {
+		r.logger.Warn("failed to acquire conn for db runner IC query", "err", err)
+		return collector.InstanceContext{}
+	}
+	defer conn.Release()
+
+	ic, err := queryInstanceContext(ctx, conn.Conn())
+	if err != nil {
+		r.logger.Warn("failed to query IC for db runner", "err", err)
+		return collector.InstanceContext{}
+	}
+	return ic
+}
+
+// close releases the connection pool and per-DB pools.
 func (r *instanceRunner) close() {
+	if r.dbRunner != nil {
+		r.dbRunner.Close()
+	}
 	if r.pool != nil {
 		r.pool.Close()
 	}
