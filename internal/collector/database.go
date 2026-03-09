@@ -141,10 +141,10 @@ func collectFunctionStats(ctx context.Context, q Queryer, dbName string) ([]Metr
 func collectSequences(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const seqSQL = `
 		SELECT schemaname, sequencename, last_value, max_value, increment_by,
-		       CASE WHEN max_value > 0
+		       COALESCE(CASE WHEN max_value > 0 AND last_value IS NOT NULL
 		            THEN ROUND((last_value::numeric / max_value * 100), 2)
 		            ELSE 0
-		       END AS pct_used
+		       END, 0) AS pct_used
 		FROM pg_sequences
 		ORDER BY pct_used DESC
 		LIMIT 50`
@@ -310,9 +310,9 @@ func collectBloat(ctx context.Context, q Queryer, dbName string) ([]MetricPoint,
 				FROM (
 					SELECT
 						schemaname, tablename, hdr, ma, bs,
-						SUM((1-stanullfrac)*stawidth) AS datawidth,
-						MAX(stanullfrac) AS maxfracsum,
-						hdr+(1+(COUNT(CASE WHEN stanullfrac>0 THEN 1 END)*8)/bitlength) AS nullhdr
+						SUM((1-null_frac)*avg_width) AS datawidth,
+						MAX(null_frac) AS maxfracsum,
+						hdr+(1+(COUNT(CASE WHEN null_frac>0 THEN 1 END)*8)/bitlength) AS nullhdr
 					FROM pg_stats CROSS JOIN constants
 					LEFT JOIN (SELECT 8 AS bitlength) bl ON true
 					GROUP BY 1,2,3,4,5
