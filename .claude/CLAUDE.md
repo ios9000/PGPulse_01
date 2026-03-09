@@ -203,8 +203,8 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-M8_07 — Deferred UI + Small Fixes (plan history, settings timeline, app_name, lint fix)
-See: docs/iterations/M8_07_03092026_deferred-ui/
+M8_08 — Logical Replication Monitoring (sub-collector + API + frontend)
+See: docs/iterations/M8_08_03092026_logical-repl/
 
 ### What Was Just Completed
 M8_03 — Instance Lister Fix + Session Kill API + ML Model Persistence.
