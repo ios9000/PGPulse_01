@@ -486,3 +486,60 @@ export interface DatabaseMetrics {
   unlogged_count: number
   partition_count: number
 }
+
+// --- Session Kill types (M8_01) ---
+
+export interface SessionKillResult {
+  ok: boolean
+  error?: string
+  note?: string
+}
+
+// --- Query Plan types (M8_01) ---
+
+export interface ExplainRequest {
+  database: string
+  query: string
+  analyze: boolean
+  buffers: boolean
+}
+
+export interface ExplainResponse {
+  plan_json: PlanNode[]
+  execution_time_ms?: number
+  planning_time_ms?: number
+}
+
+export interface PlanNode {
+  'Node Type': string
+  'Relation Name'?: string
+  'Alias'?: string
+  'Startup Cost': number
+  'Total Cost': number
+  'Plan Rows': number
+  'Actual Rows'?: number
+  'Actual Total Time'?: number
+  'Shared Hit Blocks'?: number
+  'Shared Read Blocks'?: number
+  Plans?: PlanNode[]
+  [key: string]: unknown
+}
+
+// --- Settings Diff types (M8_01) ---
+
+export interface SettingEntry {
+  name: string
+  category: string
+  value_a?: string
+  value_b?: string
+  unit?: string
+}
+
+export interface SettingsDiffResponse {
+  instance_a: { id: string; name: string }
+  instance_b: { id: string; name: string }
+  changed: SettingEntry[]
+  only_in_a: SettingEntry[]
+  only_in_b: SettingEntry[]
+  matching_count: number
+}

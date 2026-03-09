@@ -16,7 +16,17 @@
       "Bash(git push:*)",
       "Bash(golangci-lint run:*)",
       "Bash(cp:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(node:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx vite:*)",
+      "Bash(xxd:*)",
+      "Bash(awk NR==119,NR==124:*)",
+      "Bash(sed:*)",
+      "Bash(npm run:*)",
+      "Bash(python3:*)",
+      "Bash(claude:*)"
     ]
   }
 }

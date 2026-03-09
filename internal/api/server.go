@@ -13,6 +13,8 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/plans"
+	"github.com/ios9000/PGPulse_01/internal/settings"
 	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
@@ -43,6 +45,8 @@ type APIServer struct {
 	alertingCfg       config.AlertingConfig
 	connProvider      InstanceConnProvider      // nil until SetConnProvider called
 	instanceStore     storage.InstanceStore     // nil when no storage DSN
+	planStore         *plans.PGPlanStore        // nil when plan capture disabled
+	snapshotStore     *settings.PGSnapshotStore // nil when settings snapshot disabled
 }
 
 // New creates an APIServer. jwtSvc and userStore are nil when auth is disabled.
@@ -84,6 +88,16 @@ func New(cfg config.Config, store collector.MetricStore, pool Pinger,
 // orchestrator are created.
 func (s *APIServer) SetConnProvider(cp InstanceConnProvider) {
 	s.connProvider = cp
+}
+
+// SetPlanStore sets the plan capture store for plan API endpoints.
+func (s *APIServer) SetPlanStore(ps *plans.PGPlanStore) {
+	s.planStore = ps
+}
+
+// SetSnapshotStore sets the settings snapshot store for settings API endpoints.
+func (s *APIServer) SetSnapshotStore(ss *settings.PGSnapshotStore) {
+	s.snapshotStore = ss
 }
 
 // Routes builds the chi router with all middleware and endpoints.
@@ -130,6 +144,24 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/cluster", s.handleClusterMetrics)
 				r.Get("/instances/{id}/databases", s.handleListDatabases)
 				r.Get("/instances/{id}/databases/{dbname}/metrics", s.handleGetDatabaseMetrics)
+
+				// Plan capture routes (M8_02).
+				r.Get("/instances/{id}/plans", s.handleListPlans)
+				r.Get("/instances/{id}/plans/regressions", s.handleListRegressions)
+				r.Get("/instances/{id}/plans/{plan_id}", s.handleGetPlan)
+
+				// Settings snapshot routes (M8_02).
+				r.Get("/instances/{id}/settings/history", s.handleSettingsHistory)
+				r.Get("/instances/{id}/settings/diff", s.handleSettingsDiff)
+				r.Get("/instances/{id}/settings/latest", s.handleSettingsLatest)
+				r.Get("/instances/{id}/settings/pending-restart", s.handleSettingsPendingRestart)
+
+				// Plan/settings mutation — require instance_management permission.
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequirePermission(auth.PermInstanceManagement, writeErrorRaw))
+					r.Post("/instances/{id}/plans/capture", s.handleManualCapture)
+					r.Post("/instances/{id}/settings/snapshot", s.handleSettingsManualSnapshot)
+				})
 
 				// Alert routes (only when alerting enabled).
 				if s.alertRuleStore != nil {
@@ -189,6 +221,19 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/cluster", s.handleClusterMetrics)
 				r.Get("/instances/{id}/databases", s.handleListDatabases)
 				r.Get("/instances/{id}/databases/{dbname}/metrics", s.handleGetDatabaseMetrics)
+
+				// Plan capture routes (M8_02).
+				r.Get("/instances/{id}/plans", s.handleListPlans)
+				r.Get("/instances/{id}/plans/regressions", s.handleListRegressions)
+				r.Get("/instances/{id}/plans/{plan_id}", s.handleGetPlan)
+				r.Post("/instances/{id}/plans/capture", s.handleManualCapture)
+
+				// Settings snapshot routes (M8_02).
+				r.Get("/instances/{id}/settings/history", s.handleSettingsHistory)
+				r.Get("/instances/{id}/settings/diff", s.handleSettingsDiff)
+				r.Get("/instances/{id}/settings/latest", s.handleSettingsLatest)
+				r.Get("/instances/{id}/settings/pending-restart", s.handleSettingsPendingRestart)
+				r.Post("/instances/{id}/settings/snapshot", s.handleSettingsManualSnapshot)
 
 				// Alert routes (only when alerting enabled).
 				if s.alertRuleStore != nil {

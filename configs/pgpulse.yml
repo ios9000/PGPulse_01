@@ -20,20 +20,20 @@ storage:
 # When disabled (default), all API endpoints are open (no token required).
 # When enabled, a storage DSN is required and jwt_secret must be ≥ 32 characters.
 auth:
-  enabled: false
+  enabled: true
   jwt_secret: "change-me-to-at-least-32-characters-long"
   access_token_ttl: 24h
   refresh_token_ttl: 168h   # 7 days
   bcrypt_cost: 12
   initial_admin:
     username: "admin"
-    password: "changeme"  # hashed on startup; change immediately
+    password: "222wwwTTT"  # hashed on startup; change immediately
 
 # Alerting — threshold-based alert rules with hysteresis.
 # When enabled, evaluates collected metrics against rules and fires alerts.
 # Requires storage.dsn to be configured.
 alerting:
-  enabled: false
+  enabled: true
   default_consecutive_count: 3    # breaches before firing (default hysteresis)
   default_cooldown_minutes: 15    # suppress repeats for this duration
   default_channels: ["email"]     # notification channels for rules without explicit channels
@@ -57,19 +57,7 @@ alerting:
 # Each instance requires a user with the pg_monitor role (never superuser).
 # Create with: CREATE USER pgpulse_monitor WITH PASSWORD '...' IN ROLE pg_monitor;
 instances:
-  - id: "prod-primary"
-    dsn: "postgres://pgpulse_monitor:${MONITOR_PASSWORD}@db-primary.example.com:5432/postgres?sslmode=require"
+  - id: "local-dev"
+    name: "MyPostgreSQL16"
+    dsn: "postgres://pgpulse_monitor:111wwwRRR@localhost:5432/postgres?sslmode=disable"
     enabled: true
-    intervals:
-      high:   10s    # connections, cache, wait events, locks, long transactions
-      medium: 60s    # replication, statements, checkpoint, progress collectors
-      low:    300s   # server info, database sizes, settings, extensions, IO stats
-
-  - id: "prod-replica"
-    dsn: "postgres://pgpulse_monitor:${MONITOR_PASSWORD}@db-replica.example.com:5432/postgres?sslmode=require"
-    enabled: true
-    # intervals default to 10s / 60s / 300s when omitted
-
-  - id: "staging"
-    dsn: "postgres://pgpulse_monitor:secret@db-staging.internal:5432/postgres?sslmode=prefer"
-    enabled: false  # disabled instances are skipped at startup

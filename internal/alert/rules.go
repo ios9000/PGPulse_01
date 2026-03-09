@@ -141,5 +141,21 @@ func BuiltinRules() []Rule {
 			Severity: SeverityCritical, Source: SourceBuiltin, Enabled: false,
 			ConsecutiveCount: 3, CooldownMinutes: 60,
 		},
+
+		// --- ML Anomaly Detection (M8_02) ---
+		{
+			ID: "ml_anomaly_warning", Name: "ML Anomaly Warning",
+			Description: "ML anomaly detected: Z-score exceeds warning threshold.",
+			Metric: "anomaly.", Operator: OpGreater, Threshold: 3.0,
+			Severity: SeverityWarning, Source: SourceBuiltin, Enabled: true,
+			ConsecutiveCount: 1, CooldownMinutes: 15,
+		},
+		{
+			ID: "ml_anomaly_critical", Name: "ML Anomaly Critical",
+			Description: "Critical ML anomaly: Z-score exceeds critical threshold.",
+			Metric: "anomaly.", Operator: OpGreater, Threshold: 5.0,
+			Severity: SeverityCritical, Source: SourceBuiltin, Enabled: true,
+			ConsecutiveCount: 1, CooldownMinutes: 5,
+		},
 	}
 }

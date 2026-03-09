@@ -1,3 +1,66 @@
+## [M8_01] — 2026-03-09 — P1 Features: Session Kill, Query Plans, Settings Diff
+
+### Added
+- **Session Kill**: Cancel or terminate PostgreSQL backend sessions from the UI
+  - `POST /api/v1/instances/{id}/sessions/{pid}/cancel` — pg_cancel_backend (dba/super_admin only)
+  - `POST /api/v1/instances/{id}/sessions/{pid}/terminate` — pg_terminate_backend (dba/super_admin only)
+  - `session_audit_log` table (migration 007) — every operation logged with operator, PID, result
+  - SessionKillButtons component with confirmation modals (cancel = neutral, terminate = destructive red)
+- **On-Demand Query Plans**: Run EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) against any database
+  - `POST /api/v1/instances/{id}/explain` — one-shot pgx.Conn, 30s statement_timeout, application_name=pgpulse_explain
+  - `SubstituteDatabase()` helper for DSN database substitution (key=value and postgres:// formats)
+  - QueryPlanViewer page: database selector, SQL textarea, ANALYZE/BUFFERS toggles, recursive plan tree with cost/row discrepancy highlighting (>10x yellow, >100x red), raw JSON toggle
+- **Cross-Instance Settings Diff**: Compare pg_settings between any two monitored instances
+  - `GET /api/v1/settings/compare?instance_a=X&instance_b=Y` — all authenticated users (viewer OK)
+  - Concurrent fetch via errgroup (10s timeout per instance)
+  - Noise filter: excludes server_version, data_directory, lc_* etc. by default (?show_all=true to override)
+  - SettingsDiff page: dual instance selectors, accordion groups by category, CSV export
+- **4 new API endpoints** (37 total)
+- **6 new TypeScript interfaces**: SessionKillResult, ExplainRequest, ExplainResponse, PlanNode, SettingEntry, SettingsDiffResponse
+- **Settings Diff nav item** in sidebar
+
+### Changed
+- `server.go`: 4 new routes registered in both auth-enabled and auth-disabled branches
+- `ServerDetail.tsx`: Added "Explain Query" link to instance pages
+- `App.tsx`: 2 new routes — /servers/:serverId/explain and /settings/diff
+- `Sidebar.tsx`: Added Settings Diff with GitCompareArrows icon
+
+### Notes
+- All three features are stateless (no new collection loops or background workers)
+- EXPLAIN query body intentionally NOT parameterized (cannot use $1 — auth gate is protection, documented in code)
+- Migration is 007 (not 006 as design doc specified — 006 already taken by instances table)
+- Backend: 3 new files, 1 modified — go build, go vet, go test, golangci-lint all pass (0 issues)
+- Frontend: 3 new files, 4 modified — tsc 0 errors, vite build success
+- Pre-existing lint error in Administration.tsx unrelated to M8_01
+
+## [M7_01] — 2026-03-08 — Per-Database Analysis
+
+### Added
+- **DBCollector + Queryer interfaces** appended to collector.go (parallel to Collector — not merged)
+- **DBRunner** (internal/orchestrator/db_runner.go): dynamic pool map per database, TTL eviction at 3 missed cycles, semaphore fan-out (MaxConcurrentDBs=5), 5 internal telemetry MetricPoints per cycle
+- **16 DB sub-collectors** (internal/collector/database.go): bloat CTE, vacuum need, index usage, unused indexes, schema sizes, TOAST sizes, partition hierarchy, large objects, sequences, functions, catalog sizes, autovacuum options, table sizes, cache hit per table, unlogged objects
+- **Discovery via pg_database** with include_databases / exclude_databases glob filters
+- **New API endpoints**: GET /instances/:id/databases, GET /instances/:id/databases/:dbname/metrics
+- **DatabaseDetail.tsx** page: Tables, Vacuum Health, Indexes, Schema Sizes (ECharts bar), Large Objects, Unlogged, Sequences, Functions
+- **IncludeDatabases, ExcludeDatabases, MaxConcurrentDBs** fields in InstanceConfig
+- ~69/76 PGAM queries ported
+
+## [M6_01] — 2026-03-05 — Agent Mode + Cluster Providers
+
+### Added
+- **pgpulse-agent binary** (cmd/pgpulse-agent/): Linux-only OS metrics via procfs/sysfs
+- **internal/agent/**: CPU, memory, disk, diskstats, load, uptime, os-release collectors with //go:build linux
+- **internal/cluster/patroni/**: Patroni REST API + patronictl provider
+- **internal/cluster/etcd/**: ETCD v3 status + health provider
+- **New API endpoints**: GET /instances/:id/os, GET /instances/:id/cluster
+- **Frontend sections**: OSSystemSection, DiskSection, IOStatsSection, ClusterSection
+
+## [M5_07] — 2026-03-04 — User Management Enhancement
+
+### Added
+- **DELETE /api/v1/auth/users/{id}** — Delete user (user_management permission)
+- **PUT /api/v1/auth/users/{id}/password** — Admin reset password (user_management permission)
+
 ## [M5_06] — 2026-03-04 — Stabilization + Instance Management
 
 ### Added

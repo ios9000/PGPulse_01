@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useInstances } from '@/hooks/useInstances'
 import { useCurrentMetrics, useMetricsHistory } from '@/hooks/useMetrics'
 import { HeaderCard } from '@/components/server/HeaderCard'
@@ -83,6 +83,15 @@ export function ServerDetail() {
         port={instance?.port ?? 0}
         currentMetrics={currentMetrics}
       />
+
+      <div className="flex items-center gap-3">
+        <Link
+          to={`/servers/${serverId}/explain`}
+          className="rounded-md border border-pgp-border bg-pgp-bg-card px-3 py-1.5 text-sm text-pgp-text-secondary hover:bg-pgp-bg-hover hover:text-pgp-text-primary"
+        >
+          Explain Query
+        </Link>
+      </div>
 
       <ProgressSection instanceId={serverId} />
 

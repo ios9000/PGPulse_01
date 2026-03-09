@@ -203,35 +203,44 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-
-[UPDATED BY DEVELOPER BEFORE EACH TEAM SESSION]
-
-   M7_01: Per-Database Analysis
-   See: docs/iterations/M7_01_03082026_per-database-analysis/
+M8_02 — Auto-Capture Plans + Temporal Settings Diff + ML Anomaly Detection
+See: docs/iterations/M8_02_03092026_plan-capture-settings-ml/
 
 ### What Was Just Completed
-M6_01 — OS Agent. Ported all 19 PGAM OS/cluster queries (Q4–Q8, Q22–Q35) from
-COPY-TO-PROGRAM to native Go. New pgpulse-agent binary reads procfs/sysfs directly
-(//go:build linux, with //go:build !linux stubs — dev machine is Windows).
-Patroni: FallbackProvider(RESTProvider → ShellProvider). ETCD: same pattern.
-New packages: internal/agent/, internal/cluster/patroni/, internal/cluster/etcd/.
-New collectors: os.go, cluster.go. InstanceConfig extended with AgentURL,
-PatroniURL, PatroniConfig, PatroniCtlPath, ETCDEndpoints, ETCDCtlPath.
-Frontend: DiskSection, IOStatsSection, ClusterSection added to ServerDetail.
-DBRunner wired into Runner with 5-minute ticker. Build: go build ✅ go vet ✅
-golangci-lint 0 issues ✅ npm run build ✅. M6 complete.
+M7_01 — Per-Database Analysis. Ported analiz_db.php Q2–Q18 (16 sub-functions,
+Q1 skipped as duplicate). New DBCollector + Queryer interfaces appended to
+collector.go. New DBRunner (internal/orchestrator/db_runner.go): dynamic pool map
+per database, TTL eviction at 3 missed cycles, semaphore fan-out (MaxConcurrentDBs=5),
+5 internal telemetry MetricPoints per cycle. Discovery via pg_database +
+include_databases / exclude_databases glob filters. New InstanceConfig fields:
+IncludeDatabases, ExcludeDatabases, MaxConcurrentDBs. New DatabaseCollector covering:
+bloat CTE, vacuum need analysis, index usage, unused indexes, schema sizes, TOAST
+sizes, partition hierarchy, large objects, sequences, functions, catalog sizes,
+autovacuum options, table sizes, cache hit per table, unlogged objects.
+New API: GET /instances/:id/databases, GET /instances/:id/databases/:dbname/metrics.
+New frontend: DatabaseDetail.tsx (/instances/:id/databases/:dbname) — Tables, Vacuum
+Health, Indexes, Schema Sizes (ECharts bar), Large Objects, Unlogged, Sequences,
+Functions sections. Database names in ServerDetail are clickable links.
+Build: go build ✅ go vet ✅ go test 14 packages ✅ golangci-lint 0 issues ✅
+npx tsc --noEmit 0 errors ✅. ~69/76 PGAM queries ported.
 
 ### What's Next
-M7_01 — Per-Database Analysis. Port analiz_db.php Q2–Q18 (18 queries) to Go.
-New DBCollector interface + Queryer abstraction (already added to collector.go above).
-New DBRunner (internal/orchestrator/db_runner.go): dynamic pool map per database,
-TTL eviction at 3 missed cycles, semaphore fan-out (MaxConcurrentDBs=5 default),
-5 internal telemetry MetricPoints per cycle. Discovery: pg_database WHERE NOT
-datistemplate AND datallowconn → include_databases / exclude_databases glob filters
-from config. Per-DB pool MaxConns=2, statement_timeout=60s. Partial success in
-CollectDB — one failing sub-function must not block the rest. New API endpoints:
-GET /instances/:id/databases, GET /instances/:id/databases/:dbname/metrics.
-New frontend page: DatabaseAnalysisPage (/instances/:id/databases/:dbname) with
-Tables, Vacuum Health, Indexes, Schema Sizes (ECharts bar), Large Objects, Unlogged,
-Sequences, Functions sections. Database names in ServerDetail become clickable links.
-See: docs/iterations/M7_01_03082026_per-database-analysis/
+M8_01 — P1 Features. Three stateless operational features:
+1. Session Kill — POST /instances/:id/sessions/:pid/cancel and /terminate.
+   Roles: dba + super_admin only. Audit log: session_audit_log table (migration 006).
+   Frontend: kill buttons on activity rows in ServerDetail with confirmation modals.
+2. On-demand Query Plans — POST /instances/:id/explain. Accepts database + query +
+   analyze + buffers flags. Opens one-shot pgx.Conn per request (not pool), runs
+   EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON), returns plan_json + timing.
+   statement_timeout=30s, application_name=pgpulse_explain. Roles: dba + super_admin.
+   Frontend: QueryPlanViewer.tsx with recursive plan tree, cost/row discrepancy
+   highlighting, raw JSON toggle.
+3. Cross-instance Settings Diff — GET /settings/compare?instance_a=X&instance_b=Y.
+   Fetches pg_settings from both instances concurrently (errgroup, 10s timeout).
+   Returns changed / only_in_a / only_in_b / matching_count. Noise-filtered by
+   default (server_version, data_directory, lc_* etc). All roles including viewer.
+   Frontend: SettingsDiff.tsx — accordion grouped by category, CSV export.
+New files: internal/api/sessions.go, plans.go, settings_diff.go,
+migrations/006_session_audit_log.sql, SessionKillButtons.tsx,
+QueryPlanViewer.tsx, SettingsDiff.tsx.
+See: docs/iterations/M8_01_03082026_p1-features/
