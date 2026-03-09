@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/ios9000/PGPulse_01/internal/alert"
 	"github.com/ios9000/PGPulse_01/internal/alert/notifier"
@@ -18,7 +19,10 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/orchestrator"
+	"github.com/ios9000/PGPulse_01/internal/plans"
+	"github.com/ios9000/PGPulse_01/internal/settings"
 	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
@@ -76,6 +80,56 @@ func main() {
 		instanceStore := storage.NewPGInstanceStore(pgPool)
 		seedInstancesFromConfig(ctx, instanceStore, cfg.Instances, logger)
 
+		// M8_02: Plan capture store + collector.
+		planStore := plans.NewPGPlanStore(pgPool)
+		planCollector := plans.NewCollector(plans.CaptureConfig{
+			Enabled:               cfg.PlanCapture.Enabled,
+			DurationThresholdMs:   cfg.PlanCapture.DurationThresholdMs,
+			DedupWindowSeconds:    cfg.PlanCapture.DedupWindowSeconds,
+			ScheduledTopNCount:    cfg.PlanCapture.ScheduledTopNCount,
+			ScheduledTopNInterval: cfg.PlanCapture.ScheduledTopNInterval,
+			MaxPlanBytes:          cfg.PlanCapture.MaxPlanBytes,
+			RetentionDays:         cfg.PlanCapture.RetentionDays,
+		}, planStore)
+		_ = planCollector // used later by orchestrator integration
+
+		// M8_02: Plan retention worker.
+		if cfg.PlanCapture.Enabled && cfg.PlanCapture.RetentionDays > 0 {
+			retentionWorker := plans.NewRetentionWorker(pgPool, cfg.PlanCapture.RetentionDays)
+			go retentionWorker.Run(ctx)
+			logger.Info("plan retention worker started", "retention_days", cfg.PlanCapture.RetentionDays)
+		}
+
+		// M8_02: Settings snapshot store + collector.
+		snapshotStore := settings.NewPGSnapshotStore(pgPool)
+		snapshotCollector := settings.NewSnapshotCollector(settings.SnapshotConfig{
+			Enabled:           cfg.SettingsSnapshot.Enabled,
+			ScheduledInterval: cfg.SettingsSnapshot.ScheduledInterval,
+			CaptureOnStartup:  cfg.SettingsSnapshot.CaptureOnStartup,
+			RetentionDays:     cfg.SettingsSnapshot.RetentionDays,
+		}, snapshotStore)
+		_ = snapshotCollector // used later by orchestrator integration
+
+		// M8_02: ML anomaly detector bootstrap.
+		var mlDetector *ml.Detector
+		if cfg.ML.Enabled {
+			mlMetrics := make([]ml.MetricConfig, len(cfg.ML.Metrics))
+			for i, m := range cfg.ML.Metrics {
+				mlMetrics[i] = ml.MetricConfig{Key: m.Key, Period: m.Period, Enabled: m.Enabled}
+			}
+			lister := &configInstanceLister{instances: cfg.Instances}
+			// AlertEvaluator will be set after alert pipeline is initialized.
+			// Use a no-op for now; reassigned below if alerting is enabled.
+			mlDetector = ml.NewDetector(ml.DetectorConfig{
+				Enabled:            cfg.ML.Enabled,
+				ZScoreWarn:         cfg.ML.ZScoreWarn,
+				ZScoreCrit:         cfg.ML.ZScoreCrit,
+				AnomalyLogic:       cfg.ML.AnomalyLogic,
+				Metrics:            mlMetrics,
+				CollectionInterval: cfg.ML.CollectionInterval,
+			}, store, lister, &noOpAlertEvaluator{})
+		}
+
 		// Alert pipeline setup.
 		var (
 			orchEvaluator     orchestrator.AlertEvaluator  = &orchestrator.NoOpAlertEvaluator{}
@@ -122,6 +176,24 @@ func main() {
 				"channels", notifierRegistry.Names())
 		}
 
+		// M8_02: Upgrade ML detector to dispatch through the real alert pipeline.
+		if mlDetector != nil && apiEvaluator != nil {
+			mlDetector.SetAlertEvaluator(alert.NewMetricAlertAdapter(apiEvaluator))
+			logger.Info("ML detector wired to alert pipeline")
+		}
+
+		// M8_02: Bootstrap ML detector now that alert pipeline is ready.
+		if mlDetector != nil {
+			bootstrapCtx, bootstrapCancel := context.WithTimeout(ctx, 30*time.Second)
+			if err := mlDetector.Bootstrap(bootstrapCtx); err != nil {
+				logger.Warn("ML bootstrap incomplete", "err", err)
+			}
+			bootstrapCancel()
+			logger.Info("ML anomaly detector initialized")
+		}
+
+		// M8_02: Wire plan + settings stores into API server (done via setters after creation).
+
 		// Wire auth when enabled — requires a storage DSN (validated in config).
 		if cfg.Auth.Enabled {
 			userStore := auth.NewPGUserStore(pgPool)
@@ -157,6 +229,8 @@ func main() {
 			jwtSvc := auth.NewJWTService(cfg.Auth.JWTSecret, refreshSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 			apiServer := api.New(cfg, store, pinger, jwtSvc, userStore, logger,
 				alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore)
+			apiServer.SetPlanStore(planStore)
+			apiServer.SetSnapshotStore(snapshotStore)
 			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
 			return
 		}
@@ -164,6 +238,8 @@ func main() {
 		// Auth disabled with storage.
 		apiServer := api.New(cfg, store, pinger, nil, nil, logger,
 			alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore)
+		apiServer.SetPlanStore(planStore)
+		apiServer.SetSnapshotStore(snapshotStore)
 		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
 	} else {
 		store = orchestrator.NewLogStore(logger)
@@ -298,4 +374,27 @@ func parseLogLevel(s string) (slog.Level, error) {
 	default:
 		return slog.LevelInfo, fmt.Errorf("unknown log level %q", s)
 	}
+}
+
+// configInstanceLister implements ml.InstanceLister using the YAML config instance list.
+type configInstanceLister struct {
+	instances []config.InstanceConfig
+}
+
+func (l *configInstanceLister) ListInstanceIDs(_ context.Context) ([]string, error) {
+	ids := make([]string, 0, len(l.instances))
+	for _, inst := range l.instances {
+		enabled := inst.Enabled == nil || *inst.Enabled
+		if enabled {
+			ids = append(ids, inst.ID)
+		}
+	}
+	return ids, nil
+}
+
+// noOpAlertEvaluator discards anomaly alerts when alerting is disabled.
+type noOpAlertEvaluator struct{}
+
+func (n *noOpAlertEvaluator) Evaluate(_ context.Context, _ string, _ float64, _ map[string]string) error {
+	return nil
 }

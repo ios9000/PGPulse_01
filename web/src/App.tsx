@@ -12,6 +12,8 @@ import { AlertRules } from '@/pages/AlertRules'
 import { Administration } from '@/pages/Administration'
 import { UsersPage } from '@/pages/admin/UsersPage'
 import { Login } from '@/pages/Login'
+import { QueryPlanViewer } from '@/pages/QueryPlanViewer'
+import { SettingsDiff } from '@/pages/SettingsDiff'
 import { NotFound } from '@/pages/NotFound'
 import { useAuthStore } from '@/stores/authStore'
 import { pgpulseTheme } from '@/lib/echartsTheme'
@@ -34,6 +36,8 @@ export function App() {
           <Route path="fleet" element={<FleetOverview />} />
           <Route path="servers/:serverId" element={<ServerDetail />} />
           <Route path="servers/:serverId/databases/:dbName" element={<DatabaseDetail />} />
+          <Route path="servers/:serverId/explain" element={<QueryPlanViewer />} />
+          <Route path="settings/diff" element={<SettingsDiff />} />
           <Route path="alerts" element={<AlertsDashboard />} />
           <Route path="alerts/rules" element={<AlertRules />} />
           <Route path="admin" element={<Administration />} />

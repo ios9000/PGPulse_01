@@ -4,11 +4,14 @@ import "time"
 
 // Config is the top-level PGPulse configuration.
 type Config struct {
-	Server    ServerConfig     `koanf:"server"`
-	Storage   StorageConfig    `koanf:"storage"`
-	Auth      AuthConfig       `koanf:"auth"`
-	Alerting  AlertingConfig   `koanf:"alerting"`
-	Instances []InstanceConfig `koanf:"instances"`
+	Server           ServerConfig           `koanf:"server"`
+	Storage          StorageConfig          `koanf:"storage"`
+	Auth             AuthConfig             `koanf:"auth"`
+	Alerting         AlertingConfig         `koanf:"alerting"`
+	PlanCapture      PlanCaptureConfig      `koanf:"plan_capture"`
+	SettingsSnapshot SettingsSnapshotConfig `koanf:"settings_snapshot"`
+	ML               MLConfig               `koanf:"ml"`
+	Instances        []InstanceConfig       `koanf:"instances"`
 }
 
 // AlertingConfig holds alerting engine settings.
@@ -114,4 +117,40 @@ type IntervalConfig struct {
 	High   time.Duration `koanf:"high"`   // default 10s  — connections, locks, wait events
 	Medium time.Duration `koanf:"medium"` // default 60s  — replication, statements, checkpoint
 	Low    time.Duration `koanf:"low"`    // default 300s — server info, sizes, settings
+}
+
+// PlanCaptureConfig holds auto-capture plan settings (M8_02).
+type PlanCaptureConfig struct {
+	Enabled               bool          `koanf:"enabled"`
+	DurationThresholdMs   int64         `koanf:"duration_threshold_ms"`
+	DedupWindowSeconds    int           `koanf:"dedup_window_seconds"`
+	ScheduledTopNCount    int           `koanf:"scheduled_topn_count"`
+	ScheduledTopNInterval time.Duration `koanf:"scheduled_topn_interval"`
+	MaxPlanBytes          int           `koanf:"max_plan_bytes"`
+	RetentionDays         int           `koanf:"retention_days"`
+}
+
+// SettingsSnapshotConfig holds temporal settings snapshot settings (M8_02).
+type SettingsSnapshotConfig struct {
+	Enabled           bool          `koanf:"enabled"`
+	ScheduledInterval time.Duration `koanf:"scheduled_interval"`
+	CaptureOnStartup  bool          `koanf:"capture_on_startup"`
+	RetentionDays     int           `koanf:"retention_days"`
+}
+
+// MLMetricConfig defines a single metric to track with ML anomaly detection.
+type MLMetricConfig struct {
+	Key     string `koanf:"key"`
+	Period  int    `koanf:"period"`
+	Enabled bool   `koanf:"enabled"`
+}
+
+// MLConfig holds ML anomaly detection settings (M8_02).
+type MLConfig struct {
+	Enabled            bool             `koanf:"enabled"`
+	ZScoreWarn         float64          `koanf:"zscore_threshold_warning"`
+	ZScoreCrit         float64          `koanf:"zscore_threshold_critical"`
+	AnomalyLogic       string           `koanf:"anomaly_logic"`
+	CollectionInterval time.Duration    `koanf:"collection_interval"`
+	Metrics            []MLMetricConfig `koanf:"metrics"`
 }
