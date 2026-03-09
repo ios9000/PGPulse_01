@@ -4,6 +4,7 @@ import { TopBar } from './TopBar'
 import { StatusBar } from './StatusBar'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+import { ToastContainer } from '@/components/ui/Toast'
 
 export function AppShell() {
   const collapsed = useLayoutStore((s) => s.sidebarCollapsed)
@@ -24,6 +25,7 @@ export function AppShell() {
         </main>
         <StatusBar />
       </div>
+      <ToastContainer />
     </div>
   )
 }

@@ -88,6 +88,11 @@ func validate(cfg *Config) error {
 		return err
 	}
 
+	// ML forecast defaults.
+	if cfg.ML.Forecast.AlertMinConsecutive == 0 {
+		cfg.ML.Forecast.AlertMinConsecutive = 3
+	}
+
 	if len(cfg.Instances) == 0 {
 		return fmt.Errorf("at least one instance must be configured")
 	}

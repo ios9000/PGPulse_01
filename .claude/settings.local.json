@@ -27,7 +27,8 @@
       "Bash(npm run:*)",
       "Bash(python3:*)",
       "Bash(claude:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git status:*)"
     ]
   }
 }

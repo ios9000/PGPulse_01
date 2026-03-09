@@ -1,6 +1,8 @@
+import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useInstances } from '@/hooks/useInstances'
 import { useCurrentMetrics, useMetricsHistory } from '@/hooks/useMetrics'
+import { useForecastChart } from '@/hooks/useForecastChart'
 import { HeaderCard } from '@/components/server/HeaderCard'
 import { KeyMetricsRow } from '@/components/server/KeyMetricsRow'
 import { ReplicationSection } from '@/components/server/ReplicationSection'
@@ -16,13 +18,17 @@ import { IOStatsSection } from '@/components/server/IOStatsSection'
 import { ClusterSection } from '@/components/server/ClusterSection'
 import { TimeRangeSelector } from '@/components/shared/TimeRangeSelector'
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart'
+import { InstanceSettingsDiff } from '@/components/SettingsDiff'
 import { Spinner } from '@/components/ui/Spinner'
-import { formatPercent } from '@/lib/formatters'
+import { formatPercent, formatBytes } from '@/lib/formatters'
+
+type TabKey = 'overview' | 'settings-diff'
 
 export function ServerDetail() {
   const { serverId } = useParams()
   const { data: instances } = useInstances()
   const { data: currentMetrics } = useCurrentMetrics(serverId)
+  const [activeTab, setActiveTab] = useState<TabKey>('overview')
 
   const maxConns = currentMetrics?.metrics?.['pgpulse.connections.max_connections']?.value
 
@@ -36,7 +42,70 @@ export function ServerDetail() {
     'pgpulse.cache.hit_ratio',
   ])
 
+  const { data: txnHistory, isLoading: txnLoading } = useMetricsHistory(serverId, [
+    'pgpulse.transactions.commit_ratio_pct',
+  ])
+
+  const { data: replLagHistory, isLoading: replLagLoading } = useMetricsHistory(serverId, [
+    'pgpulse.replication.lag.replay_bytes',
+  ])
+
+  // Forecast overlays
+  const connForecast = useForecastChart(serverId ?? '', 'pgpulse.connections.active')
+  const cacheForecast = useForecastChart(serverId ?? '', 'pgpulse.cache.hit_ratio')
+  const txnForecast = useForecastChart(serverId ?? '', 'pgpulse.transactions.commit_ratio_pct')
+  const replLagForecast = useForecastChart(serverId ?? '', 'pgpulse.replication.lag.replay_bytes')
+
   const instance = instances?.find((i) => i.id === serverId)
+
+  const connSeries = useMemo(() => {
+    if (!connHistory?.series) return []
+    return Object.entries(connHistory.series).map(([key, points]) => {
+      const shortName = key.replace('pgpulse.connections.', '')
+      const colors: Record<string, string> = {
+        active: '#3b82f6',
+        idle: '#94a3b8',
+        total: '#10b981',
+      }
+      return {
+        name: shortName,
+        data: points,
+        color: colors[shortName],
+        type: shortName === 'total' ? 'line' as const : 'area' as const,
+        dashed: shortName === 'total',
+      }
+    })
+  }, [connHistory])
+
+  const cacheSeries = useMemo(() => {
+    if (!cacheHistory?.series) return []
+    return Object.entries(cacheHistory.series).map(([key, points]) => ({
+      name: key.replace('pgpulse.cache.', ''),
+      data: points,
+      color: '#10b981',
+      type: 'area' as const,
+    }))
+  }, [cacheHistory])
+
+  const txnSeries = useMemo(() => {
+    if (!txnHistory?.series) return []
+    return Object.entries(txnHistory.series).map(([key, points]) => ({
+      name: key.replace('pgpulse.transactions.', ''),
+      data: points,
+      color: '#8b5cf6',
+      type: 'area' as const,
+    }))
+  }, [txnHistory])
+
+  const replLagSeries = useMemo(() => {
+    if (!replLagHistory?.series) return []
+    return Object.entries(replLagHistory.series).map(([key, points]) => ({
+      name: key.replace('pgpulse.replication.lag.', ''),
+      data: points,
+      color: '#f59e0b',
+      type: 'area' as const,
+    }))
+  }, [replLagHistory])
 
   if (!serverId) return null
 
@@ -48,32 +117,10 @@ export function ServerDetail() {
     )
   }
 
-  const connSeries = connHistory?.series
-    ? Object.entries(connHistory.series).map(([key, points]) => {
-        const shortName = key.replace('pgpulse.connections.', '')
-        const colors: Record<string, string> = {
-          active: '#3b82f6',
-          idle: '#94a3b8',
-          total: '#10b981',
-        }
-        return {
-          name: shortName,
-          data: points,
-          color: colors[shortName],
-          type: shortName === 'total' ? 'line' as const : 'area' as const,
-          dashed: shortName === 'total',
-        }
-      })
-    : []
-
-  const cacheSeries = cacheHistory?.series
-    ? Object.entries(cacheHistory.series).map(([key, points]) => ({
-        name: key.replace('pgpulse.cache.', ''),
-        data: points,
-        color: '#10b981',
-        type: 'area' as const,
-      }))
-    : []
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'settings-diff', label: 'Settings Diff' },
+  ]
 
   return (
     <div className="space-y-6">
@@ -93,57 +140,123 @@ export function ServerDetail() {
         </Link>
       </div>
 
-      <ProgressSection instanceId={serverId} />
-
-      <KeyMetricsRow currentMetrics={currentMetrics} />
-
-      <TimeRangeSelector />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
-          <h3 className="mb-3 text-sm font-medium text-pgp-text-secondary">Connections</h3>
-          <TimeSeriesChart
-            series={connSeries}
-            referenceLine={maxConns ? { value: maxConns, label: `max: ${maxConns}`, color: '#ef4444' } : undefined}
-            yAxisLabel="connections"
-            yAxisMin={0}
-            loading={connLoading}
-          />
-        </div>
-        <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
-          <h3 className="mb-3 text-sm font-medium text-pgp-text-secondary">Cache Hit Ratio</h3>
-          <TimeSeriesChart
-            series={cacheSeries}
-            referenceLine={{ value: 95, label: '95%', color: '#f59e0b' }}
-            yAxisLabel="%"
-            yAxisFormat={(v: number) => formatPercent(v, 0)}
-            yAxisMin={0}
-            yAxisMax={100}
-            loading={cacheLoading}
-          />
-        </div>
+      {/* Tab Bar */}
+      <div className="flex border-b border-pgp-border">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? 'border-b-2 border-pgp-accent text-pgp-accent'
+                : 'text-pgp-text-muted hover:text-pgp-text-secondary'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <ReplicationSection instanceId={serverId} />
+      {activeTab === 'overview' && (
+        <>
+          <ProgressSection instanceId={serverId} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <WaitEventsSection instanceId={serverId} />
-        <LongTransactionsTable instanceId={serverId} />
-      </div>
+          <KeyMetricsRow currentMetrics={currentMetrics} />
 
-      <StatementsSection instanceId={serverId} />
+          <TimeRangeSelector />
 
-      <LockTreeSection instanceId={serverId} />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+              <h3 className="mb-3 text-sm font-medium text-pgp-text-secondary">Connections</h3>
+              <TimeSeriesChart
+                series={connSeries}
+                referenceLine={maxConns ? { value: maxConns, label: `max: ${maxConns}`, color: '#ef4444' } : undefined}
+                yAxisLabel="connections"
+                yAxisMin={0}
+                loading={connLoading}
+                extraSeries={connForecast.extraSeries}
+                xAxisMax={connForecast.xAxisMax}
+                nowMarkLine={connForecast.hasForecast ? Date.now() : undefined}
+              />
+            </div>
+            <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+              <h3 className="mb-3 text-sm font-medium text-pgp-text-secondary">Cache Hit Ratio</h3>
+              <TimeSeriesChart
+                series={cacheSeries}
+                referenceLine={{ value: 95, label: '95%', color: '#f59e0b' }}
+                yAxisLabel="%"
+                yAxisFormat={(v: number) => formatPercent(v, 0)}
+                yAxisMin={0}
+                yAxisMax={100}
+                loading={cacheLoading}
+                extraSeries={cacheForecast.extraSeries}
+                xAxisMax={cacheForecast.xAxisMax}
+                nowMarkLine={cacheForecast.hasForecast ? Date.now() : undefined}
+              />
+            </div>
+          </div>
 
-      <InstanceAlerts instanceId={serverId} />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+              <h3 className="mb-3 text-sm font-medium text-pgp-text-secondary">Transaction Commit Ratio</h3>
+              <TimeSeriesChart
+                series={txnSeries}
+                yAxisLabel="%"
+                yAxisFormat={(v: number) => formatPercent(v, 0)}
+                yAxisMin={0}
+                yAxisMax={100}
+                loading={txnLoading}
+                extraSeries={txnForecast.extraSeries}
+                xAxisMax={txnForecast.xAxisMax}
+                nowMarkLine={txnForecast.hasForecast ? Date.now() : undefined}
+              />
+            </div>
+            <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+              <h3 className="mb-3 text-sm font-medium text-pgp-text-secondary">Replication Lag</h3>
+              <TimeSeriesChart
+                series={replLagSeries}
+                yAxisLabel="bytes"
+                yAxisFormat={(v: number) => formatBytes(v)}
+                yAxisMin={0}
+                loading={replLagLoading}
+                extraSeries={replLagForecast.extraSeries}
+                xAxisMax={replLagForecast.xAxisMax}
+                nowMarkLine={replLagForecast.hasForecast ? Date.now() : undefined}
+              />
+            </div>
+          </div>
 
-      <OSSystemSection instanceId={serverId} />
+          <ReplicationSection instanceId={serverId} />
 
-      <DiskSection instanceId={serverId} />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <WaitEventsSection instanceId={serverId} />
+            <LongTransactionsTable instanceId={serverId} />
+          </div>
 
-      <IOStatsSection instanceId={serverId} />
+          <StatementsSection instanceId={serverId} />
 
-      <ClusterSection instanceId={serverId} />
+          <LockTreeSection instanceId={serverId} />
+
+          <InstanceAlerts instanceId={serverId} />
+
+          <OSSystemSection instanceId={serverId} />
+
+          <DiskSection instanceId={serverId} />
+
+          <IOStatsSection instanceId={serverId} />
+
+          <ClusterSection instanceId={serverId} />
+        </>
+      )}
+
+      {activeTab === 'settings-diff' && (
+        <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+          <h2 className="mb-4 text-lg font-semibold text-pgp-text-primary">
+            Settings Diff (vs. Defaults)
+          </h2>
+          <InstanceSettingsDiff instanceId={serverId} />
+        </div>
+      )}
     </div>
   )
 }

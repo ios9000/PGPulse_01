@@ -104,6 +104,7 @@ export function StatementsSection({ instanceId }: StatementsSectionProps) {
                     index={idx}
                     isExpanded={expandedRow === idx}
                     onToggle={() => setExpandedRow(expandedRow === idx ? null : idx)}
+                    instanceId={instanceId}
                   />
                 ))}
               </tbody>

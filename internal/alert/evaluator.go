@@ -2,6 +2,7 @@ package alert
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ios9000/PGPulse_01/internal/collector"
+	"github.com/ios9000/PGPulse_01/internal/mlerrors"
 )
 
 // Evaluator checks metric points against alert rules and manages state transitions.
@@ -20,6 +22,10 @@ type Evaluator struct {
 	mu    sync.Mutex
 	rules []Rule
 	state map[string]*stateEntry
+
+	forecastProvider       ForecastProvider
+	forecastMinConsecutive int
+	forecastCooldown       map[string]time.Time // key → cooldown expiry
 }
 
 // NewEvaluator creates an Evaluator with the given stores.
@@ -119,7 +125,124 @@ func (e *Evaluator) Evaluate(ctx context.Context, points []collector.MetricPoint
 		}
 	}
 
+	// Run forecast-threshold alert evaluation after standard threshold checks.
+	instanceIDs := uniqueInstances(points)
+	for _, instID := range instanceIDs {
+		if err := e.runForecastAlerts(ctx, instID); err != nil {
+			e.logger.Warn("forecast alert evaluation error", "instance", instID, "err", err)
+		}
+	}
+
 	return events, nil
+}
+
+// SetForecastProvider wires in the ML detector for forecast-threshold alert
+// evaluation. Must be called before the first Evaluate() call.
+// minConsecutive is the global default for rules that specify 0.
+func (e *Evaluator) SetForecastProvider(fp ForecastProvider, minConsecutive int) {
+	e.forecastProvider = fp
+	e.forecastMinConsecutive = minConsecutive
+	if e.forecastCooldown == nil {
+		e.forecastCooldown = make(map[string]time.Time)
+	}
+}
+
+// runForecastAlerts evaluates forecast_threshold rules for a single instance.
+func (e *Evaluator) runForecastAlerts(ctx context.Context, instanceID string) error {
+	if e.forecastProvider == nil {
+		return nil
+	}
+
+	e.mu.Lock()
+	rules := make([]Rule, 0)
+	for _, r := range e.rules {
+		if r.Type == RuleTypeForecastThreshold {
+			rules = append(rules, r)
+		}
+	}
+	e.mu.Unlock()
+
+	now := time.Now()
+
+	for _, rule := range rules {
+		required := rule.ConsecutivePointsRequired
+		if required <= 0 {
+			required = e.forecastMinConsecutive
+		}
+
+		points, err := e.forecastProvider.ForecastForAlert(ctx, instanceID, rule.Metric, required+4)
+		if err != nil {
+			if errors.Is(err, mlerrors.ErrNotBootstrapped) || errors.Is(err, mlerrors.ErrNoBaseline) {
+				continue
+			}
+			e.logger.Warn("forecast provider error", "rule", rule.ID, "err", err)
+			continue
+		}
+
+		cooldownKey := fmt.Sprintf("forecast:%s:%s:%s", instanceID, rule.Metric, rule.ID)
+
+		e.mu.Lock()
+		if expiry, ok := e.forecastCooldown[cooldownKey]; ok && now.Before(expiry) {
+			e.mu.Unlock()
+			continue
+		}
+		e.mu.Unlock()
+
+		consecutive := 0
+		for _, pt := range points {
+			val := pt.Value
+			if rule.UseLowerBound {
+				val = pt.Lower
+			}
+			if rule.Operator.Compare(val, rule.Threshold) {
+				consecutive++
+				if consecutive >= required {
+					event := &AlertEvent{
+						RuleID:     rule.ID,
+						RuleName:   rule.Name,
+						InstanceID: instanceID,
+						Severity:   rule.Severity,
+						Value:      val,
+						Threshold:  rule.Threshold,
+						Operator:   rule.Operator,
+						Metric:     rule.Metric,
+						Channels:   rule.Channels,
+						FiredAt:    now,
+					}
+					if err := e.recordEvent(ctx, event); err != nil {
+						e.logger.Error("failed to record forecast alert event",
+							"rule", rule.ID, "instance", instanceID, "error", err)
+					}
+
+					cooldownDur := time.Duration(rule.CooldownMinutes) * time.Minute
+					if cooldownDur <= 0 {
+						cooldownDur = 15 * time.Minute
+					}
+					e.mu.Lock()
+					e.forecastCooldown[cooldownKey] = now.Add(cooldownDur)
+					e.mu.Unlock()
+					break
+				}
+			} else {
+				consecutive = 0
+			}
+		}
+	}
+
+	return nil
+}
+
+// uniqueInstances returns deduplicated instance IDs from the points slice.
+func uniqueInstances(points []collector.MetricPoint) []string {
+	seen := make(map[string]struct{}, len(points))
+	var ids []string
+	for _, p := range points {
+		if _, ok := seen[p.InstanceID]; !ok {
+			seen[p.InstanceID] = struct{}{}
+			ids = append(ids, p.InstanceID)
+		}
+	}
+	return ids
 }
 
 // processTransition implements the state machine: OK→PENDING→FIRING→OK.

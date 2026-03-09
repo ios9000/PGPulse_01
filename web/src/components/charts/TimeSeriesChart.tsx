@@ -20,6 +20,9 @@ interface TimeSeriesChartProps {
   yAxisMax?: number
   loading?: boolean
   height?: number
+  extraSeries?: object[]
+  xAxisMax?: number
+  nowMarkLine?: number
 }
 
 export function TimeSeriesChart({
@@ -31,6 +34,9 @@ export function TimeSeriesChart({
   yAxisMax,
   loading = false,
   height = 300,
+  extraSeries = [],
+  xAxisMax,
+  nowMarkLine,
 }: TimeSeriesChartProps) {
   const option = useMemo((): EChartsOption => {
     if (series.length === 0 || series.every((s) => s.data.length === 0)) {
@@ -54,6 +60,25 @@ export function TimeSeriesChart({
 
       if (s.type === 'area') {
         base.areaStyle = { opacity: 0.15 }
+      }
+
+      // Add "now" divider markLine on the last historical series when forecast is present.
+      if (idx === echartseries.length - 1 && nowMarkLine) {
+        const existingMarkLine = base.markLine as Record<string, unknown> | undefined
+        const existingData = (existingMarkLine?.data as unknown[]) || []
+        base.markLine = {
+          ...existingMarkLine,
+          silent: true,
+          symbol: 'none',
+          data: [
+            ...existingData,
+            {
+              xAxis: nowMarkLine,
+              lineStyle: { type: 'dashed', color: '#94a3b8', width: 1 },
+              label: { formatter: 'now', position: 'insideStartTop', color: '#94a3b8', fontSize: 11 },
+            },
+          ],
+        }
       }
 
       if (idx === 0 && referenceLine) {
@@ -94,6 +119,7 @@ export function TimeSeriesChart({
       },
       xAxis: {
         type: 'time',
+        ...(xAxisMax ? { max: xAxisMax } : {}),
       },
       yAxis: {
         type: 'value',
@@ -104,9 +130,9 @@ export function TimeSeriesChart({
           ? { formatter: (v: number) => yAxisFormat(v) }
           : undefined,
       },
-      series: echartseries,
+      series: [...echartseries, ...extraSeries],
     }
-  }, [series, referenceLine, yAxisLabel, yAxisFormat, yAxisMin, yAxisMax])
+  }, [series, referenceLine, yAxisLabel, yAxisFormat, yAxisMin, yAxisMax, extraSeries, xAxisMax, nowMarkLine])
 
   const isEmpty = series.length === 0 || series.every((s) => s.data.length === 0)
 

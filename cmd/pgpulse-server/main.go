@@ -190,6 +190,12 @@ func main() {
 			logger.Info("ML detector wired to alert pipeline")
 		}
 
+		// M8_05: Wire forecast provider into alert evaluator.
+		if mlDetector != nil && apiEvaluator != nil {
+			apiEvaluator.SetForecastProvider(mlDetector, cfg.ML.Forecast.AlertMinConsecutive)
+			logger.Info("forecast alert provider wired to evaluator")
+		}
+
 		// M8_02: Bootstrap ML detector now that alert pipeline is ready.
 		if mlDetector != nil {
 			bootstrapCtx, bootstrapCancel := context.WithTimeout(ctx, 30*time.Second)

@@ -1,9 +1,9 @@
 package ml
 
-import "errors"
+import "github.com/ios9000/PGPulse_01/internal/mlerrors"
 
-// Sentinel errors for forecast operations.
+// Re-export sentinel errors from mlerrors for backward compatibility.
 var (
-	ErrNotBootstrapped = errors.New("ml detector not yet bootstrapped")
-	ErrNoBaseline      = errors.New("no fitted baseline for this metric")
+	ErrNotBootstrapped = mlerrors.ErrNotBootstrapped
+	ErrNoBaseline      = mlerrors.ErrNoBaseline
 )
