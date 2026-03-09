@@ -203,8 +203,8 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-M8_08 — Logical Replication Monitoring (sub-collector + API + frontend)
-See: docs/iterations/M8_08_03092026_logical-repl/
+M8_09 — HOTFIX: production crash + collector bugs
+See: docs/iterations/M8_09_03092026_hotfix/
 
 ### What Was Just Completed
 M8_03 — Instance Lister Fix + Session Kill API + ML Model Persistence.

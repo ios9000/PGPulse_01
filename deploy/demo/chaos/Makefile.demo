@@ -1,0 +1,44 @@
+# ── PGPulse Demo Deployment ──────────────────────────────────────
+#
+# Add these targets to the existing Makefile.
+# Usage:
+#   make build-linux          # Cross-compile for Linux amd64
+#   make demo-package         # Build + package everything for deployment
+#   make deploy-demo VM=user@host   # Build + upload + provision
+
+DEMO_DIR   := deploy/demo
+BUILD_DIR  := build
+BINARY     := pgpulse-server
+VM         ?= user@your-vm-ip
+
+.PHONY: build-linux demo-package deploy-demo
+
+# Cross-compile the server binary for Linux amd64
+build-linux:
+	@echo "Building frontend..."
+	cd web && npm run build
+	@echo "Cross-compiling for linux/amd64..."
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
+		-ldflags="-s -w" \
+		-o $(BUILD_DIR)/$(BINARY) \
+		./cmd/pgpulse-server
+	@echo "Binary: $(BUILD_DIR)/$(BINARY) ($$(du -h $(BUILD_DIR)/$(BINARY) | cut -f1))"
+
+# Package binary + scripts into a tarball
+demo-package: build-linux
+	@echo "Packaging demo deployment..."
+	mkdir -p $(BUILD_DIR)/pgpulse-demo/chaos
+	cp $(BUILD_DIR)/$(BINARY) $(BUILD_DIR)/pgpulse-demo/
+	cp $(DEMO_DIR)/provision.sh $(BUILD_DIR)/pgpulse-demo/
+	cp $(DEMO_DIR)/chaos/*.sh $(BUILD_DIR)/pgpulse-demo/chaos/
+	cp $(DEMO_DIR)/README.md $(BUILD_DIR)/pgpulse-demo/ 2>/dev/null || true
+	cd $(BUILD_DIR) && tar czf pgpulse-demo.tar.gz pgpulse-demo/
+	rm -rf $(BUILD_DIR)/pgpulse-demo
+	@echo "Package: $(BUILD_DIR)/pgpulse-demo.tar.gz"
+
+# One-command deploy: build, upload, provision
+deploy-demo: demo-package
+	@echo "Deploying to $(VM)..."
+	scp $(BUILD_DIR)/pgpulse-demo.tar.gz $(VM):/tmp/
+	ssh $(VM) 'cd /tmp && tar xzf pgpulse-demo.tar.gz && sudo bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server'
+	@echo "Deploy complete. Open http://$$(echo $(VM) | cut -d@ -f2):8989"
