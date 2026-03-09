@@ -74,6 +74,9 @@ const (
 	SourceCustom  RuleSource = "custom"
 )
 
+// RuleTypeForecastThreshold is a rule that fires when forecast crosses a threshold.
+const RuleTypeForecastThreshold = "forecast_threshold"
+
 // Rule defines a threshold-based alert check.
 type Rule struct {
 	ID               string            `json:"id"`
@@ -89,6 +92,8 @@ type Rule struct {
 	Channels         []string          `json:"channels,omitempty"`
 	Source           RuleSource        `json:"source"`
 	Enabled          bool              `json:"enabled"`
+	Type             string            `json:"type,omitempty"`
+	UseLowerBound    bool              `json:"use_lower_bound,omitempty"`
 }
 
 // AlertEvent represents a state transition that requires action (notification).

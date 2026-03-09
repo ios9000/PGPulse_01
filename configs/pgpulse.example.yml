@@ -74,3 +74,24 @@ instances:
   - id: "staging"
     dsn: "postgres://pgpulse_monitor:secret@db-staging.internal:5432/postgres?sslmode=prefer"
     enabled: false  # disabled instances are skipped at startup
+
+# ML anomaly detection and forecasting.
+# When enabled, tracks configured metrics and detects anomalies via STL decomposition.
+ml:
+  enabled: false
+  zscore_threshold_warning: 2.0
+  zscore_threshold_critical: 3.0
+  anomaly_logic: "or"              # "or" = any metric, "and" = all metrics
+  collection_interval: 60s
+  forecast:
+    horizon: 60            # points ahead; at 60s collection this is 1 hour
+    confidence_z: 1.96     # 95% confidence interval
+  persistence:
+    enabled: true
+  metrics:
+    - key: "connections.active"
+      period: 1440          # seasonal period in data points (1440 = 24h at 60s interval)
+      enabled: true
+    - key: "cache.hit_ratio"
+      period: 1440
+      enabled: true
