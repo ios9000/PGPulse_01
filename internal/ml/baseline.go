@@ -21,10 +21,12 @@ type STLBaseline struct {
 	resCount   int
 	ewma       float64
 	ewmaAlpha  float64
-	seasonal   []float64
-	seasonN    []int
-	totalSeen  int
-	sumAll     float64
+	seasonal     []float64
+	seasonN      []int
+	totalSeen    int
+	sumAll       float64
+	trendHistory [2]float64 // last 2 EWMA values for slope estimation
+	seasonIdx    int        // current position in seasonal cycle
 }
 
 // NewSTLBaseline creates a baseline tracker for the given metric and seasonal period.
@@ -51,10 +53,16 @@ func (b *STLBaseline) Update(value float64) {
 		b.ewma = b.ewmaAlpha*value + (1-b.ewmaAlpha)*b.ewma
 	}
 
+	// Track last 2 trend values for slope estimation (forecast).
+	b.trendHistory[0] = b.trendHistory[1]
+	b.trendHistory[1] = b.ewma
+
 	bucket := b.totalSeen % b.Period
 	n := float64(b.seasonN[bucket] + 1)
 	b.seasonal[bucket] = (b.seasonal[bucket]*(n-1) + value) / n
 	b.seasonN[bucket]++
+
+	b.seasonIdx = bucket // position of point just consumed; forecast uses (seasonIdx + k)
 
 	b.sumAll += value
 	b.totalSeen++
@@ -131,6 +139,41 @@ func (b *STLBaseline) residualSlice() []float64 {
 	return result
 }
 
+// Forecast computes n-step-ahead predictions from the current fitted state.
+// z is the confidence multiplier (1.96 = 95%).
+// interval is the collection interval for wall-clock prediction times.
+// now is the timestamp of the last observed point.
+// Returns nil if the baseline is not yet warm (totalSeen < Period).
+func (b *STLBaseline) Forecast(n int, z float64, interval time.Duration, now time.Time) []ForecastPoint {
+	if b.totalSeen < b.Period || b.Period == 0 {
+		return nil
+	}
+
+	slope := 0.0
+	if b.totalSeen >= 2 {
+		slope = b.trendHistory[1] - b.trendHistory[0]
+	}
+	lastTrend := b.ewma
+	stddev := residualStddev(b.residualSlice())
+	margin := z * stddev
+
+	points := make([]ForecastPoint, n)
+	for k := 1; k <= n; k++ {
+		trendContrib := lastTrend + slope*float64(k)
+		idx := (b.seasonIdx + k) % b.Period
+		seasonContrib := b.seasonal[idx]
+		val := trendContrib + seasonContrib
+		points[k-1] = ForecastPoint{
+			Offset:      k,
+			PredictedAt: now.Add(time.Duration(k) * interval),
+			Value:       val,
+			Lower:       val - margin,
+			Upper:       val + margin,
+		}
+	}
+	return points
+}
+
 // BaselineSnapshot holds the serializable state of an STLBaseline.
 type BaselineSnapshot struct {
 	InstanceID string    `json:"instance_id"`
@@ -191,5 +234,9 @@ func LoadFromSnapshot(s BaselineSnapshot) *STLBaseline {
 	}
 	copy(b.residuals, s.Residuals)
 	b.resHead = s.ResCount % s.WindowSize
+	if s.Period > 0 {
+		b.seasonIdx = s.TotalSeen % s.Period
+	}
+	b.trendHistory = [2]float64{s.EWMA, s.EWMA}
 	return b
 }

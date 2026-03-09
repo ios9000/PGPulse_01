@@ -115,7 +115,7 @@ func main() {
 		if cfg.ML.Enabled {
 			mlMetrics := make([]ml.MetricConfig, len(cfg.ML.Metrics))
 			for i, m := range cfg.ML.Metrics {
-				mlMetrics[i] = ml.MetricConfig{Key: m.Key, Period: m.Period, Enabled: m.Enabled}
+				mlMetrics[i] = ml.MetricConfig{Key: m.Key, Period: m.Period, Enabled: m.Enabled, ForecastHorizon: m.ForecastHorizon}
 			}
 			lister := ml.NewDBInstanceLister(pgPool)
 
@@ -134,6 +134,7 @@ func main() {
 				AnomalyLogic:       cfg.ML.AnomalyLogic,
 				Metrics:            mlMetrics,
 				CollectionInterval: cfg.ML.CollectionInterval,
+				ForecastZ:          cfg.ML.Forecast.ConfidenceZ,
 			}, store, lister, &noOpAlertEvaluator{}, persistStore)
 		}
 
@@ -238,6 +239,9 @@ func main() {
 				alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore)
 			apiServer.SetPlanStore(planStore)
 			apiServer.SetSnapshotStore(snapshotStore)
+			if mlDetector != nil {
+				apiServer.SetMLDetector(mlDetector, cfg.ML)
+			}
 			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
 			return
 		}

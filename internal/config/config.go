@@ -140,9 +140,16 @@ type SettingsSnapshotConfig struct {
 
 // MLMetricConfig defines a single metric to track with ML anomaly detection.
 type MLMetricConfig struct {
-	Key     string `koanf:"key"`
-	Period  int    `koanf:"period"`
-	Enabled bool   `koanf:"enabled"`
+	Key             string `koanf:"key"`
+	Period          int    `koanf:"period"`
+	Enabled         bool   `koanf:"enabled"`
+	ForecastHorizon int    `koanf:"forecast_horizon"`
+}
+
+// ForecastConfig holds forecast horizon settings (M8_04).
+type ForecastConfig struct {
+	Horizon     int     `koanf:"horizon"`
+	ConfidenceZ float64 `koanf:"confidence_z"`
 }
 
 // MLConfig holds ML anomaly detection settings (M8_02).
@@ -154,6 +161,7 @@ type MLConfig struct {
 	CollectionInterval time.Duration       `koanf:"collection_interval"`
 	Metrics            []MLMetricConfig    `koanf:"metrics"`
 	Persistence        MLPersistenceConfig `koanf:"persistence"`
+	Forecast           ForecastConfig      `koanf:"forecast"`
 }
 
 // MLPersistenceConfig holds ML baseline persistence settings (M8_03).

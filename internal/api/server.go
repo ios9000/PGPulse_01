@@ -13,6 +13,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/plans"
 	"github.com/ios9000/PGPulse_01/internal/settings"
 	"github.com/ios9000/PGPulse_01/internal/storage"
@@ -47,6 +48,8 @@ type APIServer struct {
 	instanceStore     storage.InstanceStore     // nil when no storage DSN
 	planStore         *plans.PGPlanStore        // nil when plan capture disabled
 	snapshotStore     *settings.PGSnapshotStore // nil when settings snapshot disabled
+	mlDetector        *ml.Detector              // nil until SetMLDetector called
+	mlConfig          config.MLConfig
 }
 
 // New creates an APIServer. jwtSvc and userStore are nil when auth is disabled.
@@ -100,6 +103,12 @@ func (s *APIServer) SetSnapshotStore(ss *settings.PGSnapshotStore) {
 	s.snapshotStore = ss
 }
 
+// SetMLDetector sets the ML detector for forecast endpoints.
+func (s *APIServer) SetMLDetector(d *ml.Detector, cfg config.MLConfig) {
+	s.mlDetector = d
+	s.mlConfig = cfg
+}
+
 // Routes builds the chi router with all middleware and endpoints.
 func (s *APIServer) Routes() http.Handler {
 	r := chi.NewRouter()
@@ -134,6 +143,7 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
 				r.Get("/instances/{id}/metrics/current", s.handleCurrentMetrics)
 				r.Get("/instances/{id}/metrics/history", s.handleMetricsHistory)
+				r.Get("/instances/{id}/metrics/{metric}/forecast", s.handleGetMetricForecast)
 				r.Get("/instances/{id}/replication", s.handleReplication)
 				r.Get("/instances/{id}/activity/wait-events", s.handleWaitEvents)
 				r.Get("/instances/{id}/activity/long-transactions", s.handleLongTransactions)
@@ -213,6 +223,7 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
 				r.Get("/instances/{id}/metrics/current", s.handleCurrentMetrics)
 				r.Get("/instances/{id}/metrics/history", s.handleMetricsHistory)
+				r.Get("/instances/{id}/metrics/{metric}/forecast", s.handleGetMetricForecast)
 				r.Get("/instances/{id}/replication", s.handleReplication)
 				r.Get("/instances/{id}/activity/wait-events", s.handleWaitEvents)
 				r.Get("/instances/{id}/activity/long-transactions", s.handleLongTransactions)

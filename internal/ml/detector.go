@@ -32,13 +32,14 @@ type AnomalyResult struct {
 
 // Detector manages per-instance-metric baselines and evaluates new points for anomalies.
 type Detector struct {
-	config    DetectorConfig
-	baselines map[string]*STLBaseline // "instanceID:metricKey"
-	mu        sync.RWMutex
-	store     collector.MetricStore
-	lister    InstanceLister
-	evaluator collector.AlertEvaluator
-	persist   PersistenceStore
+	config       DetectorConfig
+	baselines    map[string]*STLBaseline // "instanceID:metricKey"
+	mu           sync.RWMutex
+	store        collector.MetricStore
+	lister       InstanceLister
+	evaluator    collector.AlertEvaluator
+	persist      PersistenceStore
+	bootstrapped bool
 }
 
 // NewDetector creates an ML anomaly detector.
@@ -171,6 +172,7 @@ func (d *Detector) Bootstrap(ctx context.Context) error {
 	slog.Info("ML bootstrap complete",
 		"from_snapshot", len(persisted),
 		"from_replay", replayCount)
+	d.bootstrapped = true
 	return nil
 }
 
@@ -252,4 +254,39 @@ func (d *Detector) Evaluate(ctx context.Context, points []collector.MetricPoint)
 	}
 
 	return results, nil
+}
+
+// Forecast computes a forecast for the given instance and metric.
+func (d *Detector) Forecast(_ context.Context, instanceID, metricKey string, horizon int) (*ForecastResult, error) {
+	if !d.bootstrapped {
+		return nil, ErrNotBootstrapped
+	}
+
+	key := instanceID + ":" + metricKey
+	d.mu.RLock()
+	b, ok := d.baselines[key]
+	d.mu.RUnlock()
+	if !ok {
+		return nil, ErrNoBaseline
+	}
+
+	z := d.config.ZScoreWarn // default confidence
+	if d.config.ForecastZ > 0 {
+		z = d.config.ForecastZ
+	}
+
+	points := b.Forecast(horizon, z, d.config.CollectionInterval, time.Now())
+	if points == nil {
+		return nil, ErrNoBaseline
+	}
+
+	return &ForecastResult{
+		InstanceID:                instanceID,
+		MetricKey:                 metricKey,
+		GeneratedAt:               time.Now(),
+		CollectionIntervalSeconds: int(d.config.CollectionInterval.Seconds()),
+		Horizon:                   horizon,
+		ConfidenceZ:               z,
+		Points:                    points,
+	}, nil
 }
