@@ -147,10 +147,16 @@ type MLMetricConfig struct {
 
 // MLConfig holds ML anomaly detection settings (M8_02).
 type MLConfig struct {
-	Enabled            bool             `koanf:"enabled"`
-	ZScoreWarn         float64          `koanf:"zscore_threshold_warning"`
-	ZScoreCrit         float64          `koanf:"zscore_threshold_critical"`
-	AnomalyLogic       string           `koanf:"anomaly_logic"`
-	CollectionInterval time.Duration    `koanf:"collection_interval"`
-	Metrics            []MLMetricConfig `koanf:"metrics"`
+	Enabled            bool                `koanf:"enabled"`
+	ZScoreWarn         float64             `koanf:"zscore_threshold_warning"`
+	ZScoreCrit         float64             `koanf:"zscore_threshold_critical"`
+	AnomalyLogic       string              `koanf:"anomaly_logic"`
+	CollectionInterval time.Duration       `koanf:"collection_interval"`
+	Metrics            []MLMetricConfig    `koanf:"metrics"`
+	Persistence        MLPersistenceConfig `koanf:"persistence"`
+}
+
+// MLPersistenceConfig holds ML baseline persistence settings (M8_03).
+type MLPersistenceConfig struct {
+	Enabled bool `koanf:"enabled"`
 }

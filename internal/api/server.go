@@ -161,6 +161,8 @@ func (s *APIServer) Routes() http.Handler {
 					r.Use(auth.RequirePermission(auth.PermInstanceManagement, writeErrorRaw))
 					r.Post("/instances/{id}/plans/capture", s.handleManualCapture)
 					r.Post("/instances/{id}/settings/snapshot", s.handleSettingsManualSnapshot)
+					r.Post("/instances/{id}/sessions/{pid}/cancel", s.handleSessionCancel)
+					r.Post("/instances/{id}/sessions/{pid}/terminate", s.handleSessionTerminate)
 				})
 
 				// Alert routes (only when alerting enabled).
@@ -234,6 +236,10 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/settings/latest", s.handleSettingsLatest)
 				r.Get("/instances/{id}/settings/pending-restart", s.handleSettingsPendingRestart)
 				r.Post("/instances/{id}/settings/snapshot", s.handleSettingsManualSnapshot)
+
+				// Session kill routes (M8_03).
+				r.Post("/instances/{id}/sessions/{pid}/cancel", s.handleSessionCancel)
+				r.Post("/instances/{id}/sessions/{pid}/terminate", s.handleSessionTerminate)
 
 				// Alert routes (only when alerting enabled).
 				if s.alertRuleStore != nil {

@@ -110,14 +110,21 @@ func main() {
 		}, snapshotStore)
 		_ = snapshotCollector // used later by orchestrator integration
 
-		// M8_02: ML anomaly detector bootstrap.
+		// M8_03: ML anomaly detector bootstrap.
 		var mlDetector *ml.Detector
 		if cfg.ML.Enabled {
 			mlMetrics := make([]ml.MetricConfig, len(cfg.ML.Metrics))
 			for i, m := range cfg.ML.Metrics {
 				mlMetrics[i] = ml.MetricConfig{Key: m.Key, Period: m.Period, Enabled: m.Enabled}
 			}
-			lister := &configInstanceLister{instances: cfg.Instances}
+			lister := ml.NewDBInstanceLister(pgPool)
+
+			// M8_03: persistence store for ML baselines.
+			var persistStore ml.PersistenceStore
+			if cfg.ML.Persistence.Enabled {
+				persistStore = ml.NewDBPersistenceStore(pgPool)
+			}
+
 			// AlertEvaluator will be set after alert pipeline is initialized.
 			// Use a no-op for now; reassigned below if alerting is enabled.
 			mlDetector = ml.NewDetector(ml.DetectorConfig{
@@ -127,7 +134,7 @@ func main() {
 				AnomalyLogic:       cfg.ML.AnomalyLogic,
 				Metrics:            mlMetrics,
 				CollectionInterval: cfg.ML.CollectionInterval,
-			}, store, lister, &noOpAlertEvaluator{})
+			}, store, lister, &noOpAlertEvaluator{}, persistStore)
 		}
 
 		// Alert pipeline setup.
@@ -374,22 +381,6 @@ func parseLogLevel(s string) (slog.Level, error) {
 	default:
 		return slog.LevelInfo, fmt.Errorf("unknown log level %q", s)
 	}
-}
-
-// configInstanceLister implements ml.InstanceLister using the YAML config instance list.
-type configInstanceLister struct {
-	instances []config.InstanceConfig
-}
-
-func (l *configInstanceLister) ListInstanceIDs(_ context.Context) ([]string, error) {
-	ids := make([]string, 0, len(l.instances))
-	for _, inst := range l.instances {
-		enabled := inst.Enabled == nil || *inst.Enabled
-		if enabled {
-			ids = append(ids, inst.ID)
-		}
-	}
-	return ids, nil
 }
 
 // noOpAlertEvaluator discards anomaly alerts when alerting is disabled.

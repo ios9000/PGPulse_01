@@ -71,7 +71,7 @@ func (m *mockInstanceLister) ListInstanceIDs(_ context.Context) ([]string, error
 }
 
 func TestDetector_EvaluateNoBaseline(t *testing.T) {
-	d := NewDetector(DefaultConfig(), &mockMetricStore{}, &mockInstanceLister{}, &mockAlertEvaluator{})
+	d := NewDetector(DefaultConfig(), &mockMetricStore{}, &mockInstanceLister{}, &mockAlertEvaluator{}, nil)
 	results, err := d.Evaluate(context.Background(), []collector.MetricPoint{
 		{InstanceID: "i1", Metric: "unknown.metric", Value: 100, Timestamp: time.Now()},
 	})
@@ -93,7 +93,7 @@ func TestDetector_EvaluateAnomaly(t *testing.T) {
 		Metrics: []MetricConfig{
 			{Key: "test.metric", Period: 10, Enabled: true},
 		},
-	}, &mockMetricStore{}, &mockInstanceLister{}, eval)
+	}, &mockMetricStore{}, &mockInstanceLister{}, eval, nil)
 
 	// Manually inject a fitted baseline
 	b := NewSTLBaseline("test.metric", 10)
@@ -133,7 +133,7 @@ func TestDetector_NormalValueNoAnomaly(t *testing.T) {
 		ZScoreWarn:   3.0,
 		AnomalyLogic: "and", // AND mode: need both z-score AND IQR
 		Metrics:      []MetricConfig{{Key: "m", Period: 10, Enabled: true}},
-	}, &mockMetricStore{}, &mockInstanceLister{}, eval)
+	}, &mockMetricStore{}, &mockInstanceLister{}, eval, nil)
 
 	b := NewSTLBaseline("m", 10)
 	for i := 0; i < 100; i++ {
@@ -163,7 +163,7 @@ func TestDetector_AnomalyLogicOr(t *testing.T) {
 		ZScoreWarn:   3.0,
 		AnomalyLogic: "or",
 		Metrics:      []MetricConfig{{Key: "m", Period: 10, Enabled: true}},
-	}, &mockMetricStore{}, &mockInstanceLister{}, eval)
+	}, &mockMetricStore{}, &mockInstanceLister{}, eval, nil)
 
 	b := NewSTLBaseline("m", 10)
 	for i := 0; i < 100; i++ {
@@ -187,7 +187,7 @@ func TestDetector_AnomalyLogicAnd(t *testing.T) {
 		ZScoreWarn:   100.0, // Very high threshold -- z-score won't reach this
 		AnomalyLogic: "and",
 		Metrics:      []MetricConfig{{Key: "m", Period: 10, Enabled: true}},
-	}, &mockMetricStore{}, &mockInstanceLister{}, eval)
+	}, &mockMetricStore{}, &mockInstanceLister{}, eval, nil)
 
 	b := NewSTLBaseline("m", 10)
 	for i := 0; i < 100; i++ {
@@ -212,7 +212,7 @@ func TestDetector_BaselineNotReady(t *testing.T) {
 		ZScoreWarn:   3.0,
 		AnomalyLogic: "or",
 		Metrics:      []MetricConfig{{Key: "m", Period: 10, Enabled: true}},
-	}, &mockMetricStore{}, &mockInstanceLister{}, &mockAlertEvaluator{})
+	}, &mockMetricStore{}, &mockInstanceLister{}, &mockAlertEvaluator{}, nil)
 
 	// Inject a baseline that's not ready (too few points)
 	b := NewSTLBaseline("m", 10)
@@ -242,7 +242,7 @@ func TestDetector_MultiplePoints(t *testing.T) {
 			{Key: "m1", Period: 10, Enabled: true},
 			{Key: "m2", Period: 10, Enabled: true},
 		},
-	}, &mockMetricStore{}, &mockInstanceLister{}, eval)
+	}, &mockMetricStore{}, &mockInstanceLister{}, eval, nil)
 
 	// Set up baselines for two metrics
 	for _, key := range []string{"m1", "m2"} {
@@ -292,7 +292,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestNewDetector_NotNil(t *testing.T) {
-	d := NewDetector(DefaultConfig(), &mockMetricStore{}, &mockInstanceLister{}, &mockAlertEvaluator{})
+	d := NewDetector(DefaultConfig(), &mockMetricStore{}, &mockInstanceLister{}, &mockAlertEvaluator{}, nil)
 	if d == nil {
 		t.Fatal("NewDetector returned nil")
 	}
