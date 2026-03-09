@@ -1,3 +1,216 @@
+## [M8_08] — 2026-03-09 — Logical Replication Monitoring
+
+### Added
+- **Logical Replication Sub-Collector**: PGAM Q41 ported — 17th DB sub-collector
+  - `internal/collector/database.go` — `collectLogicalReplication` queries `pg_subscription_rel JOIN pg_subscription WHERE srsubstate <> 'r'` per database
+  - Produces metric: `logical_replication_pending_sync_tables` (count of non-ready tables per DB)
+  - Graceful error handling when `pg_subscription` doesn't exist
+- **Logical Replication API**: `GET /api/v1/instances/{id}/logical-replication`
+  - `internal/api/logical_replication.go` — handler + response structs + per-DB connection logic using `SubstituteDatabase()`
+  - Returns: subscriptions array with pending tables, sync states, subscription stats
+  - PG 15+ version gate: includes `apply_error_count`, `sync_error_count` when available
+  - Route registered in viewer permission group (both auth-enabled and auth-disabled)
+- **Logical Replication Frontend Section**
+  - `web/src/hooks/useLogicalReplication.ts` — React Query hook, 30s refetch
+  - `web/src/components/server/LogicalReplicationSection.tsx` — 4 UI states: no subscriptions (info card), all synced (green checkmark), pending sync (expandable subscription cards with table list and colour-coded state badges), error counts (red badge for PG 15+)
+  - Placed after physical ReplicationSection in ServerDetail
+- **Alert Rule**: `logical_repl_pending_sync` — builtin, disabled by default, warns when pending tables > 0
+- **4 new TypeScript interfaces**: LogicalReplicationResponse, SubscriptionStatus, PendingTable, SubscriptionStats
+
+### Changed
+- `internal/alert/rules_test.go` — expected builtin rule count 21 → 22
+
+### Notes
+- 3-specialist team (Collector + Frontend + QA), ~10 min execution
+- Query porting progress: ~70/76 PGAM queries ported (Q41 added)
+- All checks pass: go build, go vet, go test, golangci-lint (0), tsc (0), eslint (0), vite build
+
+---
+
+## [M8_07] — 2026-03-09 — Deferred UI + Small Fixes
+
+### Added
+- **Plan Capture History UI**: Browse auto-captured query plans and regressions
+  - `web/src/hooks/usePlanHistory.ts` — hooks for plan list, detail, regressions, manual capture
+  - `web/src/components/PlanHistory.tsx` — "All Plans" / "Regressions" tabs, expandable rows with PlanNode tree reuse, trigger type badges (duration=blue, scheduled=gray, manual=green, hash_diff=amber), "Capture Now" button (permission-gated)
+  - Added as "Plan History" tab in ServerDetail
+- **Temporal Settings Timeline UI**: Compare pg_settings at time A vs time B
+  - `web/src/hooks/useSettingsTimeline.ts` — hooks for snapshots, time-based diff, pending restart, manual snapshot
+  - `web/src/components/SettingsTimeline.tsx` — snapshot timeline list, dual-dropdown selectors for compare, accordion diff view with colour-coded changes (amber=changed, green=added, red=removed), "Take Snapshot" button (permission-gated), "Pending Restart" quick-view
+  - Added as "Settings Timeline" tab in ServerDetail (distinct from "Settings Diff" which shows current vs defaults)
+
+### Changed
+- `internal/api/activity.go` — Added `ApplicationName` field to `LongTransaction` struct, `COALESCE(application_name, '')` in SQL SELECT, updated `Scan()` call
+- `internal/plans/capture.go` — Added JSON tags for proper API serialization (missing from M8_02)
+- `web/src/pages/Administration.tsx` — Moved `useState` above early return to fix conditional hook violation (**0 lint errors achieved** — first time in project history)
+- `web/src/components/server/LongTransactionsTable.tsx` — Passes `application_name` to `SessionActions` (enables pgpulse_* self-protection guard)
+- `web/src/types/models.ts` — Added `application_name` to `LongTransaction` interface
+
+### Notes
+- 2-specialist team (Frontend + QA), ~9 min execution
+- Route verification: all M8_02 handler routes were already registered in server.go
+- All checks pass: 0 lint errors, 0 typecheck errors, go build + go test clean
+
+---
+
+## [M8_06] — 2026-03-09 — UI Catch-Up + Forecast Extension
+
+### Added
+- **Session Kill UI**: Cancel/Terminate buttons in activity table with confirmation modals
+  - `ConfirmModal.tsx` — generic reusable modal (warning/danger variants, Escape key, backdrop click, loading spinner)
+  - `SessionActions.tsx` — role-gated buttons (hidden for viewer, hidden for pgpulse_* connections), toast notifications for all response codes (200/403/404/500)
+  - Integrated into `LongTransactionsTable.tsx` as actions column with refresh callback
+- **Settings Diff UI**: Per-instance settings diff with accordion layout
+  - `SettingsDiff.tsx` — grouped by pg_settings category, pending_restart amber badges, client-side CSV export with proper quoting
+  - Added as "Settings Diff" tab in ServerDetail (lazy-loaded)
+- **Query Plan Viewer UI**: Interactive EXPLAIN tree with cost highlighting
+  - `PlanNode.tsx` — recursive tree rendering with highlight rules (amber >100ms actual time, red border >10x row estimate error)
+  - `InlineQueryPlanViewer.tsx` — fetch plan, loading/error states, "Show Raw JSON" toggle
+  - `StatementRow.tsx` + `StatementsSection.tsx` — expandable rows in top queries table
+- **Forecast Overlay Extension**: Forecast bands on all metric charts
+  - `useForecastChart.ts` — reusable helper hook (eliminates copy-paste across charts)
+  - Applied to: `connections_active`, `cache_hit_ratio`, `transactions_commit_ratio_pct`, `replication_lag_replay_bytes`
+- **Toast Notification System**: Reusable toast infrastructure
+  - `Toast.tsx` — success/error/warning toast component
+  - `toastStore.ts` — centralized toast state management
+  - `AppShell.tsx` — ToastContainer added to root layout
+
+### Changed
+- `ServerDetail.tsx` — tab bar (Overview | Settings Diff), forecast overlay on 4 charts, expandable query rows
+
+### Notes
+- Frontend-only iteration — zero backend changes, zero new API endpoints
+- 2-specialist team (Frontend Agent + QA Agent) — 18 min execution time
+- All checks pass: tsc, eslint (pre-existing Administration.tsx error only), vite build, go build, go test
+
+---
+
+## [M8_05] — 2026-03-09 — Forecast Alerts + Forecast Chart
+
+### Added
+- **Forecast Alert Wiring**: ML forecasts trigger threshold alerts with sustained-crossing logic
+  - `internal/mlerrors/errors.go` — shared sentinel errors (`ErrNotBootstrapped`, `ErrNoBaseline`), breaks `ml` ↔ `alert` circular import
+  - `internal/alert/forecast.go` — `ForecastProvider` interface + `ForecastPoint` mirror struct (4 fields, intentionally thin)
+  - `internal/ml/detector_alert.go` — `ForecastForAlert` adapter; `*ml.Detector` satisfies `alert.ForecastProvider`
+  - `internal/alert/evaluator.go` — `SetForecastProvider(fp, minConsecutive)` setter + `runForecastAlerts()` called from `Evaluate()`
+  - `internal/alert/alert.go` — `Rule.ConsecutivePointsRequired int` (0 = use global default of 3)
+  - `migrations/011_forecast_alert_consecutive.sql` — column added with DEFAULT 0
+  - `internal/config/config.go` + `load.go` — `ForecastConfig.AlertMinConsecutive int`, default 3
+  - `cmd/pgpulse-server/main.go` — wiring: `evaluator.SetForecastProvider(mlDetector, cfg.ML.Forecast.AlertMinConsecutive)`
+- **Forecast Chart Overlay**: ECharts confidence band + centre line on time-series charts
+  - `web/src/hooks/useForecast.ts` — polls forecast API every 5 minutes, returns `ForecastResult | null`
+  - `web/src/components/ForecastBand.ts` — `buildForecastSeries(points)` (custom polygon + dashed line), `getNowMarkLine(nowMs)`
+  - `web/src/components/charts/TimeSeriesChart.tsx` — new props: `extraSeries`, `xAxisMax`, `nowMarkLine`
+  - Wired to `connections_active` chart in ServerDetail
+
+### Notes
+- Sustained crossing is the only mode — N consecutive forecast points must cross threshold before alert fires
+- `ConsecutivePointsRequired = 0` means "use global default (3)", not "first crossing"
+- 4-specialist team (Collector, API & Security, Frontend, QA & Review)
+- 13 new tests (9 forecast evaluator + 4 detector alert), all pass
+- ECharts custom polygon for confidence band — dark-mode safe, no stack-trick delta pre-computation
+- "Now" markLine placed on historical series (not forecast) for correct X positioning
+- `internal/ml/errors.go` re-exports sentinels from `mlerrors` for backward compatibility
+
+---
+
+## [M8_04] — 2026-03-09 — Forecast Horizon
+
+### Added
+- **STL-based N-step-ahead forecasting** with confidence bounds
+  - `internal/ml/forecast.go` — `ForecastPoint`, `ForecastResult`, `residualStddev()` helper
+  - `internal/ml/errors.go` — `ErrNotBootstrapped`, `ErrNoBaseline` sentinel errors
+  - `STLBaseline.Forecast(n, z, interval, now)` method: linear trend extrapolation (slope from last 2 EWMA values) + seasonal repeat + ±z·σ confidence bounds; returns nil when not warm
+  - `trendHistory [2]float64` + `seasonIdx int` added to `STLBaseline`
+  - `bootstrapped` flag on `Detector` to gate `Forecast()` calls before `Bootstrap()` completes
+- **Forecast REST API**: `GET /api/v1/instances/{id}/metrics/{metric}/forecast?horizon=N`
+  - Horizon cap enforced; `ErrNoBaseline` → 404, `ErrNotBootstrapped` → 503
+  - Registered in viewer permission group (read-only)
+  - `mlDetector` + `mlConfig` fields added to API server, `SetMLDetector()` setter
+- **Forecast Configuration**: `ForecastConfig` struct in config package
+  - `ForecastZ`, `ForecastHorizon` fields on `DetectorConfig`
+  - `MLMetricConfig.ForecastHorizon` per-metric override
+  - `ml.forecast` section added to `pgpulse.example.yml`
+- **Forecast Alert Rule Type**: `RuleTypeForecastThreshold` constant, `Type` and `UseLowerBound` fields on `Rule` struct (evaluation deferred to M8_05)
+
+### Notes
+- Forecast is pure in-memory arithmetic — no DB access, no new table
+- `runForecastAlerts()` not implemented this iteration (deferred to M8_05)
+- ~7 minute agent execution time (ML Agent + API Agent + QA Agent)
+
+---
+
+## [M8_03] — 2026-03-09 — Instance Lister Fix + Session Kill API + ML Persistence
+
+### Added
+- **DB-backed Instance Lister**: `internal/ml/lister.go` — `DBInstanceLister` querying `instances WHERE enabled = true`
+  - Replaces `configInstanceLister` which ignored instances added via API after startup
+- **ML Baseline Persistence**: Fitted state survives restarts
+  - `internal/ml/persistence.go` — `PersistenceStore` interface + `DBPersistenceStore` (JSONB upsert on `(instance_id, metric_key)`)
+  - `BaselineSnapshot` struct, `Snapshot()` (exports live ring residuals in chronological order), `LoadFromSnapshot()`
+  - Two-phase Bootstrap: snapshot load → TimescaleDB replay fallback
+  - `Evaluate` persists all baselines after each cycle
+  - `migrations/010_ml_baseline_snapshots.sql` — `ml_baseline_snapshots` table with unique on `(instance_id, metric_key)`
+  - `MLPersistenceConfig` added to config, 5th `persist PersistenceStore` param on `NewDetector` (nil-safe)
+- **Session Kill API** (reintroduced from M8_01 — routes now properly wired):
+  - `internal/api/session_actions.go` — `handleSessionCancel` + `handleSessionTerminate` with own-PID guard, superuser guard, audit log via slog
+  - Routes registered in `PermInstanceManagement` group (both auth-enabled and auth-disabled paths)
+
+### Changed
+- `configInstanceLister` removed from `main.go`; replaced by `ml.NewDBInstanceLister(storagePool)`
+- `ml.NewDetector` expanded to 5-arg signature with persist store
+- `Snapshot()` exports only live residuals (ring buffer has pre-allocated stale slots — exporting full slice would corrupt residual distribution)
+
+### Housekeeping
+- Removed accidentally committed agent worktree (`.claude/worktrees/agent-a87dfd96`)
+- Added `.claude/worktrees/` to `.gitignore` to prevent recurrence
+
+---
+
+## [M8_02] — 2026-03-09 — Auto-Capture Plans + Temporal Settings Diff + ML Anomaly Detection
+
+### Added
+- **Auto-Capture Query Plans**: Four trigger modes with dedup
+  - `internal/plans/capture.go` — duration threshold, scheduled top-N, manual API, plan hash diff triggers; dedup cache with configurable window
+  - `internal/plans/store.go` — `PGPlanStore`: `SavePlan` (upsert on plan hash), `ListPlans`, `GetPlan`, `ListRegressions`, `LatestPlanHash`; `nullInt64` helper for nullable columns
+  - `internal/plans/retention.go` — hourly cleanup goroutine
+  - `migrations/008_plan_capture.sql` — `query_plans` table with dedup unique index on `(instance_id, query_fingerprint, plan_hash)`
+  - Plan API: `ListPlans`, `GetPlan`, `ListRegressions`, `ManualCapture` handlers
+  - `PlanCaptureConfig` in config package
+- **Temporal Settings Snapshots**: Scheduled pg_settings capture with Go-side diff
+  - `internal/settings/snapshot.go` — startup/scheduled/manual capture from `pg_catalog.pg_settings`
+  - `internal/settings/store.go` — `PGSnapshotStore`: `SaveSnapshot`, `GetSnapshot`, `ListSnapshots`, `LatestSnapshot`
+  - `internal/settings/diff.go` — `DiffSnapshots`: changed/added/removed/pending_restart (Go-side, no SQL diff)
+  - `migrations/009_settings_snapshots.sql` — `settings_snapshots` table
+  - Settings API: `SettingsHistory`, `SettingsDiff`, `SettingsLatest`, `PendingRestart`, `ManualSnapshot` handlers
+  - `SettingsSnapshotConfig` in config package
+- **STL-based ML Anomaly Detection**: Baseline fitting + Z-score/IQR scoring
+  - `internal/ml/config.go` — `DetectorConfig`, `MetricConfig`, `DefaultConfig()`
+  - `internal/ml/baseline.go` — `STLBaseline`: EWMA trend, period-folded seasonal mean, Z-score + IQR residual scoring via gonum (simplified STL — honest about being EWMA + folded mean, not full Loess)
+  - `internal/ml/detector.go` — `Detector` with `Bootstrap` (loads TimescaleDB history) and `Evaluate` (online update + alert dispatch)
+  - `internal/ml/baseline_test.go` — 10 tests
+  - `internal/ml/detector_test.go` — 9 tests with mock `MetricStore`, `AlertEvaluator`, `InstanceLister`
+  - Two ML anomaly alert rules seeded in `internal/alert/rules.go` (Z=3 warning, Z=5 critical)
+- **`InstanceLister` interface**: Separate from `MetricStore` — ML Bootstrap needs instance list but shouldn't expand MetricStore's contract
+- **`MetricAlertAdapter`**: `internal/alert/adapter.go` — wraps `*alert.Evaluator` (batch `[]MetricPoint`) to satisfy `collector.AlertEvaluator` (single metric call); wired in `main.go` via `Detector.SetAlertEvaluator()` setter
+- **29 new tests** (10 baseline + 9 detector + ~10 plans/settings)
+- **gonum v0.17.0** added to go.mod
+
+### Changed
+- `cmd/pgpulse-server/main.go` — full wiring: `PGPlanStore` + `PlanCollector` + `RetentionWorker`, `PGSnapshotStore` + `SnapshotCollector`, `ml.Detector` with 30s Bootstrap timeout, `MetricAlertAdapter` upgrade from noOp
+- `configs/pgpulse.example.yml` — `plan_capture`, `settings_snapshot`, `ml` sections added
+- `InstanceContext` confirmed to lack `InstanceID` — collectors take `instanceID string` as explicit param alongside `ic InstanceContext`
+
+### Removed
+- `internal/api/plans.go`, `internal/api/sessions.go`, `internal/api/settings_diff.go` — deleted (12 unused functions from M8_01; handlers written but routes never registered in `server.go`). Functions reintroduced properly in M8_03.
+
+### Notes
+- 5 design-doc issues caught and fixed before agent spawn (migration numbering, missing interfaces, gonum version, nullInt64 helper, InstanceContext field)
+- Go-side diff for settings (not SQL JSONB diff) — testable without a database, extensible with custom filtering
+- Plan dedup by plan hash — identical plan shapes stored once; regressions always produce new row
+
+---
+
 ## [M8_01] — 2026-03-09 — P1 Features: Session Kill, Query Plans, Settings Diff
 
 ### Added

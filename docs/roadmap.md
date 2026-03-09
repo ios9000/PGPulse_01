@@ -16,17 +16,29 @@
 | M5 | Web UI (MVP) | ✅ Done | 2026-03-04 |
 | M6 | Agent Mode + Cluster | ✅ Done | 2026-03-05 |
 | M7 | Per-Database Analysis | ✅ Done | 2026-03-08 |
-| M8_01 | P1 Features (Session Kill, EXPLAIN, Settings Diff) | ✅ Done | 2026-03-09 |
-| M8_02 | P2 Features (auto-plan, temporal diff) | 🔲 Not Started | — |
-| M9 | ML Phase 1 | 🔲 Not Started | — |
-| M10 | Reports & Export | 🔲 Not Started | — |
+| M8 | P1 Features + ML Phase 1 | ✅ Done | 2026-03-09 |
+| M9 | Reports & Export | 🔲 Not Started | — |
+| M10 | Polish & Release | 🔲 Not Started | — |
+
+---
 
 ## M8 Sub-Iterations
 
+M8 combined the original "P1 Features" scope (session kill, EXPLAIN, settings diff)
+with "ML Phase 1" (anomaly detection, forecasting, forecast alerts) into a single
+milestone, then extended with deferred UI and logical replication monitoring across
+8 sub-iterations.
+
 | Sub | Scope | Date | Status |
 |-----|-------|------|--------|
-| M8_01 | Session Kill + On-demand EXPLAIN + Settings Diff | 2026-03-09 | ✅ Done |
-| M8_02 | Auto-capture plans, plan history, temporal settings diff | — | 🔲 Not Started |
+| M8_01 | P1 backends: session kill API, on-demand EXPLAIN API, cross-instance settings diff API | 2026-03-09 | ✅ Done |
+| M8_02 | ML anomaly detection: STL decomposition, detector bootstrap, baseline fitting | 2026-03-09 | ✅ Done |
+| M8_03 | ML integration: detector wiring into orchestrator, alert evaluation hooks | 2026-03-09 | ✅ Done |
+| M8_04 | ML forecasting: Holt-Winters engine, forecast API endpoint | 2026-03-09 | ✅ Done |
+| M8_05 | Forecast alerts + forecast chart: ForecastProvider interface, sustained-crossing logic, ECharts overlay on connections_active | 2026-03-09 | ✅ Done |
+| M8_06 | UI catch-up: session kill UI, settings diff UI, query plan viewer UI, forecast extension to all charts, toast system | 2026-03-09 | ✅ Done |
+| M8_07 | Deferred UI: plan history UI, settings timeline UI, application_name enrichment, Administration.tsx lint fix | 2026-03-09 | ✅ Done |
+| M8_08 | Logical replication monitoring: DB sub-collector (Q41), API endpoint, frontend section, alert rule | 2026-03-09 | ✅ Done |
 
 ## M7 Sub-Iterations
 
@@ -40,72 +52,79 @@
 |-----|-------|------|--------|
 | M6_01 | OS agent + Patroni/ETCD providers + frontend sections | 2026-03-05 | ✅ Done |
 
-## M5 Web UI (MVP) - Done
-  M5_01 Frontend Scaffold - Done 2026-03-03
-  M5_02 Auth + RBAC UI - Done 2026-03-03
-  M5_03 Live data: Fleet Overview + Server Detail (8 sections) - Done 2026-03-03
-  M5_04 Statements, Lock Tree, Progress Monitoring - Done 2026-03-03
-  M5_05 Alert Management UI - Done 2026-03-04
-  M5_06 Stabilization + Instance Management - Done 2026-03-04
-  M5_07 User Management Enhancement - Done 2026-03-04
+## M5 Sub-Iterations
+
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M5_01 | Frontend Scaffold | 2026-03-03 | ✅ Done |
+| M5_02 | Auth + RBAC UI | 2026-03-03 | ✅ Done |
+| M5_03 | Live data: Fleet Overview + Server Detail (8 sections) | 2026-03-03 | ✅ Done |
+| M5_04 | Statements, Lock Tree, Progress Monitoring | 2026-03-03 | ✅ Done |
+| M5_05 | Alert Management UI | 2026-03-04 | ✅ Done |
+| M5_06 | Stabilization + Instance Management | 2026-03-04 | ✅ Done |
+| M5_07 | User Management Enhancement | 2026-03-04 | ✅ Done |
 
 ## M4 Sub-Iterations
 
-| Iteration | Scope | Status |
-|---|---|---|
-| M4_01 | Evaluator engine, 19 rules, stores, migration 004_alerts.sql | ✅ Done 2026-03-01 |
-| M4_02 | Email notifier (SMTP), async dispatcher, HTML templates | ✅ Done 2026-03-01 |
-| M4_03 | 7 API endpoints, orchestrator wiring, main.go integration, cleanup | ✅ Done 2026-03-01 |
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M4_01 | Evaluator engine, 19 rules, stores, migration 004_alerts.sql | 2026-03-01 | ✅ Done |
+| M4_02 | Email notifier (SMTP), async dispatcher, HTML templates | 2026-03-01 | ✅ Done |
+| M4_03 | 7 API endpoints, orchestrator wiring, main.go integration, cleanup | 2026-03-01 | ✅ Done |
 
 ## M3 Sub-Iterations
 
-| Iteration | Scope | Status |
-|---|---|---|
-| M3_01 | JWT auth, bcrypt, RBAC, rate limiting, users table, auth endpoints, middleware | ✅ Done 2026-03-01 |
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M3_01 | JWT auth, bcrypt, RBAC, rate limiting, users table, auth endpoints, middleware | 2026-03-01 | ✅ Done |
 
 ## M2 Sub-Iterations
 
-| Iteration | Scope | Status |
-|---|---|---|
-| M2_01 | Config loader (koanf) + Orchestrator + LogStore stub | ✅ Done 2026-02-26 |
-| M2_02 | PGStore (CopyFrom writes, dynamic queries), migration runner, pool | ✅ Done 2026-02-27 |
-| M2_03 | REST API + Wiring (chi router, metric query endpoints) | ✅ Done 2026-02-27 |
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M2_01 | Config loader (koanf) + Orchestrator + LogStore stub | 2026-02-26 | ✅ Done |
+| M2_02 | PGStore (CopyFrom writes, dynamic queries), migration runner, pool | 2026-02-27 | ✅ Done |
+| M2_03 | REST API + Wiring (chi router, metric query endpoints) | 2026-02-27 | ✅ Done |
 
 ## M1 Sub-Iterations
 
-| Iteration | Scope | PGAM Queries | Version Gates | Status |
-|---|---|---|---|---|
-| M1_01 | Server info, connections, cache, transactions, sizes, settings, extensions | Q2–Q3, Q9–Q19 | backup (PG14), pgss_info | ✅ Done 2026-02-25 |
-| M1_02a | InstanceContext interface refactor | — | — | ✅ Done 2026-02-25 |
-| M1_02b | Replication: physical + logical, slots, WAL receiver | Q20–Q21, Q37–Q40 | slot columns (PG15+, PG16+) | ✅ Done 2026-02-25 |
-| M1_03 | Progress monitoring (vacuum, cluster, analyze, index, basebackup, copy) + checkpoint/bgwriter | Q42–Q47, new | bgwriter/checkpointer split (PG17) | ✅ Done 2026-02-26 |
-| M1_03b | pg_stat_io | new | pg_stat_io (PG16+) | ✅ Done 2026-02-26 |
-| M1_04 | pg_stat_statements config + top-N by exec time | Q48–Q51 | Minimal (PG 14 floor) | ✅ Done 2026-02-26 |
-| M1_05 | Locks, wait events, long transactions | Q53–Q57 | Minimal | ✅ Done 2026-02-26 |
+| Sub | Scope | PGAM Queries | Version Gates | Date | Status |
+|-----|-------|-------------|---------------|------|--------|
+| M1_01 | Server info, connections, cache, transactions, sizes, settings, extensions | Q2–Q3, Q9–Q19 | backup (PG14), pgss_info | 2026-02-25 | ✅ Done |
+| M1_02a | InstanceContext interface refactor | — | — | 2026-02-25 | ✅ Done |
+| M1_02b | Replication: physical + logical, slots, WAL receiver | Q20–Q21, Q37–Q40 | slot columns (PG15+, PG16+) | 2026-02-25 | ✅ Done |
+| M1_03 | Progress monitoring + checkpoint/bgwriter | Q42–Q47, new | bgwriter/checkpointer split (PG17) | 2026-02-26 | ✅ Done |
+| M1_03b | pg_stat_io | new | pg_stat_io (PG16+) | 2026-02-26 | ✅ Done |
+| M1_04 | pg_stat_statements config + top-N by exec time | Q48–Q51 | Minimal (PG 14 floor) | 2026-02-26 | ✅ Done |
+| M1_05 | Locks, wait events, long transactions | Q53–Q57 | Minimal | 2026-02-26 | ✅ Done |
+
+---
 
 ## Query Porting Progress
 
 | Source | Total Queries | Ported | Deferred/Skipped | Remaining |
 |---|---|---|---|---|
-| analiz2.php Q1–Q19 | 19 | 13 (Q1–Q3, Q9–Q19) | 6 (Q4–Q8 → agent M6) | 0 |
-| analiz2.php Q20–Q41 | 22 | 4 (Q20–Q21, Q37–Q40) | 3 (Q22–Q35 → future, Q36/Q39 < PG14, Q41 deferred) | 15 |
+| analiz2.php Q1–Q19 | 19 | 13 (Q2–Q3, Q9–Q19) | 6 (Q4–Q8 → agent M6) | 0 |
+| analiz2.php Q20–Q41 | 22 | 5 (Q20–Q21, Q37–Q40, Q41) | 3 (Q22–Q35 → future, Q36/Q39 < PG14) | 14 |
 | analiz2.php Q42–Q47 | 6 | 6 | 0 | 0 |
 | analiz2.php Q48–Q52 | 5 | 4 (Q48–Q51) | 1 (Q52 deferred) | 0 |
 | analiz2.php Q53–Q58 | 6 | 5 (Q53–Q57) | 1 (Q58 deferred) | 0 |
 | analiz_db.php Q1–Q18 | 18 | 17 (Q2–Q18, Q1 dup skip) | 0 | 0 |
 | New (not in PGAM) | — | 6 (checkpoint, pg_stat_io, OS agent, cluster) | — | — |
-| **Total** | **76** | **~69** | **11** | **~15** |
+| **Total** | **76** | **~70** | **10** | **~14** |
 
-## Alert Rules Summary (M4)
+## Alert Rules Summary
 
 | Category | Count | Status |
 |---|---|---|
 | PGAM thresholds ported | 14 | ✅ Active |
 | New replication lag rules | 2 | ✅ Active |
-| Deferred (need M6/M8 data) | 3 | ⏸️ enabled=false |
-| **Total** | **19** | |
+| Forecast-based rules (M8) | 3 | ✅ Active (requires ML bootstrap) |
+| Logical replication (M8_08) | 1 | ⏸️ disabled by default |
+| Deferred (need future data) | 3 | ⏸️ enabled=false |
+| **Total** | **23** | |
 
-## REST API Endpoints (37 total)
+## REST API Endpoints (38+ total)
 
 | Method | Path | Added |
 |--------|------|-------|
@@ -129,6 +148,7 @@
 | GET | /api/v1/instances/{id}/metrics | M2 |
 | GET | /api/v1/instances/{id}/metrics/current | M5_03 |
 | GET | /api/v1/instances/{id}/metrics/history | M5_03 |
+| GET | /api/v1/instances/{id}/metrics/{metric}/forecast | **M8_04** |
 | GET | /api/v1/instances/{id}/replication | M5_03 |
 | GET | /api/v1/instances/{id}/activity/wait-events | M5_03 |
 | GET | /api/v1/instances/{id}/activity/long-transactions | M5_03 |
@@ -139,10 +159,11 @@
 | GET | /api/v1/instances/{id}/cluster | M6 |
 | GET | /api/v1/instances/{id}/databases | M7 |
 | GET | /api/v1/instances/{id}/databases/{dbname}/metrics | M7 |
-| POST | /api/v1/instances/{id}/sessions/{pid}/cancel | **M8_01** |
-| POST | /api/v1/instances/{id}/sessions/{pid}/terminate | **M8_01** |
-| POST | /api/v1/instances/{id}/explain | **M8_01** |
-| GET | /api/v1/settings/compare | **M8_01** |
+| POST | /api/v1/instances/{id}/sessions/{pid}/cancel | M8_01 |
+| POST | /api/v1/instances/{id}/sessions/{pid}/terminate | M8_01 |
+| POST | /api/v1/instances/{id}/explain | M8_01 |
+| GET | /api/v1/settings/compare | M8_01 |
+| GET | /api/v1/instances/{id}/logical-replication | **M8_08** |
 | GET | /api/v1/alerts | M4 |
 | GET | /api/v1/alerts/history | M4 |
 | GET | /api/v1/alerts/rules | M4 |
@@ -150,3 +171,33 @@
 | PUT | /api/v1/alerts/rules/{id} | M4 |
 | DELETE | /api/v1/alerts/rules/{id} | M4 |
 | POST | /api/v1/alerts/test | M4 |
+
+---
+
+## ML Components (M8)
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| STL Decomposition | `internal/ml/stl.go` | Seasonal-Trend decomposition for baseline fitting |
+| Anomaly Detector | `internal/ml/detector.go` | Bootstrap, baseline, Z-score anomaly evaluation |
+| Forecast Engine | `internal/ml/forecast.go` | Holt-Winters forecasting with confidence bands |
+| Alert Adapter | `internal/ml/detector_alert.go` | `*Detector` satisfies `alert.ForecastProvider` |
+| Shared Errors | `internal/mlerrors/errors.go` | `ErrNotBootstrapped`, `ErrNoBaseline` (breaks circular import) |
+| Forecast Provider | `internal/alert/forecast.go` | `ForecastProvider` interface + `ForecastPoint` mirror struct |
+| Forecast Evaluator | `internal/alert/evaluator.go` | `runForecastAlerts()` with sustained-crossing logic |
+
+## Deferred Items (Resolved in M8_07/M8_08)
+
+| Item | Originally Deferred | Resolved In |
+|------|--------------------|-------------|
+| ~~Plan capture history UI~~ | M8_02 | ✅ M8_07 |
+| ~~Temporal settings snapshot UI~~ | M8_02 | ✅ M8_07 |
+| ~~Session kill application_name enrichment~~ | M8_06 | ✅ M8_07 |
+| ~~Administration.tsx lint error~~ | M5_06 | ✅ M8_07 |
+| ~~Logical replication monitoring (Q41)~~ | M1_02b | ✅ M8_08 |
+
+## Remaining Deferred Items
+
+| Item | Originally Planned | Reason |
+|------|--------------------|--------|
+| Remaining ~14 PGAM queries (Q22–Q35 etc.) | M1 | Mostly VTB-internal or pre-PG14 code paths |
