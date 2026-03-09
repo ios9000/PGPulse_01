@@ -26,7 +26,8 @@
       "Bash(sed:*)",
       "Bash(npm run:*)",
       "Bash(python3:*)",
-      "Bash(claude:*)"
+      "Bash(claude:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

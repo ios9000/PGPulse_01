@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,16 +38,20 @@ type Detector struct {
 	store     collector.MetricStore
 	lister    InstanceLister
 	evaluator collector.AlertEvaluator
+	persist   PersistenceStore
 }
 
 // NewDetector creates an ML anomaly detector.
-func NewDetector(cfg DetectorConfig, store collector.MetricStore, lister InstanceLister, evaluator collector.AlertEvaluator) *Detector {
+func NewDetector(cfg DetectorConfig, store collector.MetricStore,
+	lister InstanceLister, evaluator collector.AlertEvaluator,
+	persist PersistenceStore) *Detector {
 	return &Detector{
 		config:    cfg,
 		baselines: make(map[string]*STLBaseline),
 		store:     store,
 		lister:    lister,
 		evaluator: evaluator,
+		persist:   persist,
 	}
 }
 
@@ -57,18 +62,70 @@ func (d *Detector) SetAlertEvaluator(e collector.AlertEvaluator) {
 	d.evaluator = e
 }
 
+// metricConfig returns the MetricConfig for the given key, or nil if not found.
+func (d *Detector) metricConfig(key string) *MetricConfig {
+	for i := range d.config.Metrics {
+		if d.config.Metrics[i].Key == key {
+			return &d.config.Metrics[i]
+		}
+	}
+	return nil
+}
+
 // Bootstrap loads historical data from MetricStore and fits baselines.
 // Should be called before the collector loop starts.
 func (d *Detector) Bootstrap(ctx context.Context) error {
+	// Phase 1: Load persisted snapshots
+	persisted := map[string]bool{}
+
+	if d.persist != nil {
+		snaps, err := d.persist.LoadAll(ctx)
+		if err != nil {
+			slog.Warn("ML persistence load failed, will replay from TimescaleDB", "err", err)
+		} else {
+			for _, snap := range snaps {
+				mc := d.metricConfig(snap.MetricKey)
+				if mc == nil || !mc.Enabled {
+					continue
+				}
+				staleness := time.Duration(2*mc.Period) * d.config.CollectionInterval
+				age := time.Since(snap.UpdatedAt)
+				if age > staleness {
+					slog.Warn("ML baseline snapshot stale, will replay",
+						"instance", snap.InstanceID,
+						"metric", snap.MetricKey,
+						"age", age.Round(time.Minute))
+					continue
+				}
+				key := snap.InstanceID + ":" + snap.MetricKey
+				b := LoadFromSnapshot(snap)
+				d.mu.Lock()
+				d.baselines[key] = b
+				d.mu.Unlock()
+				persisted[key] = true
+				slog.Info("ML baseline loaded from snapshot",
+					"instance", snap.InstanceID,
+					"metric", snap.MetricKey,
+					"age", age.Round(time.Minute))
+			}
+		}
+	}
+
+	// Phase 2: Replay from TimescaleDB for metrics not loaded from snapshot
 	instances, err := d.lister.ListInstanceIDs(ctx)
 	if err != nil {
 		return fmt.Errorf("listing instances for ML bootstrap: %w", err)
 	}
 
+	replayCount := 0
 	for _, instanceID := range instances {
 		for _, mc := range d.config.Metrics {
 			if !mc.Enabled {
 				continue
+			}
+			key := instanceID + ":" + mc.Key
+			if persisted[key] {
+				continue // already loaded from snapshot
 			}
 
 			windowSize := max(3*mc.Period, 1000)
@@ -94,15 +151,14 @@ func (d *Detector) Bootstrap(ctx context.Context) error {
 			}
 
 			b := NewSTLBaseline(mc.Key, mc.Period)
-			// Points come in DESC order from store; reverse for chronological
 			for i := len(points) - 1; i >= 0; i-- {
 				b.Update(points[i].Value)
 			}
 
-			key := instanceID + ":" + mc.Key
 			d.mu.Lock()
 			d.baselines[key] = b
 			d.mu.Unlock()
+			replayCount++
 
 			slog.Info("ML baseline fitted",
 				"instance", instanceID,
@@ -111,6 +167,10 @@ func (d *Detector) Bootstrap(ctx context.Context) error {
 				"residual_stddev", b.ResidualStddev())
 		}
 	}
+
+	slog.Info("ML bootstrap complete",
+		"from_snapshot", len(persisted),
+		"from_replay", replayCount)
 	return nil
 }
 
@@ -174,5 +234,22 @@ func (d *Detector) Evaluate(ctx context.Context, points []collector.MetricPoint)
 			slog.Warn("anomaly alert dispatch failed", "err", err, "metric", p.Metric)
 		}
 	}
+
+	// After processing all points: persist updated baselines
+	if d.persist != nil {
+		d.mu.RLock()
+		for key, b := range d.baselines {
+			parts := strings.SplitN(key, ":", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			snap := b.Snapshot(parts[0])
+			if err := d.persist.Save(ctx, snap); err != nil {
+				slog.Warn("ML baseline persist failed", "key", key, "err", err)
+			}
+		}
+		d.mu.RUnlock()
+	}
+
 	return results, nil
 }

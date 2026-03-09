@@ -2,6 +2,7 @@ package ml
 
 import (
 	"sort"
+	"time"
 
 	"gonum.org/v1/gonum/stat"
 )
@@ -128,4 +129,67 @@ func (b *STLBaseline) residualSlice() []float64 {
 	copy(result, b.residuals[b.resHead:])
 	copy(result[b.windowSize-b.resHead:], b.residuals[:b.resHead])
 	return result
+}
+
+// BaselineSnapshot holds the serializable state of an STLBaseline.
+type BaselineSnapshot struct {
+	InstanceID string    `json:"instance_id"`
+	MetricKey  string    `json:"metric_key"`
+	Period     int       `json:"period"`
+	WindowSize int       `json:"window_size"`
+	EWMA       float64   `json:"ewma"`
+	EWMAAlpha  float64   `json:"ewma_alpha"`
+	Seasonal   []float64 `json:"seasonal"`
+	SeasonN    []int     `json:"season_n"`
+	Residuals  []float64 `json:"residuals"`
+	ResCount   int       `json:"res_count"`
+	TotalSeen  int       `json:"total_seen"`
+	SumAll     float64   `json:"sum_all"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// Snapshot exports the baseline state for persistence.
+func (b *STLBaseline) Snapshot(instanceID string) BaselineSnapshot {
+	// Export only live residuals from ring buffer in chronological order
+	liveResiduals := make([]float64, b.resCount)
+	for i := 0; i < b.resCount; i++ {
+		idx := (b.resHead - b.resCount + i + b.windowSize) % b.windowSize
+		liveResiduals[i] = b.residuals[idx]
+	}
+	return BaselineSnapshot{
+		InstanceID: instanceID,
+		MetricKey:  b.MetricKey,
+		Period:     b.Period,
+		WindowSize: b.windowSize,
+		EWMA:       b.ewma,
+		EWMAAlpha:  b.ewmaAlpha,
+		Seasonal:   append([]float64{}, b.seasonal...),
+		SeasonN:    append([]int{}, b.seasonN...),
+		Residuals:  liveResiduals,
+		ResCount:   b.resCount,
+		TotalSeen:  b.totalSeen,
+		SumAll:     b.sumAll,
+		UpdatedAt:  time.Now(),
+	}
+}
+
+// LoadFromSnapshot reconstructs an STLBaseline from a persisted snapshot.
+func LoadFromSnapshot(s BaselineSnapshot) *STLBaseline {
+	b := &STLBaseline{
+		MetricKey:  s.MetricKey,
+		Period:     s.Period,
+		windowSize: s.WindowSize,
+		ring:       make([]float64, s.WindowSize),
+		residuals:  make([]float64, s.WindowSize),
+		ewma:       s.EWMA,
+		ewmaAlpha:  s.EWMAAlpha,
+		seasonal:   append([]float64{}, s.Seasonal...),
+		seasonN:    append([]int{}, s.SeasonN...),
+		resCount:   s.ResCount,
+		totalSeen:  s.TotalSeen,
+		sumAll:     s.SumAll,
+	}
+	copy(b.residuals, s.Residuals)
+	b.resHead = s.ResCount % s.WindowSize
+	return b
 }
