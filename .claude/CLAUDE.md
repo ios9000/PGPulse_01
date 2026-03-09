@@ -203,8 +203,8 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-M8_02 — Auto-Capture Plans + Temporal Settings Diff + ML Anomaly Detection
-See: docs/iterations/M8_02_03092026_plan-capture-settings-ml/
+M8_03 — Instance Lister Fix + Session Kill API + ML Model Persistence
+See: docs/iterations/M8_03_03092026_lister-sessionkill-mlpersist/
 
 ### What Was Just Completed
 M7_01 — Per-Database Analysis. Ported analiz_db.php Q2–Q18 (16 sub-functions,
