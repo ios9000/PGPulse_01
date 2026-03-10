@@ -107,7 +107,7 @@ func (s *APIServer) handleListDatabases(w http.ResponseWriter, r *http.Request) 
 	now := time.Now()
 	points, err := s.store.Query(r.Context(), collector.MetricQuery{
 		InstanceID: instanceID,
-		Metric:     "db.",
+		Metric:     "pgpulse.db.",
 		Start:      now.Add(-10 * time.Minute),
 		End:        now,
 		Limit:      10000,
@@ -144,13 +144,13 @@ func (s *APIServer) handleListDatabases(w http.ResponseWriter, r *http.Request) 
 			agg.lastSeen = p.Timestamp
 		}
 		switch p.Metric {
-		case "db.large_objects.count":
+		case "pgpulse.db.large_objects.count":
 			agg.largeObjCount += int64(p.Value)
-		case "db.vacuum.dead_tuples":
+		case "pgpulse.db.vacuum.dead_tuples":
 			agg.deadTuples += int64(p.Value)
-		case "db.index.unused":
+		case "pgpulse.db.index.unused":
 			agg.unusedIndexes += int64(p.Value)
-		case "db.table.bloat_ratio":
+		case "pgpulse.db.table.bloat_ratio":
 			if p.Value > agg.maxBloat {
 				agg.maxBloat = p.Value
 			}
@@ -190,7 +190,7 @@ func (s *APIServer) handleGetDatabaseMetrics(w http.ResponseWriter, r *http.Requ
 	now := time.Now()
 	points, err := s.store.Query(r.Context(), collector.MetricQuery{
 		InstanceID: instanceID,
-		Metric:     "db.",
+		Metric:     "pgpulse.db.",
 		Labels:     map[string]string{"database": dbName},
 		Start:      now.Add(-10 * time.Minute),
 		End:        now,
@@ -234,80 +234,80 @@ func (s *APIServer) handleGetDatabaseMetrics(w http.ResponseWriter, r *http.Requ
 
 		switch p.Metric {
 		// Table sizes
-		case "db.table.total_bytes":
+		case "pgpulse.db.table.total_bytes":
 			key := schema + "." + table
 			tm := getOrCreateTable(tableMap, key, schema, table)
 			tm.TotalBytes = p.Value
-		case"db.table.table_bytes":
+		case"pgpulse.db.table.table_bytes":
 			key := schema + "." + table
 			tm := getOrCreateTable(tableMap, key, schema, table)
 			tm.TableBytes = p.Value
-		case"db.table.bloat_ratio":
+		case"pgpulse.db.table.bloat_ratio":
 			key := schema + "." + table
 			tm := getOrCreateTable(tableMap, key, schema, table)
 			tm.BloatRatio = p.Value
-		case"db.table.wasted_bytes":
+		case"pgpulse.db.table.wasted_bytes":
 			key := schema + "." + table
 			tm := getOrCreateTable(tableMap, key, schema, table)
 			tm.WastedBytes = p.Value
 
 		// Index metrics
-		case"db.index.scan_count":
+		case"pgpulse.db.index.scan_count":
 			key := schema + "." + table + "." + index
 			im := getOrCreateIndex(indexMap, key, schema, table, index)
 			im.ScanCount = p.Value
-		case"db.index.tup_read":
+		case"pgpulse.db.index.tup_read":
 			key := schema + "." + table + "." + index
 			im := getOrCreateIndex(indexMap, key, schema, table, index)
 			im.TupRead = p.Value
-		case"db.index.cache_hit_pct":
+		case"pgpulse.db.index.cache_hit_pct":
 			key := schema + "." + table + "." + index
 			im := getOrCreateIndex(indexMap, key, schema, table, index)
 			im.CacheHitPct = p.Value
-		case"db.index.unused":
+		case"pgpulse.db.index.unused":
 			key := schema + "." + table + "." + index
 			im := getOrCreateIndex(indexMap, key, schema, table, index)
 			im.Unused = true
-		case"db.index.unused_bytes":
+		case"pgpulse.db.index.unused_bytes":
 			key := schema + "." + table + "." + index
 			im := getOrCreateIndex(indexMap, key, schema, table, index)
 			im.UnusedBytes = p.Value
-		case"db.index.bloat_ratio":
+		case"pgpulse.db.index.bloat_ratio":
 			key := schema + "." + table + "." + index
 			im := getOrCreateIndex(indexMap, key, schema, table, index)
 			im.BloatRatio = p.Value
-		case"db.index.wasted_bytes":
+		case"pgpulse.db.index.wasted_bytes":
 			key := schema + "." + table + "." + index
 			im := getOrCreateIndex(indexMap, key, schema, table, index)
 			im.WastedBytes = p.Value
 
 		// Vacuum
-		case"db.vacuum.dead_tuples":
+		case"pgpulse.db.vacuum.dead_tuples":
 			key := schema + "." + table
 			vm := getOrCreateVacuum(vacMap, key, schema, table)
 			vm.DeadTuples = p.Value
-		case"db.vacuum.dead_pct":
+		case"pgpulse.db.vacuum.dead_pct":
 			key := schema + "." + table
 			vm := getOrCreateVacuum(vacMap, key, schema, table)
 			vm.DeadPct = p.Value
-		case"db.vacuum.autovacuum_age_sec":
+		case"pgpulse.db.vacuum.autovacuum_age_sec":
 			key := schema + "." + table
 			vm := getOrCreateVacuum(vacMap, key, schema, table)
 			vm.AutovacuumAgeSec = p.Value
-		case"db.vacuum.autoanalyze_age_sec":
+		case"pgpulse.db.vacuum.autoanalyze_age_sec":
 			key := schema + "." + table
 			vm := getOrCreateVacuum(vacMap, key, schema, table)
 			vm.AutoanalyzeAgeSec = p.Value
 
 		// Schema sizes
-		case"db.schema.size_bytes":
+		case"pgpulse.db.schema.size_bytes":
 			resp.Schemas = append(resp.Schemas, schemaMetric{
 				Schema:    schema,
 				SizeBytes: p.Value,
 			})
 
 		// Sequences
-		case"db.sequence.last_value":
+		case"pgpulse.db.sequence.last_value":
 			seq := p.Labels["sequence"]
 			resp.Sequences = append(resp.Sequences, sequenceMetric{
 				Schema:   schema,
@@ -316,18 +316,18 @@ func (s *APIServer) handleGetDatabaseMetrics(w http.ResponseWriter, r *http.Requ
 			})
 
 		// Functions
-		case"db.function.calls":
+		case"pgpulse.db.function.calls":
 			fn := p.Labels["function"]
 			resp.Functions = append(resp.Functions, functionMetric{
 				Schema:   schema,
 				Function: fn,
 				Calls:    p.Value,
 			})
-		case"db.function.total_time_ms":
+		case"pgpulse.db.function.total_time_ms":
 			// Handled via calls entry — skip to avoid duplicates.
 
 		// Catalogs
-		case"db.catalog.size_bytes":
+		case"pgpulse.db.catalog.size_bytes":
 			catTable := p.Labels["table"]
 			resp.Catalogs = append(resp.Catalogs, catalogMetric{
 				Table:     catTable,
@@ -335,13 +335,13 @@ func (s *APIServer) handleGetDatabaseMetrics(w http.ResponseWriter, r *http.Requ
 			})
 
 		// Scalar counts
-		case"db.large_objects.count":
+		case"pgpulse.db.large_objects.count":
 			resp.LargeObjectCount = p.Value
-		case"db.large_objects.size_bytes":
+		case"pgpulse.db.large_objects.size_bytes":
 			resp.LargeObjectSizeBytes = p.Value
-		case"db.unlogged.count":
+		case"pgpulse.db.unlogged.count":
 			resp.UnloggedCount = p.Value
-		case"db.partition.count":
+		case"pgpulse.db.partition.count":
 			resp.PartitionCount += p.Value
 		}
 	}
