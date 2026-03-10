@@ -63,7 +63,7 @@ export function TimeSeriesChart({
       }
 
       // Add "now" divider markLine on the last historical series when forecast is present.
-      if (idx === echartseries.length - 1 && nowMarkLine) {
+      if (idx === series.length - 1 && nowMarkLine) {
         const existingMarkLine = base.markLine as Record<string, unknown> | undefined
         const existingData = (existingMarkLine?.data as unknown[]) || []
         base.markLine = {
