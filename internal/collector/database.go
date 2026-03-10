@@ -315,7 +315,7 @@ func collectBloat(ctx context.Context, q Queryer, dbName string) ([]MetricPoint,
 						hdr+(1+(COUNT(CASE WHEN null_frac>0 THEN 1 END)*8)/bitlength) AS nullhdr
 					FROM pg_stats CROSS JOIN constants
 					LEFT JOIN (SELECT 8 AS bitlength) bl ON true
-					GROUP BY 1,2,3,4,5
+					GROUP BY 1,2,3,4,5,bitlength
 				) AS foo
 			) AS rs
 			JOIN pg_class cc ON cc.relname=rs.tablename
