@@ -297,7 +297,7 @@ func collectBloat(ctx context.Context, q Queryer, dbName string) ([]MetricPoint,
 			GREATEST(bs*(ipages::bigint-iotta),0) AS wastedibytes
 		FROM (
 			SELECT
-				schemaname, tablename, cc.reltuples, cc.relpages,
+				schemaname, tablename, cc.reltuples, cc.relpages, rs.bs,
 				CEIL((cc.reltuples*((datahdr+ma-
 					(CASE WHEN datahdr%ma=0 THEN ma ELSE datahdr%ma END))+nullhdr2+4))/(bs-20::float)) AS otta,
 				c2.relname AS iname, c2.reltuples AS ituples, c2.relpages AS ipages,
