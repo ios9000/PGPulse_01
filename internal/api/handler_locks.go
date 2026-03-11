@@ -89,7 +89,7 @@ func (s *APIServer) handleLockTree(w http.ResponseWriter, r *http.Request) {
 	rows, err := conn.Query(r.Context(), `SELECT
     sa.pid,
     sa.usename,
-    sa.datname,
+    COALESCE(sa.datname, '') AS datname,
     sa.state,
     sa.wait_event_type,
     sa.wait_event,

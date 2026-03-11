@@ -242,6 +242,48 @@ func (o *Orchestrator) dialInstance(ctx context.Context, instanceID, dsn string)
 	return conn, nil
 }
 
+// ConnForDB opens a connection to a specific database on the monitored instance.
+// The caller is responsible for closing the returned connection.
+func (o *Orchestrator) ConnForDB(ctx context.Context, instanceID, dbName string) (*pgx.Conn, error) {
+	dsn, err := o.instanceDSN(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	return o.dialInstance(ctx, instanceID, substituteDBName(dsn, dbName))
+}
+
+// instanceDSN resolves the DSN for the given instance from runners, config, or DB store.
+func (o *Orchestrator) instanceDSN(ctx context.Context, instanceID string) (string, error) {
+	o.mu.Lock()
+	r, ok := o.runners[instanceID]
+	o.mu.Unlock()
+
+	if ok {
+		return r.cfg.DSN, nil
+	}
+
+	for _, instCfg := range o.cfg.Instances {
+		if instCfg.ID == instanceID {
+			if instCfg.Enabled != nil && !*instCfg.Enabled {
+				return "", fmt.Errorf("instance %q is disabled", instanceID)
+			}
+			return instCfg.DSN, nil
+		}
+	}
+
+	if o.instanceStore != nil {
+		rec, err := o.instanceStore.Get(ctx, instanceID)
+		if err == nil && rec != nil {
+			if !rec.Enabled {
+				return "", fmt.Errorf("instance %q is disabled", instanceID)
+			}
+			return rec.DSN, nil
+		}
+	}
+
+	return "", fmt.Errorf("instance %q not found", instanceID)
+}
+
 // Stop signals all goroutines to stop, waits for them, then closes all connections.
 func (o *Orchestrator) Stop() {
 	if o.cancel != nil {
