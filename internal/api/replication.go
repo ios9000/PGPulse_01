@@ -134,7 +134,7 @@ func (s *APIServer) handleReplication(w http.ResponseWriter, r *http.Request) {
 		resp.Role = "primary"
 
 		// Query replicas.
-		replRows, err := conn.Query(r.Context(), `SELECT client_addr, application_name, state, sync_state,
+		replRows, err := conn.Query(r.Context(), `SELECT client_addr::text, application_name, state, sync_state,
        pg_wal_lsn_diff(pg_current_wal_insert_lsn(), sent_lsn) AS pending_bytes,
        pg_wal_lsn_diff(sent_lsn, write_lsn) AS write_bytes,
        pg_wal_lsn_diff(write_lsn, flush_lsn) AS flush_bytes,

@@ -189,7 +189,7 @@ func (s *APIServer) queryClusterProgress(r *http.Request, conn *pgx.Conn) ([]Pro
     c.pid,
     sa.datname,
     c.relid::regclass::text AS relname,
-    c.command_desc AS phase,
+    c.command AS phase,
     c.heap_tuples_scanned,
     c.heap_tuples_written,
     c.heap_blks_total,

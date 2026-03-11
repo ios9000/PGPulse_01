@@ -174,6 +174,7 @@ func (s *APIServer) Routes() http.Handler {
 					r.Post("/instances/{id}/settings/snapshot", s.handleSettingsManualSnapshot)
 					r.Post("/instances/{id}/sessions/{pid}/cancel", s.handleSessionCancel)
 					r.Post("/instances/{id}/sessions/{pid}/terminate", s.handleSessionTerminate)
+					r.Post("/instances/{id}/explain", s.handleExplain)
 				})
 
 				// Alert routes (only when alerting enabled).
@@ -253,6 +254,9 @@ func (s *APIServer) Routes() http.Handler {
 				// Session kill routes (M8_03).
 				r.Post("/instances/{id}/sessions/{pid}/cancel", s.handleSessionCancel)
 				r.Post("/instances/{id}/sessions/{pid}/terminate", s.handleSessionTerminate)
+
+				// Explain route (M8_10).
+				r.Post("/instances/{id}/explain", s.handleExplain)
 
 				// Alert routes (only when alerting enabled).
 				if s.alertRuleStore != nil {

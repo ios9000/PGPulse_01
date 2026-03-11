@@ -11,6 +11,11 @@ const routeLabels: Record<string, string> = {
   users: 'Users',
 }
 
+// Segments whose auto-generated path (/servers) has no route — redirect to a real page.
+const pathOverrides: Record<string, string> = {
+  servers: '/fleet',
+}
+
 export function Breadcrumb() {
   const location = useLocation()
   const segments = location.pathname.split('/').filter(Boolean)
@@ -18,7 +23,8 @@ export function Breadcrumb() {
   if (segments.length === 0) return null
 
   const crumbs = segments.map((segment, index) => {
-    const path = '/' + segments.slice(0, index + 1).join('/')
+    const autoPath = '/' + segments.slice(0, index + 1).join('/')
+    const path = pathOverrides[segment] ?? autoPath
     const label = routeLabels[segment] || segment
     const isLast = index === segments.length - 1
 
