@@ -26,9 +26,9 @@ const OS_CPU_METRICS = [
 const OS_LOAD_METRICS = ['os.load.1m', 'os.load.5m', 'os.load.15m']
 
 const OS_DISK_METRICS = [
-  'os.disk.read_bytes_per_sec',
-  'os.disk.write_bytes_per_sec',
-  'os.disk.io_util_pct',
+  'os.diskstat.read_kb',
+  'os.diskstat.write_kb',
+  'os.diskstat.util_pct',
 ]
 
 function formatKB(kb: number): string {
@@ -39,10 +39,6 @@ function formatKB(kb: number): string {
 
 function kbToGB(kb: number): number {
   return kb / 1048576
-}
-
-function bytesToMB(bytes: number): number {
-  return bytes / (1024 * 1024)
 }
 
 export function OSMetricsSection({ instanceId }: OSMetricsSectionProps) {
@@ -86,7 +82,7 @@ export function OSMetricsSection({ instanceId }: OSMetricsSectionProps) {
   const load5 = m['os.load.5m']?.value
   const load15 = m['os.load.15m']?.value
 
-  const diskUtil = m['os.disk.io_util_pct']?.value
+  const diskUtil = m['os.diskstat.util_pct']?.value
 
   // Chart series
   const memSeries = useMemo(() => {
@@ -154,25 +150,25 @@ export function OSMetricsSection({ instanceId }: OSMetricsSectionProps) {
       dashed?: boolean
     }> = []
 
-    const readPoints = diskHistory.series['os.disk.read_bytes_per_sec']
+    const readPoints = diskHistory.series['os.diskstat.read_kb']
     if (readPoints) {
       result.push({
-        name: 'Read MB/s',
-        data: readPoints.map((p) => ({ t: p.t, v: bytesToMB(p.v) })),
+        name: 'Read KB/s',
+        data: readPoints,
         color: '#3b82f6',
         type: 'area',
       })
     }
-    const writePoints = diskHistory.series['os.disk.write_bytes_per_sec']
+    const writePoints = diskHistory.series['os.diskstat.write_kb']
     if (writePoints) {
       result.push({
-        name: 'Write MB/s',
-        data: writePoints.map((p) => ({ t: p.t, v: bytesToMB(p.v) })),
+        name: 'Write KB/s',
+        data: writePoints,
         color: '#10b981',
         type: 'area',
       })
     }
-    const utilPoints = diskHistory.series['os.disk.io_util_pct']
+    const utilPoints = diskHistory.series['os.diskstat.util_pct']
     if (utilPoints) {
       result.push({
         name: 'Util %',
@@ -281,7 +277,7 @@ export function OSMetricsSection({ instanceId }: OSMetricsSectionProps) {
           <h3 className="mb-3 text-sm font-medium text-pgp-text-secondary">Disk I/O</h3>
           <TimeSeriesChart
             series={diskSeries}
-            yAxisLabel="MB/s"
+            yAxisLabel="KB/s"
             yAxisMin={0}
             loading={diskLoading}
           />
