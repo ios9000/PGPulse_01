@@ -83,8 +83,8 @@ type ClusterSnapshot struct {
 	ETCD    interface{} `json:"etcd"`
 }
 
-// cpuRaw holds raw CPU jiffies parsed from a single /proc/stat "cpu " line.
-type cpuRaw struct {
+// CPURaw holds raw CPU jiffies parsed from a single /proc/stat "cpu " line.
+type CPURaw struct {
 	User    int64
 	Nice    int64
 	System  int64
@@ -95,14 +95,14 @@ type cpuRaw struct {
 	Steal   int64
 }
 
-// total returns the sum of all CPU jiffies.
-func (c cpuRaw) total() int64 {
+// Total returns the sum of all CPU jiffies.
+func (c CPURaw) Total() int64 {
 	return c.User + c.Nice + c.System + c.Idle + c.IOWait + c.IRQ + c.SoftIRQ + c.Steal
 }
 
 
-// diskStatRaw holds raw fields from a /proc/diskstats line.
-type diskStatRaw struct {
+// DiskStatRaw holds raw fields from a /proc/diskstats line.
+type DiskStatRaw struct {
 	Device          string
 	ReadsCompleted  int64
 	ReadsMerged     int64
@@ -175,9 +175,9 @@ func ParseOSRelease(content string) OSRelease {
 	}
 }
 
-// CPUDelta computes CPU usage percentages from two cpuRaw snapshots.
-func CPUDelta(prev, curr cpuRaw, numCPUs int) CPUInfo {
-	totalDelta := curr.total() - prev.total()
+// CPUDelta computes CPU usage percentages from two CPURaw snapshots.
+func CPUDelta(prev, curr CPURaw, numCPUs int) CPUInfo {
+	totalDelta := curr.Total() - prev.Total()
 	if totalDelta <= 0 {
 		return CPUInfo{NumCPUs: numCPUs}
 	}
@@ -195,9 +195,9 @@ func CPUDelta(prev, curr cpuRaw, numCPUs int) CPUInfo {
 	}
 }
 
-// DiskStatsDelta computes I/O statistics deltas between two diskStatRaw snapshots.
+// DiskStatsDelta computes I/O statistics deltas between two DiskStatRaw snapshots.
 // intervalMs is the time elapsed between snapshots in milliseconds.
-func DiskStatsDelta(prev, curr diskStatRaw, intervalMs float64) DiskStatInfo {
+func DiskStatsDelta(prev, curr DiskStatRaw, intervalMs float64) DiskStatInfo {
 	readsDelta := curr.ReadsCompleted - prev.ReadsCompleted
 	writesDelta := curr.WritesCompleted - prev.WritesCompleted
 	sectorsReadDelta := curr.SectorsRead - prev.SectorsRead
@@ -235,21 +235,21 @@ func DiskStatsDelta(prev, curr diskStatRaw, intervalMs float64) DiskStatInfo {
 	}
 }
 
-// parseCPURaw parses the aggregate "cpu " line from /proc/stat content.
-func parseCPURaw(content string) (cpuRaw, error) {
+// ParseCPURaw parses the aggregate "cpu " line from /proc/stat content.
+func ParseCPURaw(content string) (CPURaw, error) {
 	for _, line := range strings.Split(content, "\n") {
 		if !strings.HasPrefix(line, "cpu ") {
 			continue
 		}
 		fields := strings.Fields(line)
 		if len(fields) < 8 {
-			return cpuRaw{}, fmt.Errorf("cpu line has %d fields, expected at least 8", len(fields))
+			return CPURaw{}, fmt.Errorf("cpu line has %d fields, expected at least 8", len(fields))
 		}
 		parseInt := func(s string) int64 {
 			v, _ := strconv.ParseInt(s, 10, 64)
 			return v
 		}
-		raw := cpuRaw{
+		raw := CPURaw{
 			User:    parseInt(fields[1]),
 			Nice:    parseInt(fields[2]),
 			System:  parseInt(fields[3]),
@@ -263,12 +263,12 @@ func parseCPURaw(content string) (cpuRaw, error) {
 		}
 		return raw, nil
 	}
-	return cpuRaw{}, fmt.Errorf("no aggregate cpu line found in /proc/stat")
+	return CPURaw{}, fmt.Errorf("no aggregate cpu line found in /proc/stat")
 }
 
-// parseDiskStats parses /proc/diskstats content into a map keyed by device name.
-func parseDiskStats(content string) map[string]diskStatRaw {
-	result := make(map[string]diskStatRaw)
+// ParseDiskStats parses /proc/diskstats content into a map keyed by device name.
+func ParseDiskStats(content string) map[string]DiskStatRaw {
+	result := make(map[string]DiskStatRaw)
 	for _, line := range strings.Split(content, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 14 {
@@ -279,7 +279,7 @@ func parseDiskStats(content string) map[string]diskStatRaw {
 			return v
 		}
 		name := fields[2]
-		raw := diskStatRaw{
+		raw := DiskStatRaw{
 			Device:          name,
 			ReadsCompleted:  parseInt(fields[3]),
 			ReadsMerged:     parseInt(fields[4]),
