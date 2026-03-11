@@ -202,45 +202,19 @@ type UserStore interface {
 - Iteration deliverables: prefix files with iteration ID (e.g. M4_01_requirements.md)
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
-## Current Iteration
-M8_09 — HOTFIX: production crash + collector bugs
-See: docs/iterations/M8_09_03092026_hotfix/
+## Current Status
+M8 complete (M8_01-M8_08 + hotfixes M8_09/M8_10). All builds clean.
+See: docs/save-points/LATEST.md for full snapshot.
 
 ### What Was Just Completed
-M8_03 — Instance Lister Fix + Session Kill API + ML Model Persistence.
-1. DBInstanceLister — replaces static configInstanceLister. Queries instances
-   WHERE enabled = true on each Bootstrap call. ML now covers instances added
-   via API after startup without restart.
-2. ML Model Persistence — STLBaseline fitted state serialized to
-   ml_baseline_snapshots (JSONB upsert) after every Evaluate() cycle. Bootstrap
-   loads persisted state first; falls back to TimescaleDB replay only for stale
-   or missing snapshots. Staleness threshold: 2 * period * collectionInterval.
-3. Session Cancel / Terminate API — POST /api/v1/instances/{id}/sessions/{pid}/cancel
-   and /terminate. Admin only. Blocks own-PID (400) and superuser targets (403).
-   Returns {pid, action, success}. Every action logged via slog at INFO.
-New files: internal/ml/lister.go, internal/ml/persistence.go,
-internal/api/session_actions.go, internal/storage/migrations/010_ml_baseline_snapshots.sql.
-Modified: internal/ml/baseline.go, internal/ml/detector.go, internal/api/server.go,
-internal/config/config.go, cmd/pgpulse-server/main.go, .gitignore.
-Build: ✅ clean.
+M8 — P1 Features + ML Phase 1 (10 sub-iterations):
+- M8_01-M8_03: Session kill API, EXPLAIN API, settings diff, auto-plan capture, settings snapshots, ML anomaly detection, ML persistence, DB instance lister
+- M8_04-M8_05: STL-based forecasting, forecast API, forecast alerts (sustained crossing), forecast chart overlay
+- M8_06-M8_07: Session kill UI, settings diff UI, query plan viewer UI, plan history UI, settings timeline UI, toast system, application_name enrichment
+- M8_08: Logical replication monitoring (PGAM Q41)
+- M8_09-M8_10: Production hotfixes (TDZ crash, CSP, PG16 compat, explain handler recreation, scan errors)
+Build: clean. Deployed to Ubuntu 24 / PG 16.13 demo server.
 
 ### What's Next
-M8_04 — Forecast Horizon. Add STL-based N-step-ahead forecasting with 95% CI.
-1. STLBaseline.Forecast(n, z, interval, now) — linear trend extrapolation +
-   repeating seasonal component + ±1.96σ confidence bounds. Returns nil until warm.
-2. Detector.Forecast(ctx, instanceID, metricKey, horizon) — exposed for API use.
-   runForecastAlerts() private method fires alerts when any forecast point crosses
-   a forecast_threshold rule's threshold. use_lower_bound flag for high-confidence
-   alerting only.
-3. GET /api/v1/instances/{id}/metrics/{metric}/forecast — viewer role sufficient.
-   Optional ?horizon=N param (capped). Returns points array with offset, predicted_at,
-   value, lower, upper. 404 if no baseline, 503 if not bootstrapped.
-4. Config: ml.forecast.horizon (default 60), ml.forecast.confidence_z (default 1.96),
-   per-metric ml.metrics[name].forecast_horizon override.
-5. New rule type: forecast_threshold in alert rules.
-New files: internal/ml/forecast.go, internal/ml/errors.go, internal/api/forecast.go.
-Modified: internal/ml/baseline.go (add trendHistory, seasonIdx, Forecast()),
-internal/ml/detector.go (Forecast() + runForecastAlerts()),
-internal/alert/rules.go (RuleTypeForecastThreshold + UseLowerBound),
-internal/config/config.go (ForecastConfig), internal/api/server.go (route).
-See: docs/iterations/M8_04_03092026_forecast-horizon/
+M9 — Reports & Export.
+See: docs/iterations/HANDOFF_M8_to_M9.md

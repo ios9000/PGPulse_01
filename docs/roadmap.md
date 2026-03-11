@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-09
+**Last updated:** 2026-03-10
 
 ---
 
@@ -39,6 +39,8 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | M8_06 | UI catch-up: session kill UI, settings diff UI, query plan viewer UI, forecast extension to all charts, toast system | 2026-03-09 | ✅ Done |
 | M8_07 | Deferred UI: plan history UI, settings timeline UI, application_name enrichment, Administration.tsx lint fix | 2026-03-09 | ✅ Done |
 | M8_08 | Logical replication monitoring: DB sub-collector (Q41), API endpoint, frontend section, alert rule | 2026-03-09 | ✅ Done |
+| M8_09 | HOTFIX: TDZ crash, CSP, bloat PG16 compat, WAL receiver, sequences NULL, port config | 2026-03-09 | ✅ Done |
+| M8_10 | HOTFIX: explain handler, breadcrumb, replication/lock/progress scan errors | 2026-03-10 | ✅ Done |
 
 ## M7 Sub-Iterations
 
