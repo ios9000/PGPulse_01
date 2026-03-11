@@ -13,7 +13,7 @@ import (
 )
 
 // previousDiskStats stores the last disk stats snapshot for delta computation.
-var previousDiskStats map[string]diskStatRaw
+var previousDiskStats map[string]DiskStatRaw
 
 // previousDiskStatsTime stores the timestamp of the last disk stats snapshot.
 var previousDiskStatsTime time.Time
@@ -139,7 +139,7 @@ func collectCPU() (CPUInfo, error) {
 	if err != nil {
 		return CPUInfo{}, fmt.Errorf("read /proc/stat: %w", err)
 	}
-	prev, err := parseCPURaw(string(data1))
+	prev, err := ParseCPURaw(string(data1))
 	if err != nil {
 		return CPUInfo{}, fmt.Errorf("parse /proc/stat: %w", err)
 	}
@@ -150,7 +150,7 @@ func collectCPU() (CPUInfo, error) {
 	if err != nil {
 		return CPUInfo{}, fmt.Errorf("read /proc/stat (second sample): %w", err)
 	}
-	curr, err := parseCPURaw(string(data2))
+	curr, err := ParseCPURaw(string(data2))
 	if err != nil {
 		return CPUInfo{}, fmt.Errorf("parse /proc/stat (second sample): %w", err)
 	}
@@ -216,7 +216,7 @@ func collectDiskStats() ([]DiskStatInfo, error) {
 		return nil, fmt.Errorf("read /proc/diskstats: %w", err)
 	}
 
-	current := parseDiskStats(string(data))
+	current := ParseDiskStats(string(data))
 	now := time.Now()
 
 	if previousDiskStats == nil {

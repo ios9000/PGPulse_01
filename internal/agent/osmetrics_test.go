@@ -107,7 +107,7 @@ ID=testos
 }
 
 func TestCPUDelta(t *testing.T) {
-	prev := cpuRaw{
+	prev := CPURaw{
 		User:    10000,
 		Nice:    500,
 		System:  3000,
@@ -117,7 +117,7 @@ func TestCPUDelta(t *testing.T) {
 		SoftIRQ: 200,
 		Steal:   50,
 	}
-	curr := cpuRaw{
+	curr := CPURaw{
 		User:    11000,
 		Nice:    550,
 		System:  3500,
@@ -149,7 +149,7 @@ func TestCPUDelta(t *testing.T) {
 }
 
 func TestCPUDelta_ZeroTotal(t *testing.T) {
-	same := cpuRaw{User: 1000, Nice: 0, System: 500, Idle: 5000}
+	same := CPURaw{User: 1000, Nice: 0, System: 500, Idle: 5000}
 	info := CPUDelta(same, same, 4)
 
 	if info.UserPct != 0 || info.SystemPct != 0 {
@@ -161,7 +161,7 @@ func TestCPUDelta_ZeroTotal(t *testing.T) {
 }
 
 func TestDiskStatsDelta(t *testing.T) {
-	prev := diskStatRaw{
+	prev := DiskStatRaw{
 		Device:          "sda",
 		ReadsCompleted:  1000,
 		SectorsRead:     50000,
@@ -171,7 +171,7 @@ func TestDiskStatsDelta(t *testing.T) {
 		WriteTimeMs:     8000,
 		IOTimeMs:        3000,
 	}
-	curr := diskStatRaw{
+	curr := DiskStatRaw{
 		Device:          "sda",
 		ReadsCompleted:  1100,
 		SectorsRead:     55000,
@@ -219,8 +219,8 @@ func TestDiskStatsDelta(t *testing.T) {
 }
 
 func TestDiskStatsDelta_ZeroReads(t *testing.T) {
-	prev := diskStatRaw{Device: "sdb", ReadsCompleted: 100, WritesCompleted: 50}
-	curr := diskStatRaw{Device: "sdb", ReadsCompleted: 100, WritesCompleted: 60, WriteTimeMs: 100}
+	prev := DiskStatRaw{Device: "sdb", ReadsCompleted: 100, WritesCompleted: 50}
+	curr := DiskStatRaw{Device: "sdb", ReadsCompleted: 100, WritesCompleted: 60, WriteTimeMs: 100}
 
 	info := DiskStatsDelta(prev, curr, 5000)
 
@@ -233,9 +233,9 @@ func TestParseCPURaw(t *testing.T) {
 	content := `cpu  10000 500 3000 80000 1000 100 200 50 0 0
 cpu0 2500 125 750 20000 250 25 50 12 0 0
 `
-	raw, err := parseCPURaw(content)
+	raw, err := ParseCPURaw(content)
 	if err != nil {
-		t.Fatalf("parseCPURaw returned error: %v", err)
+		t.Fatalf("ParseCPURaw returned error: %v", err)
 	}
 
 	if raw.User != 10000 {
@@ -254,7 +254,7 @@ func TestParseDiskStats(t *testing.T) {
    8       1 sda1 900 400 45000 4500 1800 280 90000 7200 2 2700 11700
    8      16 sdb 0 0 0 0 0 0 0 0 0 0 0
 `
-	stats := parseDiskStats(content)
+	stats := ParseDiskStats(content)
 
 	if _, ok := stats["sda"]; !ok {
 		t.Fatal("expected sda in parsed disk stats")

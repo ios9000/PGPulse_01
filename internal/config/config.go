@@ -11,7 +11,13 @@ type Config struct {
 	PlanCapture      PlanCaptureConfig      `koanf:"plan_capture"`
 	SettingsSnapshot SettingsSnapshotConfig `koanf:"settings_snapshot"`
 	ML               MLConfig               `koanf:"ml"`
+	OSMetrics        OSMetricsConfig        `koanf:"os_metrics"`
 	Instances        []InstanceConfig       `koanf:"instances"`
+}
+
+// OSMetricsConfig holds global OS metrics collection settings.
+type OSMetricsConfig struct {
+	Method string `koanf:"method"` // "sql" (default), "agent", "disabled"
 }
 
 // AlertingConfig holds alerting engine settings.
@@ -100,6 +106,9 @@ type InstanceConfig struct {
 	IncludeDatabases []string `koanf:"include_databases"`   // glob patterns; empty = include all
 	ExcludeDatabases []string `koanf:"exclude_databases"`   // glob patterns; empty = exclude none
 	MaxConcurrentDBs int      `koanf:"max_concurrent_dbs"`  // default 5 if zero
+
+	// OS metrics method override (M8_11) — overrides global os_metrics.method for this instance.
+	OSMetricsMethod string `koanf:"os_metrics_method"` // "sql", "agent", "disabled"; empty = use global
 }
 
 // AgentConfig holds configuration for the pgpulse-agent binary.

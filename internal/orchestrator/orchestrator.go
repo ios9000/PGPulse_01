@@ -64,11 +64,12 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 		}
 
 		r := &instanceRunner{
-			cfg:        instCfg,
-			store:      o.store,
-			logger:     o.logger,
-			evaluator:  o.evaluator,
-			dispatcher: o.dispatcher,
+			cfg:            instCfg,
+			globalOSMethod: o.cfg.OSMetrics.Method,
+			store:          o.store,
+			logger:         o.logger,
+			evaluator:      o.evaluator,
+			dispatcher:     o.dispatcher,
 		}
 
 		if err := r.connect(ctx); err != nil {
@@ -168,11 +169,12 @@ func (o *Orchestrator) reload(ctx context.Context) {
 		instCfg.Intervals.Low = 300 * time.Second
 
 		r := &instanceRunner{
-			cfg:        instCfg,
-			store:      o.store,
-			logger:     o.logger,
-			evaluator:  o.evaluator,
-			dispatcher: o.dispatcher,
+			cfg:            instCfg,
+			globalOSMethod: o.cfg.OSMetrics.Method,
+			store:          o.store,
+			logger:         o.logger,
+			evaluator:      o.evaluator,
+			dispatcher:     o.dispatcher,
 		}
 
 		if err := r.connect(ctx); err != nil {

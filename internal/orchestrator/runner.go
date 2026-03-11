@@ -19,15 +19,16 @@ import (
 // instanceRunner manages a single monitored PostgreSQL instance:
 // a connection pool, version detection, and a set of interval groups.
 type instanceRunner struct {
-	cfg        config.InstanceConfig
-	pool       *pgxpool.Pool
-	pgVersion  version.PGVersion
-	store      collector.MetricStore
-	groups     []*intervalGroup
-	dbRunner   *DBRunner
-	logger     *slog.Logger
-	evaluator  AlertEvaluator
-	dispatcher AlertDispatcher
+	cfg             config.InstanceConfig
+	globalOSMethod  string // global os_metrics.method from config
+	pool            *pgxpool.Pool
+	pgVersion       version.PGVersion
+	store           collector.MetricStore
+	groups          []*intervalGroup
+	dbRunner        *DBRunner
+	logger          *slog.Logger
+	evaluator       AlertEvaluator
+	dispatcher      AlertDispatcher
 }
 
 // connect opens a connection pool to the instance, detects the PG version, and stores both.
@@ -98,8 +99,18 @@ func (r *instanceRunner) buildCollectors() {
 		collector.NewCopyProgressCollector(id, v),
 	}
 
-	// OS and cluster collectors (M6 — graceful degradation if not configured).
+	// OS metrics: resolve method (per-instance override > global > default "sql").
+	osMethod := r.resolveOSMethod()
+
+	// OS agent collector (M6 — graceful degradation if not configured).
+	// Registered when method is "agent" or when an agent_url is explicitly set.
 	osCollector := collector.NewOSCollector(id, r.cfg.DSN, r.cfg.AgentURL)
+
+	// OS SQL collector (M8_11 — reads /proc via pg_read_file).
+	if osMethod == "sql" {
+		medium = append(medium, collector.NewOSSQLCollector(id, v))
+	}
+
 	clusterCollector := collector.NewClusterCollector(id,
 		patroni.NewProvider(patroni.PatroniConfig{
 			PatroniURL:     r.cfg.PatroniURL,
@@ -187,6 +198,18 @@ func (r *instanceRunner) queryIC(ctx context.Context) collector.InstanceContext 
 		return collector.InstanceContext{}
 	}
 	return ic
+}
+
+// resolveOSMethod returns the effective OS metrics collection method.
+// Per-instance override takes precedence over global config; defaults to "sql".
+func (r *instanceRunner) resolveOSMethod() string {
+	if r.cfg.OSMetricsMethod != "" {
+		return r.cfg.OSMetricsMethod
+	}
+	if r.globalOSMethod != "" {
+		return r.globalOSMethod
+	}
+	return "sql"
 }
 
 // close releases the connection pool and per-DB pools.

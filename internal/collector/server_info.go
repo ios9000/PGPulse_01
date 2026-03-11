@@ -3,10 +3,13 @@ package collector
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/ios9000/PGPulse_01/internal/agent"
 	"github.com/ios9000/PGPulse_01/internal/version"
 )
 
@@ -77,5 +80,39 @@ func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn, ic In
 		points = append(points, c.point("server.is_in_backup", 0.0, nil))
 	}
 
+	// Hostname — read via pg_read_file (graceful failure).
+	hostname, err := readServerFile(ctx, conn, "/etc/hostname")
+	if err == nil {
+		points = append(points, c.point("server.hostname", 0, map[string]string{
+			"hostname": strings.TrimSpace(hostname),
+		}))
+	}
+
+	// OS distribution — read via pg_read_file (graceful failure).
+	osRelease, err := readServerFile(ctx, conn, "/etc/os-release")
+	if err == nil {
+		rel := agent.ParseOSRelease(osRelease)
+		prettyName := rel.Name
+		if rel.Version != "" {
+			prettyName += " " + rel.Version
+		}
+		points = append(points, c.point("server.os", 0, map[string]string{
+			"os": prettyName,
+		}))
+	}
+
 	return points, nil
+}
+
+// readServerFile reads a file from the monitored server via pg_read_file.
+func readServerFile(ctx context.Context, conn *pgx.Conn, path string) (string, error) {
+	qctx, cancel := queryContext(ctx)
+	defer cancel()
+	var content string
+	err := conn.QueryRow(qctx, "SELECT pg_read_file($1)", path).Scan(&content)
+	if err != nil {
+		slog.Debug("server_info: cannot read file", "path", path, "error", err)
+		return "", fmt.Errorf("pg_read_file %s: %w", path, err)
+	}
+	return content, nil
 }
