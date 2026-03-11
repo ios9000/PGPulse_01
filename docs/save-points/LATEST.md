@@ -1,10 +1,10 @@
 # PGPulse — Save Point
 
-**Save Point:** M8_01 — P1 Features (Session Kill, Query Plans, Settings Diff)
-**Date:** 2026-03-09
-**Commit:** (uncommitted — M8_01 implementation complete, pending commit)
+**Save Point:** M8 Complete — P1 Features + ML Phase 1 + Hotfixes
+**Date:** 2026-03-10
+**Commit:** e773c01
 **Developer:** Archer
-**AI Tool:** Claude.ai (Opus 4.6) + Claude Code 2.1.71 (Agent Teams, bash works on Windows)
+**AI Tool:** Claude.ai (Opus 4.6) + Claude Code (Agent Teams, bash works on Windows)
 
 ---
 
@@ -17,11 +17,11 @@
 **License:** [TBD]
 
 ### What PGPulse Does
-PGPulse is a real-time PostgreSQL monitoring, alerting, and analytics tool built in Go. It connects to one or more PostgreSQL instances via pg_monitor role, collects 69+ metrics (ported from 76 legacy PGAM queries), stores time-series data in PostgreSQL/TimescaleDB, evaluates 19 alert rules with a state machine, and presents everything through an embedded React web UI.
+PGPulse is a real-time PostgreSQL monitoring, alerting, and analytics tool built in Go. It connects to one or more PostgreSQL instances via pg_monitor role, collects ~70 metrics (ported from 76 legacy PGAM queries), stores time-series data in PostgreSQL/TimescaleDB, evaluates 23 alert rules (including ML-based forecast alerts), and presents everything through an embedded React web UI.
 
-As of M8_01, PGPulse is no longer read-only — DBAs can cancel/terminate sessions, run on-demand EXPLAIN plans, and compare pg_settings across instances directly from the UI.
+PGPulse is no longer read-only — DBAs can cancel/terminate sessions, run on-demand EXPLAIN plans, compare pg_settings across instances, browse auto-captured query plan history, view temporal settings timelines, and monitor logical replication — all directly from the UI. ML anomaly detection uses STL decomposition for seasonal baselines with Z-score/IQR scoring, plus Holt-Winters forecasting with confidence bands displayed on charts.
 
-It supports PostgreSQL 14–18 via version-adaptive SQL gates, runs as a single binary with the frontend embedded via go:embed, and provides JWT authentication with 4-role RBAC. Instances can be managed through the web UI (add/edit/delete, CSV bulk import) with YAML seeding on startup and orchestrator hot-reload every 60 seconds.
+It supports PostgreSQL 14-18 via version-adaptive SQL gates, runs as a single binary with the frontend embedded via go:embed, and provides JWT authentication with 4-role RBAC. Instances can be managed through the web UI (add/edit/delete, CSV bulk import) with YAML seeding on startup and orchestrator hot-reload every 60 seconds.
 
 ### Origin Story
 Rewrite of PGAM — a legacy PHP PostgreSQL Activity Monitor used internally at VTB Bank.
@@ -46,49 +46,55 @@ fixing every architectural and security flaw.
 | State Mgmt | Zustand 5.0 + TanStack Query 5 | — | Client state + server state |
 | Config | koanf v2 | 2.3.2 | YAML + env vars |
 | Logging | log/slog | stdlib | Structured logging |
+| ML | gonum | 0.17.0 | Pure Go statistics (STL, Holt-Winters) |
 | Testing | testcontainers-go | 0.40.0 | Real PG instances in tests |
-| Concurrency | golang.org/x/sync | 0.19.0 | errgroup for parallel settings fetch |
-| ML (future) | gonum | — | Pure Go statistics |
+| Concurrency | golang.org/x/sync | 0.19.0 | errgroup for parallel operations |
 | CI | GitHub Actions | — | Lint + test + build |
 | Linter | golangci-lint | v2.10.1 | v2 config format required |
 
 ### Architecture Diagram
 ```
-┌─────────────────────────────────────────┐
-│         PGPulse Server (Go binary)      │
-│                                         │
-│  ┌─────────┐  ┌──────┐  ┌──────────┐   │
-│  │Collectors│→ │Storage│← │ REST API │   │
-│  │(pgxpool) │  │(TSDB) │  │(chi+JWT) │   │
-│  └────┬────┘  └───────┘  └────┬─────┘   │
-│       │                       │          │
-│  ┌────▼────┐            ┌────▼─────┐    │
-│  │ Version │            │  Auth    │    │
-│  │  Gate   │            │ (RBAC)   │    │
-│  └─────────┘            └──────────┘    │
-│                                         │
-│  ┌─────────┐  ┌──────────────────┐      │
-│  │  Alert  │  │  Web UI (embed)  │      │
-│  │ Engine  │  │  React+Tailwind  │      │
-│  └─────────┘  └──────────────────┘      │
-│                                         │
-│  ┌──────────────────────────────┐       │
-│  │  Instance Store (DB-backed)  │       │
-│  │  YAML seed → DB truth        │       │
-│  │  Hot-reload every 60s        │       │
-│  └──────────────────────────────┘       │
-│                                         │
-│  ┌──────────────────────────────┐       │
-│  │  P1 Features (M8_01)        │       │
-│  │  Session Kill + EXPLAIN +    │       │
-│  │  Settings Diff (stateless)   │       │
-│  └──────────────────────────────┘       │
-└─────────────────────────────────────────┘
-         │
-    ┌────▼─────┐
-    │ PGPulse  │  (optional, separate binary)
-    │  Agent   │  OS metrics via procfs
-    └──────────┘
++-----------------------------------------+
+|         PGPulse Server (Go binary)      |
+|                                         |
+|  +---------+  +------+  +----------+   |
+|  |Collectors|->|Storage|<-| REST API |   |
+|  |(pgxpool) |  |(TSDB) |  |(chi+JWT) |   |
+|  +----+----+  +-------+  +----+-----+   |
+|       |                       |          |
+|  +----v----+            +----v-----+    |
+|  | Version |            |  Auth    |    |
+|  |  Gate   |            | (RBAC)   |    |
+|  +---------+            +----------+    |
+|                                         |
+|  +---------+  +------------------+      |
+|  |  Alert  |  |  Web UI (embed)  |      |
+|  | Engine  |  |  React+Tailwind  |      |
+|  +---------+  +------------------+      |
+|                                         |
+|  +------------------------------+       |
+|  |  ML Engine (M8)             |       |
+|  |  STL Decomposition +        |       |
+|  |  Holt-Winters Forecast +    |       |
+|  |  Anomaly Detection          |       |
+|  +------------------------------+       |
+|                                         |
+|  +------------------------------+       |
+|  |  Instance Store (DB-backed)  |       |
+|  |  YAML seed -> DB truth       |       |
+|  |  Hot-reload every 60s        |       |
+|  +------------------------------+       |
+|                                         |
+|  +------------------------------+       |
+|  |  Plan Capture + Settings     |       |
+|  |  Snapshots (background)      |       |
+|  +------------------------------+       |
++-----------------------------------------+
+         |
+    +----v-----+
+    | PGPulse  |  (optional, separate binary)
+    |  Agent   |  OS metrics via procfs
+    +----------+
 ```
 
 ### Key Design Decisions
@@ -101,108 +107,17 @@ fixing every architectural and security flaw.
 | D4 | No COPY TO PROGRAM ever | PGAM's worst security flaw — eliminated entirely | 2026-02-25 |
 | D5 | pg_monitor role only | Least privilege, never superuser | 2026-02-25 |
 | D6 | One Collector per module | Testable, enable/disable, independent intervals | 2026-02-25 |
-| D7 | Agents run bash directly | Claude Code v2.1.63 fixed EINVAL bash bug on Windows | 2026-03-01 |
-| D8 | React 18 + TypeScript | Type safety, ecosystem maturity | 2026-03-03 |
-| D9 | Zustand + TanStack Query | Lightweight state mgmt, built-in caching/refetch | 2026-03-03 |
-| D10 | pgxpool.Pool per instance | Eliminates connection contention between collectors | 2026-03-04 |
-| D11 | NoOp evaluator/dispatcher | Never-nil pattern avoids nil-guard crashes | 2026-03-04 |
-| D12 | DB is source of truth for instances | YAML seeds on first start, DB overrides after | 2026-03-04 |
-| D13 | Orchestrator hot-reload (60s) | Start/stop runners without server restart | 2026-03-04 |
-| D14 | DSN masking in API responses | Never leak passwords in JSON | 2026-03-04 |
-| D15 | DBCollector parallel to Collector | Per-database metrics without touching instance-level interface | 2026-03-08 |
-| D16 | One-shot pgx.Conn for EXPLAIN | No pool coupling, clean connection lifecycle per request | 2026-03-09 |
-| D17 | EXPLAIN query not parameterized | EXPLAIN cannot use $1 — auth gate (dba/super_admin) is the protection | 2026-03-09 |
-| D18 | Stateless settings diff | Live query both instances — no storage, no snapshots (M8_02 adds temporal) | 2026-03-09 |
-| D19 | Session audit log in PGPulse DB | Audit trail independent of monitored instances | 2026-03-09 |
+| D7 | React 18 + TypeScript | Type safety, ecosystem maturity | 2026-03-03 |
+| D8 | pgxpool.Pool per instance | Eliminates connection contention between collectors | 2026-03-04 |
+| D9 | DB is source of truth for instances | YAML seeds on first start, DB overrides after | 2026-03-04 |
+| D10 | DBCollector parallel to Collector | Per-database metrics without touching instance-level interface | 2026-03-08 |
+| D11 | Simplified STL (EWMA + folded mean) | Full Loess too complex for pure-Go implementation | 2026-03-09 |
+| D12 | mlerrors package breaks circular import | alert cannot import ml; shared sentinel errors in mlerrors | 2026-03-09 |
+| D13 | Sustained crossing for forecast alerts | N consecutive points must cross threshold before alert fires | 2026-03-09 |
 
 ---
 
 ## 3. CODEBASE STATE
-
-### New Files in M8_01
-```
-./internal/api/sessions.go              ← Session cancel/terminate handlers + audit log
-./internal/api/plans.go                 ← On-demand EXPLAIN handler + DSN substitution
-./internal/api/settings_diff.go         ← Cross-instance pg_settings comparison
-./internal/storage/migrations/007_session_audit_log.sql  ← Audit table + indexes
-./web/src/components/SessionKillButtons.tsx   ← Cancel/terminate buttons with modals
-./web/src/pages/QueryPlanViewer.tsx           ← EXPLAIN UI with recursive plan tree
-./web/src/pages/SettingsDiff.tsx              ← Settings comparison page
-```
-
-### Modified Files in M8_01
-```
-./internal/api/server.go                ← 4 new routes (cancel, terminate, explain, settings/compare)
-./web/src/App.tsx                       ← 2 new routes (explain, settings/diff)
-./web/src/types/models.ts              ← 6 new TypeScript interfaces
-./web/src/pages/ServerDetail.tsx        ← "Explain Query" link
-./web/src/components/layout/Sidebar.tsx ← "Settings Diff" nav item
-```
-
-### Full File Tree (key files only — complete codebase)
-```
-./cmd/pgpulse-agent/main.go
-./cmd/pgpulse-server/main.go
-./configs/pgpulse.example.yml
-./configs/pgpulse.yml
-./deploy/docker/Dockerfile
-./deploy/docker/docker-compose.yml
-./internal/agent/*.go                    (Linux-only OS metrics agent, M6)
-./internal/alert/*.go                    (Evaluator, dispatcher, rules, stores, email)
-./internal/api/activity.go
-./internal/api/alerts.go
-./internal/api/auth.go
-./internal/api/connprovider.go
-./internal/api/handler_locks.go
-./internal/api/handler_progress.go
-./internal/api/handler_statements.go
-./internal/api/health.go
-./internal/api/instances.go
-./internal/api/instances_crud.go
-./internal/api/metrics.go
-./internal/api/middleware.go
-./internal/api/plans.go                  ← NEW M8_01
-./internal/api/replication.go
-./internal/api/response.go
-./internal/api/server.go                 ← MODIFIED M8_01
-./internal/api/sessions.go               ← NEW M8_01
-./internal/api/settings_diff.go          ← NEW M8_01
-./internal/api/static.go
-./internal/api/handler_database.go       (M7 per-database API)
-./internal/auth/*.go                     (JWT, RBAC, middleware, rate limiter, store)
-./internal/cluster/etcd/*.go             (M6 ETCD provider)
-./internal/cluster/patroni/*.go          (M6 Patroni provider)
-./internal/collector/*.go                (33+ collectors, registry, base, version-gated SQL)
-./internal/collector/database.go         (M7 — 16 DB sub-collectors)
-./internal/config/config.go
-./internal/config/load.go
-./internal/orchestrator/orchestrator.go
-./internal/orchestrator/runner.go
-./internal/orchestrator/group.go
-./internal/orchestrator/db_runner.go     (M7 — per-database collection)
-./internal/orchestrator/noop.go
-./internal/storage/pgstore.go
-./internal/storage/instances.go
-./internal/storage/migrate.go
-./internal/storage/migrations/001_metrics.sql
-./internal/storage/migrations/002_timescaledb.sql
-./internal/storage/migrations/003_users.sql
-./internal/storage/migrations/004_alerts.sql
-./internal/storage/migrations/005_expand_roles.sql
-./internal/storage/migrations/006_instances.sql
-./internal/storage/migrations/007_session_audit_log.sql  ← NEW M8_01
-./internal/version/gate.go
-./internal/version/version.go
-./web/src/App.tsx                        ← MODIFIED M8_01
-./web/src/components/SessionKillButtons.tsx  ← NEW M8_01
-./web/src/components/layout/Sidebar.tsx  ← MODIFIED M8_01
-./web/src/pages/QueryPlanViewer.tsx      ← NEW M8_01
-./web/src/pages/SettingsDiff.tsx         ← NEW M8_01
-./web/src/pages/ServerDetail.tsx         ← MODIFIED M8_01
-./web/src/pages/DatabaseDetail.tsx       (M7)
-./web/src/types/models.ts               ← MODIFIED M8_01
-(~120 other web/src/ files — components, hooks, stores, pages, lib)
-```
 
 ### Key Interfaces
 
@@ -231,6 +146,10 @@ type MetricStore interface {
     Close() error
 }
 
+type AlertEvaluator interface {
+    Evaluate(ctx context.Context, metric string, value float64, labels map[string]string) error
+}
+
 // M7 — per-database interfaces
 type Queryer interface {
     Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
@@ -241,51 +160,6 @@ type DBCollector interface {
     Name() string
     Interval() time.Duration
     CollectDB(ctx context.Context, q Queryer, dbName string, ic InstanceContext) ([]MetricPoint, error)
-}
-```
-
-```go
-// internal/api/connprovider.go
-type InstanceConnProvider interface {
-    ConnFor(ctx context.Context, instanceID string) (*pgx.Conn, error)
-}
-```
-
-```go
-// internal/api/plans.go — NEW M8_01
-type ExplainRequest struct {
-    Database string `json:"database"`
-    Query    string `json:"query"`
-    Analyze  bool   `json:"analyze"`
-    Buffers  bool   `json:"buffers"`
-}
-
-type ExplainResponse struct {
-    PlanJSON        []map[string]any `json:"plan_json"`
-    ExecutionTimeMs *float64         `json:"execution_time_ms,omitempty"`
-    PlanningTimeMs  *float64         `json:"planning_time_ms,omitempty"`
-}
-
-func SubstituteDatabase(dsn, dbName string) (string, error) // handles key=value and postgres://
-```
-
-```go
-// internal/api/settings_diff.go — NEW M8_01
-type SettingEntry struct {
-    Name     string `json:"name"`
-    Category string `json:"category"`
-    ValueA   string `json:"value_a,omitempty"`
-    ValueB   string `json:"value_b,omitempty"`
-    Unit     string `json:"unit,omitempty"`
-}
-
-type SettingsDiffResponse struct {
-    InstanceA     InstanceRef    `json:"instance_a"`
-    InstanceB     InstanceRef    `json:"instance_b"`
-    Changed       []SettingEntry `json:"changed"`
-    OnlyInA       []SettingEntry `json:"only_in_a"`
-    OnlyInB       []SettingEntry `json:"only_in_b"`
-    MatchingCount int            `json:"matching_count"`
 }
 ```
 
@@ -316,9 +190,12 @@ require (
     github.com/testcontainers/testcontainers-go v0.40.0
     github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
     golang.org/x/crypto v0.43.0
+    gonum.org/v1/gonum v0.17.0
 )
-// golang.org/x/sync v0.19.0 — indirect, used by settings_diff.go via errgroup
 ```
+
+### SQL Migrations (001-011)
+001_metrics, 002_timescaledb, 003_users, 004_alerts, 005_expand_roles, 006_instances, 007_session_audit_log, 008_plan_capture, 009_settings_snapshots, 010_ml_baseline_snapshots, 011_forecast_alert_consecutive
 
 ---
 
@@ -326,265 +203,60 @@ require (
 
 ### Query Porting Status
 
-| Source | Queries | Target | Status |
+| Source | Queries | Ported | Status |
 |--------|---------|--------|--------|
-| analiz2.php #1–19 | Instance metrics | collector/instance group | 13/19 ported (Q4-Q8 OS → agent M6) |
-| analiz2.php #20–41 | Replication | collector/replication_*.go | 4/22 ported (15 remaining → future) |
-| analiz2.php #42–47 | Progress | collector/progress_*.go | 6/6 ported |
-| analiz2.php #48–52 | Statements | collector/statements_*.go | 4/5 ported (Q52 deferred) |
-| analiz2.php #53–58 | Locks | collector/locks.go | 5/6 ported (Q58 deferred) |
-| analiz_db.php #1–18 | Per-DB analysis | collector/database.go | 17/18 ported (Q1 dup skip) |
-| New (not in PGAM) | — | checkpoint, pg_stat_io, OS agent, cluster | 6 new |
-| **Total** | **76** | | **~69/76 ported** |
-
-### PGAM Bugs Fixed During Port
-1. Q11: Connection count includes own connection → added WHERE pid != pg_backend_pid()
-2. Q14: Cache hit ratio division by zero → added NULLIF guard
-3. Q10: pg_is_in_backup() removed in PG15 → version gate returns false
-
-### Version Gates Implemented
-1. Q10: pg_is_in_backup() → removed in PG 15, return false
-2. Q20: pg_stat_replication columns differ PG <10 vs ≥10
-3. Q40: pg_stat_replication_slots (PG ≥14 only)
-4. pg_stat_io (PG ≥16 only)
-5. Checkpoint vs bgwriter split (PG ≥17)
+| analiz2.php #1-19 | 19 | 13 | Q4-Q8 OS -> agent M6 |
+| analiz2.php #20-41 | 22 | 5 | Q20-Q21, Q37-Q40, Q41 |
+| analiz2.php #42-47 | 6 | 6 | Complete |
+| analiz2.php #48-52 | 5 | 4 | Q52 deferred |
+| analiz2.php #53-58 | 6 | 5 | Q58 deferred |
+| analiz_db.php #1-18 | 18 | 17 | Q1 dup skip |
+| New (not in PGAM) | — | 6 | checkpoint, pg_stat_io, OS agent, cluster |
+| **Total** | **76** | **~70** | |
 
 ---
 
 ## 5. MILESTONE STATUS
 
-### Roadmap
-
-| Milestone | Name | Status | Completion Date |
+| Milestone | Name | Status | Date |
 |---|---|---|---|
-| M0 | Project Setup | ✅ Done | 2026-02-25 |
-| M1 | Core Collector | ✅ Done | 2026-02-26 |
-| M2 | Storage & API | ✅ Done | 2026-02-27 |
-| M3 | Auth & Security | ✅ Done | 2026-03-01 |
-| M4 | Alerting | ✅ Done | 2026-03-01 |
-| M5 | Web UI (MVP) | ✅ Done | 2026-03-04 |
-| M6 | Agent Mode + Cluster | ✅ Done | 2026-03-05 |
-| M7 | Per-Database Analysis | ✅ Done | 2026-03-08 |
-| M8_01 | P1 Features | ✅ Done | 2026-03-09 |
-| M8_02 | P2 Features (auto-plan, temporal diff) | 🔲 Not Started | — |
-| M9 | ML Phase 1 | 🔲 Not Started | — |
-| M10 | Reports & Export | 🔲 Not Started | — |
-
-### What Was Just Completed (M8_01)
-
-Three stateless operational features that turn PGPulse from read-only monitoring into an interactive DBA workbench:
-
-**1. Session Kill** — Cancel or terminate PostgreSQL backend sessions directly from the UI.
-- `POST /instances/:id/sessions/:pid/cancel` — pg_cancel_backend (SIGINT, query cancelled, connection stays)
-- `POST /instances/:id/sessions/:pid/terminate` — pg_terminate_backend (SIGTERM, connection closed)
-- Requires dba or super_admin role (instance_management permission)
-- Every operation logged to `session_audit_log` table (migration 007)
-- Frontend: SessionKillButtons component with confirmation modals
-
-**2. On-Demand Query Plans** — Submit SQL and receive EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON).
-- `POST /instances/:id/explain` — one-shot pgx.Conn per request, 30s statement_timeout
-- Database selector: connects to specific database via DSN substitution
-- SubstituteDatabase() handles both key=value and postgres:// DSN formats
-- EXPLAIN query body intentionally NOT parameterized (cannot use $1 with EXPLAIN)
-- Frontend: QueryPlanViewer page with recursive plan tree, cost/row discrepancy highlighting, raw JSON toggle
-
-**3. Cross-Instance Settings Diff** — Compare pg_settings between any two monitored instances.
-- `GET /settings/compare?instance_a=X&instance_b=Y`
-- Concurrent fetch via errgroup with 10s timeout per instance
-- Noise filter (server_version, data_directory, lc_*, etc.) — toggle with ?show_all=true
-- Results: changed / only_in_a / only_in_b / matching_count, sorted by category then name
-- Frontend: SettingsDiff page with accordion groups, CSV export
+| M0 | Project Setup | Done | 2026-02-25 |
+| M1 | Core Collector | Done | 2026-02-26 |
+| M2 | Storage & API | Done | 2026-02-27 |
+| M3 | Auth & Security | Done | 2026-03-01 |
+| M4 | Alerting | Done | 2026-03-01 |
+| M5 | Web UI (MVP) | Done | 2026-03-04 |
+| M6 | Agent Mode + Cluster | Done | 2026-03-05 |
+| M7 | Per-Database Analysis | Done | 2026-03-08 |
+| M8 | P1 Features + ML Phase 1 | Done | 2026-03-10 |
+| M9 | Reports & Export | Not Started | — |
+| M10 | Polish & Release | Not Started | — |
 
 ### What's Next
-
-M8_02 — P2 Features (deferred from M8_01):
-- Auto-capture query plans (background, threshold-triggered)
-- Plan history (store + retrieve past plans)
-- Temporal settings diff (current vs. historical snapshot)
-- Logical replication monitoring (Q41)
-
-M9 — ML Phase 1:
-- Seasonal baselines with gonum
-- Outlier detection for metric anomalies
+M9 — Reports & Export (scheduled PDF/HTML reports, CSV/JSON export, dashboard snapshots)
 
 ---
 
-## 6. DEVELOPMENT ENVIRONMENT
+## 6. REST API (38+ endpoints)
 
-### Developer Workstation
-| Component | Value |
-|---|---|
-| OS | Windows 10 |
-| Shell | Git Bash (MSYS2) |
-| Go | 1.24.0 |
-| Claude Code | 2.1.71 |
-| Git | 2.52.0 |
-| golangci-lint | v2.10.1 |
-| Docker Desktop | Not installed (BIOS virtualization disabled) |
-
-### Development Method
-- **Two-contour model:** Claude.ai (Brain) + Claude Code (Hands)
-- **Claude Code v2.1.71:** Bash works on Windows. Agents run go build/test/lint/commit directly.
-- **Agent Teams:** 3-agent team (API, Frontend, QA) in isolated git worktrees
-- **One chat per iteration** in Claude.ai
-- **Project Knowledge** contains: strategy, PGAM audit, architecture doc
-- **Iteration Handoff** documents bridge between chats
-
-### Known Environment Issues
-
-| Issue | Status | Workaround |
-|---|---|---|
-| ~~Claude Code bash EINVAL on Windows~~ | **Fixed in v2.1.63** | No workaround needed |
-| LF/CRLF warnings | Has .gitattributes | `* text=auto eol=lf` |
-| Docker Desktop unavailable | BIOS virtualization disabled | Integration tests CI-only |
-| Administration.tsx lint error | Pre-existing | useState called conditionally — cosmetic |
+See full endpoint table in SAVEPOINT_M8_10_20260310.md section 8.
 
 ---
 
-## 7. KEY LEARNINGS & DECISIONS LOG
-
-### Architecture Decisions (chronological)
-| Date | Decision | Alternatives Considered | Why This Choice |
-|---|---|---|---|
-| 2026-02-25 | Go over Rust | Rust steeper learning curve | Faster development, goroutines natural for collectors |
-| 2026-02-25 | pgx over database/sql | database/sql lacks PG features | Named args, COPY, notifications |
-| 2026-02-25 | TimescaleDB over InfluxDB | InfluxDB = separate service | PG-native, one less dependency |
-| 2026-03-01 | Agents run bash directly | Hybrid mode (files only) | EINVAL bug fixed in v2.1.63 |
-| 2026-03-03 | React 18 + TypeScript | Svelte | Ecosystem maturity, hiring pool |
-| 2026-03-04 | pgxpool.Pool per instance | Single pgx.Conn | Eliminates connection contention |
-| 2026-03-04 | DB as instance source of truth | Config file only | Enables runtime CRUD without restart |
-| 2026-03-08 | DBCollector parallel interface | Extend Collector | Per-database metrics without breaking instance-level |
-| 2026-03-09 | One-shot conn for EXPLAIN | Reuse DBRunner pools | Simpler lifecycle, no coupling |
-| 2026-03-09 | Noise-filtered settings diff | Show all by default | Reduces false positives, toggle available |
-
-### Issues & Resolutions
-| Date | Issue | Resolution |
-|---|---|---|
-| 2026-02-25 | TMPDIR path mangling | Fixed in Claude Code v2.1.63 |
-| 2026-03-01 | Chi r.Use() after r.Get() panics | Wrap in r.Group() |
-| 2026-03-04 | Connection contention in collectors | Replaced pgx.Conn with pgxpool.Pool |
-| 2026-03-04 | Nil evaluator panic when alerting disabled | Created NoOp implementations |
-| 2026-03-09 | Migration 006 already exists | Used 007 for session_audit_log (design doc said 006) |
-| 2026-03-09 | Pool typed as Pinger for audit writes | Type-assert `s.pool.(*pgxpool.Pool)` in writeAuditLog |
-
----
-
-## 8. REST API (37 endpoints)
-
-| Method | Path | Permission | Added |
-|--------|------|------------|-------|
-| GET | /api/v1/health | public | M2 |
-| POST | /api/v1/auth/login | public (rate-limited) | M3 |
-| POST | /api/v1/auth/refresh | public | M3 |
-| GET | /api/v1/auth/me | authenticated | M3 |
-| PUT | /api/v1/auth/me/password | self_management | M5_02 |
-| POST | /api/v1/auth/register | user_management | M5_02 |
-| GET | /api/v1/auth/users | user_management | M5_02 |
-| PUT | /api/v1/auth/users/{id} | user_management | M5_02 |
-| DELETE | /api/v1/auth/users/{id} | user_management | M5_07 |
-| PUT | /api/v1/auth/users/{id}/password | user_management | M5_07 |
-| GET | /api/v1/instances | view_all | M2 |
-| GET | /api/v1/instances/{id} | view_all | M2 |
-| POST | /api/v1/instances | instance_management | M5_06 |
-| PUT | /api/v1/instances/{id} | instance_management | M5_06 |
-| DELETE | /api/v1/instances/{id} | instance_management | M5_06 |
-| POST | /api/v1/instances/bulk | instance_management | M5_06 |
-| POST | /api/v1/instances/{id}/test | instance_management | M5_06 |
-| GET | /api/v1/instances/{id}/metrics | view_all | M2 |
-| GET | /api/v1/instances/{id}/metrics/current | view_all | M5_03 |
-| GET | /api/v1/instances/{id}/metrics/history | view_all | M5_03 |
-| GET | /api/v1/instances/{id}/replication | view_all | M5_03 |
-| GET | /api/v1/instances/{id}/activity/wait-events | view_all | M5_03 |
-| GET | /api/v1/instances/{id}/activity/long-transactions | view_all | M5_03 |
-| GET | /api/v1/instances/{id}/activity/statements | view_all | M5_04 |
-| GET | /api/v1/instances/{id}/activity/locks | view_all | M5_04 |
-| GET | /api/v1/instances/{id}/activity/progress | view_all | M5_04 |
-| GET | /api/v1/instances/{id}/os | view_all | M6 |
-| GET | /api/v1/instances/{id}/cluster | view_all | M6 |
-| GET | /api/v1/instances/{id}/databases | view_all | M7 |
-| GET | /api/v1/instances/{id}/databases/{dbname}/metrics | view_all | M7 |
-| POST | /api/v1/instances/{id}/sessions/{pid}/cancel | instance_management | **M8_01** |
-| POST | /api/v1/instances/{id}/sessions/{pid}/terminate | instance_management | **M8_01** |
-| POST | /api/v1/instances/{id}/explain | instance_management | **M8_01** |
-| GET | /api/v1/settings/compare | authenticated | **M8_01** |
-| GET | /api/v1/alerts | view_all | M4 |
-| GET | /api/v1/alerts/history | view_all | M4 |
-| GET | /api/v1/alerts/rules | view_all | M4 |
-| POST | /api/v1/alerts/rules | alert_management | M4 |
-| PUT | /api/v1/alerts/rules/{id} | alert_management | M4 |
-| DELETE | /api/v1/alerts/rules/{id} | alert_management | M4 |
-| POST | /api/v1/alerts/test | alert_management | M4 |
-
----
-
-## 9. TEST RESULTS (at save point)
-
-```
-?   github.com/ios9000/PGPulse_01/cmd/pgpulse-agent     [no test files]
-?   github.com/ios9000/PGPulse_01/cmd/pgpulse-server     [no test files]
-ok  github.com/ios9000/PGPulse_01/internal/agent          (cached)
-ok  github.com/ios9000/PGPulse_01/internal/alert          (cached)
-ok  github.com/ios9000/PGPulse_01/internal/alert/notifier (cached)
-ok  github.com/ios9000/PGPulse_01/internal/api            0.374s
-ok  github.com/ios9000/PGPulse_01/internal/auth           (cached)
-ok  github.com/ios9000/PGPulse_01/internal/cluster/etcd   (cached)
-ok  github.com/ios9000/PGPulse_01/internal/cluster/patroni (cached)
-ok  github.com/ios9000/PGPulse_01/internal/collector      (cached)
-ok  github.com/ios9000/PGPulse_01/internal/config         (cached)
-ok  github.com/ios9000/PGPulse_01/internal/orchestrator   (cached)
-ok  github.com/ios9000/PGPulse_01/internal/storage        0.775s
-
-golangci-lint: 0 issues
-npx tsc --noEmit: 0 errors
-npm run build: success (11.60s)
-npm run lint: 1 error (pre-existing in Administration.tsx, not from M8_01)
-```
-
----
-
-## 10. RECENT COMMITS
-
-```
-ee9aed3 docs: add M7_01 session log and handoff to M8_01
-b8899a0 feat(collector,api,web): add per-database analysis — DBCollector, DBRunner, 16 sub-collectors (M7_01)
-9b48a51 docs: update CLAUDE.md for M6_01 completion
-d40de90 docs: add iteration docs for M6_01 and M7_01 (handoff, session log, requirements)
-77723fe feat(agent,api,web): add OS agent, cluster providers, and frontend sections (M6_01)
-e38464a docs: update CLAUDE.md for M6_01 iteration
-e4fc6e4 feat(api,web): add user management UI — delete, reset password, admin CRUD (M5_07)
-0c10427 docs: create save point after M5_06 (stabilization + instance management)
-e652577 docs: update roadmap and CHANGELOG for M5_06 completion
-```
-(M8_01 commit pending)
-
----
-
-## 11. HOW TO RESTORE THIS SAVE POINT
+## 7. HOW TO RESTORE THIS SAVE POINT
 
 ### Option A: Continue in Same Claude.ai Project
 1. Open new chat in the PGPulse project
 2. Upload this save point file
-3. Say: "Restoring from save point. Continue from M8_01."
+3. Say: "Restoring from save point. Continue from M9."
 
 ### Option B: New Claude.ai Project from Scratch
 1. Create new Claude.ai Project named "PGPulse"
-2. Upload to Project Knowledge:
-   - This save point file
-   - PGAM_FEATURE_AUDIT.md
-   - PGPulse_Development_Strategy_v2.md
+2. Upload to Project Knowledge: this file + PGAM_FEATURE_AUDIT.md + PGPulse_Development_Strategy_v2.md
 3. Open new chat, upload this save point
 4. Say: "Restoring PGPulse project from save point. All context is in this file."
 
 ### Option C: Different AI Tool / New Developer
 1. Clone repo: `git clone https://github.com/ios9000/PGPulse_01.git`
-2. Read this save point file — it contains complete project context
-3. Read `.claude/CLAUDE.md` for module ownership and interfaces
-4. Read `docs/roadmap.md` for current milestone status
-5. Continue development from the "What's Next" section above
-
-### Option D: Complete Disaster Recovery
-If the repo is lost:
-1. This save point contains all interfaces and key code snippets
-2. The architecture and decisions are documented above
-3. PGAM SQL queries are in the audit doc (docs/legacy/PGAM_FEATURE_AUDIT.md)
-4. Rebuild from the interfaces → implement collectors → add storage → add API
+2. Read this save point + `.claude/CLAUDE.md` + `docs/roadmap.md`
+3. Continue from "What's Next" above

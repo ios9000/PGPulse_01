@@ -1,3 +1,42 @@
+## [M8_10] — 2026-03-10 — Hotfix: Explain + Scan Errors
+
+### Fixed
+- **Explain handler recreated** (`internal/api/explain.go`) — handler was deleted in M8_02 cleanup, never recreated; now properly wired with SubstituteDatabase, one-shot pgx.Conn, 30s timeout
+- **Breadcrumb "Servers" link** — changed from `/servers` (404) to `/fleet`
+- **Replication client_addr inet scan** — added `::text` cast for pgx binary protocol compatibility
+- **Progress command_desc column** — fixed column name for PG 16 compatibility
+- **Lock tree datname NULL scan** — added `COALESCE(d.datname, '')` for non-database-specific locks
+- **ConnForDB method** — added to orchestrator for explain handler database-specific connections
+
+### Changed
+- `internal/api/server.go` — explain route registered in both auth-enabled and auth-disabled paths
+- `internal/orchestrator/orchestrator.go` — added `ConnForDB()` method (connects to specific database on instance)
+
+---
+
+## [M8_09] — 2026-03-09 — Hotfix: Production Crash + PG16 Compat
+
+### Fixed
+- **CRITICAL: TDZ crash in production bundle** — circular import `useForecastChart -> ForecastBand -> useForecast` broke minified build; moved `buildForecastSeries` from `components/ForecastBand.ts` to `lib/forecastUtils.ts`
+- **CSP blocks Google Fonts** — added `fonts.googleapis.com` and `fonts.gstatic.com` to CSP header in middleware
+- **Bloat CTE wrong column names** — used `pg_stats` view (`null_frac`, `avg_width`) instead of `pg_statistic` columns
+- **WAL receiver `received_lsn` not found** — changed to `flushed_lsn` in `replication_status.go`
+- **Sequences `pct_used` NULL scan** — added `COALESCE` and `IS NOT NULL` guard
+- **`server.port` config ignored** — wired `cfg.Server.Port` to listen address when `server.listen` not set
+- **Bloat query GROUP BY** — added missing `bitlength` column to GROUP BY clause
+- **Bloat query subquery** — passed `bs` through `sml` subquery correctly
+- **Databases handler metric prefix** — uses `pgpulse.db.` prefix for DB-level metrics
+
+### Changed
+- `internal/api/middleware.go` — updated CSP header
+- `internal/collector/database.go` — bloat CTE fixes, sequences NULL fix
+- `internal/collector/replication_status.go` — WAL receiver column fix
+- `internal/config/config.go` + `load.go` — server.port config wiring
+- `web/src/hooks/useForecastChart.ts` — imports from `lib/forecastUtils` instead of `components/ForecastBand`
+- `internal/api/databases.go` — metric prefix alignment
+
+---
+
 ## [M8_08] — 2026-03-09 — Logical Replication Monitoring
 
 ### Added
