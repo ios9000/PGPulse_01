@@ -4,7 +4,7 @@
 **Project:** PGPulse — PostgreSQL Health & Activity Monitor  
 **Rewrite from:** PGAM (legacy PHP) → Go  
 **Date:** 2026-02-25  
-**Version:** 2.3 — Agent Teams + Save Point System
+**Version:** 2.4 — Agent Teams + Save Point System + Codebase Digest
 
 ---
 
@@ -33,18 +33,27 @@
 | **Context compaction** — "Compacting our conversation…" | New chat for each iteration; keep iterations focused |
 | **Sequential bottleneck** — Single Claude Code session does one thing at a time | Agent Teams: 3 specialists work in parallel on independent workstreams |
 | **Context window exhaustion** — Single session fills 80–90% context | Each agent has own context window; results come back summarized (~40% usage) |
-| **Bash broken on Windows** — Claude Code can't run shell commands | **Hybrid workflow:** agents create files, developer runs bash manually |
+| **Bash broken on Windows** — Claude Code can't run shell commands | ~~**Hybrid workflow:** agents create files, developer runs bash manually~~ **RESOLVED in v2.1.63** — agents run build/test/lint/commit directly |
 | **Manual copying** — Code and docs manually transferred between environments | Claude Code reads/writes directly; Git is the single source of truth |
 | **Legacy knowledge preservation** — 76 SQL queries from PGAM must not be lost | PGAM_FEATURE_AUDIT.md in **Project Knowledge** (always available) |
+| **Planning blind spot** — Claude.ai (Brain) can't see the codebase during planning | **Codebase Digest** — auto-generated code map (files, interfaces, metrics, endpoints, components). See `.claude/rules/codebase-digest.md` |
 
 ---
 
 ## Persistence & Continuity System
 
-Three layers protect project context across sessions, projects, and tools:
+Four layers protect project context across sessions, projects, and tools:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
+│  CODEBASE DIGEST (code map)                                     │
+│  Machine-generated reference — files, interfaces, metrics,      │
+│  endpoints, components, collectors, config schema.               │
+│  Created: per iteration (after build verification)               │
+│  Location: docs/CODEBASE_DIGEST.md                              │
+│  Rules: .claude/rules/codebase-digest.md                         │
+│  Also uploaded to: Project Knowledge (Claude.ai)                 │
+├─────────────────────────────────────────────────────────────────┤
 │  SAVE POINT (Mass Effect save)                                  │
 │  Complete project snapshot — architecture, code, decisions,     │
 │  issues, environment. Restores entire project from scratch.     │
@@ -75,6 +84,7 @@ Upload these ONCE to Project Knowledge. They persist across all chats:
 |---|---|
 | PGPulse_Development_Strategy_v2.md | Process rules (this file) |
 | PGAM_FEATURE_AUDIT.md | Legacy SQL reference (76 queries) |
+| CODEBASE_DIGEST.md | Auto-generated code map (re-upload after each iteration) |
 | Chat_Transition_Process.md | How to move between chats |
 | Save_Point_System.md | How to create/restore save points |
 
@@ -228,7 +238,7 @@ where to find everything. It is the index, not the content.
 **Critical rules for this agent:**
 - All SQL uses parameterized queries via pgx (`$1`, `$2` or named args)
 - Every query must have version-gated variants (PG 14/15/16/17/18)
-- NEVER use `COPY ... TO PROGRAM` — OS metrics go through Go agent via procfs
+- NEVER use `COPY ... TO PROGRAM` — OS metrics via Go agent (procfs) or pg_read_file('/proc/*') SQL method
 - Set `application_name = 'pgpulse_<collector>'` on every connection
 - `statement_timeout` per category: 5s (live), 60s (analysis), 30s (background)
 
@@ -244,7 +254,7 @@ where to find everything. It is the index, not the content.
 **What this agent builds:**
 - REST API with OpenAPI spec (go-chi/chi v5)
 - JWT authentication with bcrypt passwords
-- RBAC: admin (full) and viewer (read-only) roles
+- RBAC: 4 roles (super_admin, roles_admin, dba, app_admin) with permission-based access control
 - TimescaleDB hypertable schema for metric storage
 - Server inventory CRUD (replaces PGAM's raw GET params)
 - Alert rule engine with configurable thresholds
@@ -309,7 +319,8 @@ C:\Users\Archer\Projects\PGPulse_01\
 │       ├── security.md                 # Security rules (no SQL injection, etc.)
 │       ├── postgresql.md               # PG-specific rules (version gates, parameterized queries)
 │       ├── chat-transition.md          # How to move context between Claude.ai chats
-│       └── save-point.md              # How to create/restore project snapshots
+│       ├── save-point.md              # How to create/restore project snapshots
+│       └── codebase-digest.md         # Template for auto-generated code map
 │
 ├── cmd/
 │   ├── pgpulse-server/                 # Main server binary
@@ -326,7 +337,8 @@ C:\Users\Archer\Projects\PGPulse_01\
 │   │   ├── database.go                 # PGAM analiz_db.php queries 1–18
 │   │   ├── progress.go                 # PGAM queries 42–47
 │   │   ├── cluster.go                  # Patroni + ETCD
-│   │   └── os.go                       # OS metrics via procfs
+│   │   ├── os.go                       # OS metrics via procfs (agent binary)
+│   │   └── os_sql.go                   # OS metrics via pg_read_file('/proc/*') (no agent needed)
 │   ├── version/                        # ← COLLECTOR AGENT territory
 │   ├── storage/                        # ← API & SECURITY AGENT territory
 │   ├── api/                            # ← API & SECURITY AGENT territory
@@ -349,6 +361,7 @@ C:\Users\Archer\Projects\PGPulse_01\
 ├── docs/
 │   ├── README.md
 │   ├── CHANGELOG.md
+│   ├── CODEBASE_DIGEST.md              # Auto-generated code map (7 sections)
 │   ├── RESTORE_CONTEXT.md              # Emergency recovery (if handoff lost)
 │   ├── roadmap.md                      # Milestone status tracker
 │   ├── architecture.md                 # Full architecture document
@@ -411,7 +424,7 @@ PostgreSQL Health & Activity Monitor — Go rewrite of legacy PGAM PHP tool.
 Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
 
 ## Stack
-- Language: Go 1.23+
+- Language: Go 1.24+
 - PG Driver: jackc/pgx v5
 - HTTP: go-chi/chi v5
 - Storage: PostgreSQL + TimescaleDB
@@ -478,8 +491,8 @@ type AlertEvaluator interface {
 - All SQL: parameterized queries (pgx named args) — NEVER string concatenation
 - Every collector: handle PG version ranges via internal/version gate
 - Commits: "feat: ...", "fix: ...", "docs: ...", "refactor: ..."
-- No COPY TO PROGRAM — OS metrics via Go agent only
-- Monitoring user: pg_monitor role, never superuser
+- No COPY TO PROGRAM — OS metrics via Go agent or pg_read_file('/proc/*') SQL method
+- Monitoring user: pg_monitor role (+ pg_read_server_files for SQL-based OS metrics), never superuser
 - Test against PG 14, 15, 16, 17 using testcontainers-go
 
 ## Current Iteration
@@ -519,12 +532,13 @@ We use Claude Code Agent Teams (experimental) with:
 - Extended agents unlock at M5 (Frontend), M6 (OS), M8 (ML)
 
 ## Key Documents to Read
-1. `docs/legacy/PGAM_FEATURE_AUDIT.md` — legacy inventory (76 SQL queries)
-2. `docs/architecture.md` — system design
-3. `docs/PGPulse_Development_Strategy.md` — full Agent Teams strategy
-4. `docs/roadmap.md` — milestone plan with current status
-5. `CHANGELOG.md` — what has been implemented
-6. Latest `docs/iterations/M*_*/session-log.md` — most recent decisions
+1. `docs/CODEBASE_DIGEST.md` — auto-generated code map (files, metrics, endpoints, components)
+2. `docs/legacy/PGAM_FEATURE_AUDIT.md` — legacy inventory (76 SQL queries)
+3. `docs/architecture.md` — system design
+4. `docs/PGPulse_Development_Strategy.md` — full Agent Teams strategy
+5. `docs/roadmap.md` — milestone plan with current status
+6. `CHANGELOG.md` — what has been implemented
+7. Latest `docs/iterations/M*_*/session-log.md` — most recent decisions
 
 ## Repos
 - PGPulse (active): https://github.com/ios9000/PGPulse_01
@@ -968,18 +982,19 @@ internal/version/ → COLLECTOR AGENT
 - NEVER concatenate user input into SQL strings
 - Connection parameters from server registry, NEVER from URL params
 - Monitoring user: pg_monitor role only — NEVER superuser
-- Max 3 connections per monitored instance
+- pgxpool connection pool per monitored instance (max_conns configurable)
 
 ## Authentication
 - JWT tokens with bcrypt-hashed passwords
-- Token expiry: configurable (default 24h)
-- RBAC: admin (full access) and viewer (read-only)
+- Dual-token: 15min access (memory) + 7d refresh (localStorage)
+- RBAC: 4 roles (super_admin, roles_admin, dba, app_admin) with 5 permission groups
 - All mutations require Bearer token
 - CSRF tokens for browser-submitted forms
 
 ## OS Metrics
 - NEVER use COPY TO PROGRAM
-- OS metrics via Go agent (procfs/sysfs)
+- Default: OS metrics via pg_read_file('/proc/*') with pg_read_server_files role
+- Optional: OS metrics via Go agent (procfs/sysfs) for comprehensive coverage
 - Binary paths configurable — never hardcoded
 
 ## Secrets
@@ -1018,7 +1033,7 @@ internal/version/ → COLLECTOR AGENT
   - Per-DB analysis: 60s
   - Background collection: 30s
 - application_name = 'pgpulse_<collector>'
-- Single persistent connection per instance
+- pgxpool connection pool per instance (not single connection)
 
 ## Version-Specific Differences
 
@@ -1037,6 +1052,7 @@ internal/version/ → COLLECTOR AGENT
 ### System Catalogs
 - PG ≥ 15: pg_stat_activity.query_id added natively
 - PG ≥ 16: pg_stat_io view added
+- PG ≥ 17: pg_stat_bgwriter split into pg_stat_checkpointer + pg_stat_bgwriter
 
 ## Testing
 - Integration tests with testcontainers-go (real PostgreSQL)
@@ -1061,12 +1077,10 @@ internal/version/ → COLLECTOR AGENT
    - `team-prompt.md` — **ready-to-paste Agent Team spawn prompt**
 5. Download all three files → place in `docs/iterations/M1_01_.../`
 
-### Phase 2: Implementation (Claude Code — Agent Teams, Hybrid Mode)
+### Phase 2: Implementation (Claude Code — Agent Teams)
 
-> **⚠️ Windows Bash Bug (as of v2.1.53):** Claude Code's `Bash()` tool fails with
-> EINVAL on Windows (all shells: Git Bash, PowerShell). File creation, reading, and
-> agent coordination work fine. All shell commands must be run manually by the developer.
-> See: https://github.com/anthropics/claude-code/issues/26545
+> **Claude Code v2.1.63+:** Bash works on Windows. Agents run `go build`, `go test`,
+> `golangci-lint`, and `git commit` directly. No hybrid workflow needed.
 
 1. Open Claude Code in the project directory:
    ```bash
@@ -1082,8 +1096,6 @@ internal/version/ → COLLECTOR AGENT
    ```
 
 3. **Paste the team-prompt.md** content into Claude Code
-   - Remove any bash verification steps from the prompt (agents can't run bash)
-   - Focus prompts on file creation only
 
 4. **Watch the agents work** in in-process mode:
    - Press `Shift+Down` to cycle to next agent
@@ -1095,44 +1107,38 @@ internal/version/ → COLLECTOR AGENT
    - Decompose the prompt into subtasks
    - Assign to specialists
    - Agents create all `.go` files, configs, and migrations
-   - **Agents CANNOT run:** go build, go test, golangci-lint, git commit
+   - Agents run `go build`, `go test`, `golangci-lint`, and `git commit`
 
-6. **You run bash commands manually** (in a separate terminal):
+6. **Build verification** (agents do this, but verify yourself):
    ```bash
-   cd ~/Projects/PGPulse_01
-   go mod tidy
-   go build ./...
-   go vet ./...
-   go test -race ./...
+   cd web && npm run build && npm run lint && npm run typecheck
+   cd .. && go build ./cmd/pgpulse-server && go test ./cmd/... ./internal/...
    golangci-lint run
-
-   # If compilation errors: tell Claude Code to fix them
-   # If all clean: commit
-   git add .
-   git commit -m "feat(collector): add instance metrics collector"
-   git push
    ```
 
 7. **Feedback loop** (if needed):
-   - If `go build` fails, paste errors back into Claude Code
-   - Agent will fix the files (file editing works)
-   - You re-run `go build` until clean
+   - If build fails, paste errors into Claude Code for fixes
+   - Re-run build until clean
 
-### Phase 3: Review and Finalization (Claude.ai — Brain)
+### Phase 3: Review, Digest, and Finalization (Claude.ai — Brain)
 
-1. Return to Claude.ai, share key results:
+1. **Generate Codebase Digest** (Claude Code):
+   > "Read the entire codebase and regenerate docs/CODEBASE_DIGEST.md
+   > following the 7-section template in .claude/rules/codebase-digest.md"
+2. Return to Claude.ai, share key results:
    - Which files were created/modified
    - Test results summary
    - Any decisions the Team Lead made
-2. Ask Claude.ai:
+3. Ask Claude.ai:
    > "Create a session-log for this iteration: goals, agents used,
    > PGAM queries ported, key decisions, test results, what's pending."
-3. Save as `session-log.md` in the iteration folder
-4. Update `docs/roadmap.md` and `CHANGELOG.md`
-5. Final push:
+4. Save as `session-log.md` in the iteration folder
+5. Update `docs/roadmap.md` and `CHANGELOG.md`
+6. Final push:
    ```bash
    git push origin main
    ```
+7. **Upload CODEBASE_DIGEST.md to Project Knowledge** (if changed)
 
 ---
 
@@ -1201,15 +1207,15 @@ What we wanted to implement in this iteration.
 
 | Milestone | Name | Duration (v1) | Duration (v2 Teams) | Agents | Status |
 |---|---|---|---|---|---|
-| M0 | Project Setup | 1 week | 3–4 days | Lead + 2 | 🔲 |
-| M1 | Core Collector | 3 weeks | 2 weeks | Lead + 3 | 🔲 |
-| M2 | Storage & API | 2 weeks | 1.5 weeks | Lead + 3 | 🔲 |
-| M3 | Auth & Security | 1 week | 4–5 days | Lead + 2 | 🔲 |
-| M4 | Alerting | 2 weeks | 1.5 weeks | Lead + 3 | 🔲 |
-| M5 | Web UI (MVP) | 3 weeks | 2 weeks | Lead + 4 | 🔲 |
+| M0 | Project Setup | 1 week | 3–4 days | Lead + 2 | ✅ Done |
+| M1 | Core Collector | 3 weeks | 2 weeks | Lead + 3 | ✅ Done |
+| M2 | Storage & API | 2 weeks | 1.5 weeks | Lead + 3 | ✅ Done |
+| M3 | Auth & Security | 1 week | 4–5 days | Lead + 2 | ✅ Done |
+| M4 | Alerting | 2 weeks | 1.5 weeks | Lead + 3 | ✅ Done |
+| M5 | Web UI (MVP) | 3 weeks | 2 weeks | Lead + 4 | ✅ Done |
 | M6 | Agent Mode | 2 weeks | 1.5 weeks | Lead + 3 | 🔲 |
-| M7 | P1 Features | 3 weeks | 2 weeks | Lead + 3 | 🔲 |
-| M8 | ML Phase 1 | 3 weeks | 2 weeks | Lead + 4 | 🔲 |
+| M7 | Per-Database Analysis | 3 weeks | 2 weeks | Lead + 3 | 🔲 |
+| M8 | ML Phase 1 | 3 weeks | 2 weeks | Lead + 4 | 🔄 In Progress (M8_11) |
 | M9 | Reports & Export | 2 weeks | 1.5 weeks | Lead + 3 | 🔲 |
 | M10 | Polish & Release | 2 weeks | 1.5 weeks | Lead + 3 | 🔲 |
 
@@ -1292,8 +1298,10 @@ Agent Teams consume more tokens than single sessions. Budget accordingly.
 | Letting Claude Code decide architecture | Inconsistent decisions | Architecture decisions in Claude.ai only |
 | Porting PGAM code literally | Carries security vulnerabilities | Port SQL queries, redesign architecture |
 | Skipping session-log | Lose track of agent decisions | Always create session-log after each team session |
-| Including bash steps in team-prompt (Windows) | Agents waste time retrying failed bash | Remove all bash from prompts, add "developer runs manually" note |
+| ~~Including bash steps in team-prompt (Windows)~~ | ~~Agents waste time retrying failed bash~~ | **RESOLVED** — bash works in v2.1.63+. Include bash steps freely. |
 | Forgetting to run go build after agents finish | Broken code gets committed | Always: go mod tidy → go build → go vet → go test before commit |
+| Skipping Codebase Digest generation | Next planning chat starts blind, wastes tokens on grep | Always regenerate CODEBASE_DIGEST.md at end of iteration |
+| Not re-uploading CODEBASE_DIGEST.md to Project Knowledge | Claude.ai planning chats use stale code map | Upload after every regeneration |
 
 ---
 
@@ -1306,34 +1314,36 @@ Agent Teams consume more tokens than single sessions. Budget accordingly.
 │     New chat → discuss feature → produce:                          │
 │     • requirements.md                                              │
 │     • design.md                                                    │
-│     • team-prompt.md  ← NEW: ready-to-paste agent team prompt      │
+│     • team-prompt.md  ← ready-to-paste agent team prompt           │
 │                                                                    │
 │  2. YOU:                                                           │
 │     • Copy docs to docs/iterations/M*_*/                           │
 │     • Update CLAUDE.md "Current Iteration" section                 │
 │                                                                    │
-│  3. CLAUDE CODE (Agent Teams — file creation only):                │
+│  3. CLAUDE CODE (Agent Teams):                                     │
 │     cd ~/Projects/PGPulse_01                                      │
 │     claude --model claude-opus-4-6                                 │
 │     → Paste team-prompt.md                                         │
 │     → Watch agents (Shift+Down/Up to cycle between them)           │
-│     → Agents create .go files, configs, migrations                 │
-│     → Agents CANNOT run bash (Windows bug)                         │
+│     → Agents create files, run build/test/lint, commit             │
 │                                                                    │
-│  3b. YOU (separate terminal — bash commands):                      │
-│     cd ~/Projects/PGPulse_01                                      │
-│     go mod tidy && go build ./... && go vet ./...                  │
-│     go test -race ./... && golangci-lint run                       │
-│     → If errors: paste back into Claude Code for fixes             │
-│     → If clean: git add . && git commit && git push                │
+│  3b. BUILD VERIFICATION (agents do this, verify yourself):         │
+│     cd web && npm run build && npm run lint && npm run typecheck   │
+│     cd .. && go build ./cmd/pgpulse-server                        │
+│     go test ./cmd/... ./internal/...                               │
+│     golangci-lint run                                              │
 │                                                                    │
-│  4. CLAUDE.AI (Brain):                                             │
+│  4. CLAUDE CODE (Codebase Digest):                                 │
+│     → "Regenerate docs/CODEBASE_DIGEST.md per codebase-digest.md" │
+│                                                                    │
+│  5. CLAUDE.AI (Brain):                                             │
 │     • Review results → produce session-log.md                      │
 │     • Include: agent activity, queries ported, decisions, tests    │
 │                                                                    │
-│  5. YOU:                                                           │
+│  6. YOU:                                                           │
 │     • Update roadmap.md + CHANGELOG.md                             │
 │     • git push origin main                                         │
+│     • Upload CODEBASE_DIGEST.md to Project Knowledge               │
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
@@ -1342,41 +1352,18 @@ Agent Teams consume more tokens than single sessions. Budget accordingly.
 
 ## Known Issues & Workarounds
 
-### Claude Code Bash Broken on Windows (CRITICAL)
+### ~~Claude Code Bash Broken on Windows~~ (RESOLVED)
 
-**Status:** Unresolved as of Claude Code v2.1.53 (Feb 2026)
+**Status:** ✅ **Fixed in Claude Code v2.1.63** (March 2026)
 **Bug report:** https://github.com/anthropics/claude-code/issues/26545
 
-**Symptom:** Every `Bash()` tool call fails with:
-```
-Error: EINVAL: invalid argument, open
-'C:\Users\...\AppData\Local\Temp\claude\C--...\tasks\*.output'
-```
+The EINVAL temp path bug that prevented all `Bash()` tool calls on Windows has been resolved.
+Agents now run `go build`, `go test`, `golangci-lint`, `git commit`, and all other shell
+commands directly. The hybrid workflow (agents create files, developer runs bash) is no
+longer needed.
 
-**What works:** File creation, file reading, file editing, Glob, Grep, agent coordination, task lists, inter-agent messaging.
-
-**What breaks:** Any shell command — go build, go test, git commit, echo hello.
-
-**Attempted fixes (all failed):**
-- TMPDIR override (shell env var, Claude settings.json)
-- Short project path (C:\pgp)
-- Pre-creating tasks directory
-- PowerShell instead of Git Bash
-- Downgrade to v2.1.44
-- Windows Defender exclusion
-
-**Workaround: Hybrid Mode**
-```
-Agent Teams create files  →  Developer runs bash manually
-(Go code, configs, tests)     (go build, go test, git commit)
-
-If go build fails → paste errors into Claude Code → agent fixes files → retry
-```
-
-**Impact on team-prompt.md:**
-- Remove all bash verification steps from prompts
-- Add note: "Agents cannot run shell commands on this platform"
-- End prompts with: "List all files created so developer can run build manually"
+**Historical note:** This was the primary blocker from Feb 25 to Mar 1, 2026. All iterations
+from M0 through M2_03 used hybrid mode. M2_04+ use direct agent execution.
 
 ### LF/CRLF Warnings on Git
 
@@ -1385,10 +1372,10 @@ If go build fails → paste errors into Claude Code → agent fixes files → re
 * text=auto eol=lf
 ```
 
-### Go Auto-Upgraded to 1.25.7
+### Go Version
 
-**Cause:** pgx v5.8.0 requires Go ≥ 1.24
-**Impact:** None — accepted. Update go.mod accordingly.
+Go 1.24.0 is the current project version (required by pgx v5.8.0).
+The `go.mod` file specifies `go 1.24`.
 
 ---
 
@@ -1409,9 +1396,9 @@ npm install -g @anthropic-ai/claude-code
 # Verify:
 claude --version  # need 2.1.50+
 
-# 3. Install Go 1.23 (download MSI from https://go.dev/dl/)
+# 3. Install Go 1.24 (download MSI from https://go.dev/dl/)
 # After install, close and reopen Git Bash, then verify:
-go version        # need 1.23+
+go version        # need 1.24+
 
 # 4. Install golangci-lint
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
@@ -1451,15 +1438,15 @@ claude --model claude-opus-4-6
 # Agents work in-process: Shift+Down/Up to cycle between them
 ```
 
-### Verified Environment (2026-02-25)
+### Verified Environment (2026-03-10)
 
 | Tool | Version | Status |
 |---|---|---|
 | Git Bash | MSYS2 / Git 2.52.0 | ✅ |
 | Node.js | v22.14.0 | ✅ |
 | npm | 10.9.2 | ✅ |
-| Claude Code | 2.1.53 | ✅ |
+| Claude Code | 2.1.63+ | ✅ (bash works on Windows) |
 | Agent Teams flag | enabled | ✅ |
-| Go | 1.23.6 windows/amd64 | ✅ |
-| golangci-lint | v1.64.8 | ✅ |
+| Go | 1.24.0 windows/amd64 | ✅ |
+| golangci-lint | v2.10.1 (v2 config format) | ✅ |
 | Display mode | In-process (no tmux) | ✅ |
