@@ -26,7 +26,7 @@ func TestCacheCollector_PG17(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, points, 1)
 
-	hitRatio := findMetric(points, "pgpulse.cache.hit_ratio_pct")
+	hitRatio := findMetric(points, "pgpulse.cache.hit_ratio")
 	require.NotNil(t, hitRatio)
 	assert.GreaterOrEqual(t, hitRatio.Value, 0.0)
 	assert.LessOrEqual(t, hitRatio.Value, 100.0)
@@ -44,7 +44,7 @@ func TestCacheCollector_ZeroDivisionGuard(t *testing.T) {
 	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err, "fresh instance with no reads must not error")
 
-	hitRatio := findMetric(points, "pgpulse.cache.hit_ratio_pct")
+	hitRatio := findMetric(points, "pgpulse.cache.hit_ratio")
 	require.NotNil(t, hitRatio)
 	assert.GreaterOrEqual(t, hitRatio.Value, 0.0)
 }
