@@ -35,7 +35,7 @@ func NewCacheCollector(instanceID string, v version.PGVersion) *CacheCollector {
 func (c *CacheCollector) Name() string { return "cache" }
 
 // Collect executes the cache hit ratio query and returns metric points.
-// Emits: cache.hit_ratio_pct.
+// Emits: cache.hit_ratio.
 func (c *CacheCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	tctx, cancel := queryContext(ctx)
 	var hitRatio float64
@@ -44,5 +44,5 @@ func (c *CacheCollector) Collect(ctx context.Context, conn *pgx.Conn, _ Instance
 	if err != nil {
 		return nil, fmt.Errorf("cache collect hit_ratio: %w", err)
 	}
-	return []MetricPoint{c.point("cache.hit_ratio_pct", hitRatio, nil)}, nil
+	return []MetricPoint{c.point("cache.hit_ratio", hitRatio, nil)}, nil
 }
