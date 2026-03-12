@@ -125,6 +125,51 @@ func TestRequireAuth_RefreshTokenRejected(t *testing.T) {
 	}
 }
 
+func TestNewAuthMiddleware_Disabled(t *testing.T) {
+	mw := NewAuthMiddleware(nil, AuthDisabled, nil)
+
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims := ClaimsFromContext(r.Context())
+		if claims == nil {
+			t.Fatal("claims should be set in context")
+		}
+		if claims.Username != "admin" {
+			t.Errorf("username = %q, want admin", claims.Username)
+		}
+		if claims.Role != string(RoleSuperAdmin) {
+			t.Errorf("role = %q, want super_admin", claims.Role)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rr.Code)
+	}
+}
+
+func TestNewAuthMiddleware_Enabled(t *testing.T) {
+	svc := newAuthMiddlewareJWT()
+	ew, code, _ := testErrorWriter(t)
+	mw := NewAuthMiddleware(svc, AuthEnabled, ew)
+
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("handler should not be called without token")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if *code != http.StatusUnauthorized {
+		t.Errorf("code = %d, want 401", *code)
+	}
+}
+
 func TestRequirePermission_BlocksUnauthorized(t *testing.T) {
 	svc := newAuthMiddlewareJWT()
 	// app_admin does NOT have user_management permission.

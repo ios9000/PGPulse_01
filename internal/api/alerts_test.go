@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ios9000/PGPulse_01/internal/alert"
+	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/config"
 )
 
@@ -151,7 +152,7 @@ func newAlertTestServer(t *testing.T, ruleStore alert.AlertRuleStore, historySto
 		},
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(cfg, &mockStore{}, nil, nil, nil, logger, ruleStore, historyStore, nil, registry, nil)
+	return New(cfg, &mockStore{}, nil, nil, nil, logger, ruleStore, historyStore, nil, registry, nil, false, 0, auth.AuthDisabled)
 }
 
 // --- GET /api/v1/alerts ---

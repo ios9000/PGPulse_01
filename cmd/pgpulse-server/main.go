@@ -27,7 +27,17 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "pgpulse.yml", "path to configuration file")
+	// CLI flags
+	flagTarget := flag.String("target", "", "PostgreSQL DSN for quick-start mode")
+	flagTargetHost := flag.String("target-host", "", "PostgreSQL host (alternative to --target)")
+	flagTargetPort := flag.Int("target-port", 5432, "PostgreSQL port")
+	flagTargetUser := flag.String("target-user", "pgpulse_monitor", "PostgreSQL user")
+	flagTargetPassword := flag.String("target-password", "", "PostgreSQL password")
+	flagTargetDBName := flag.String("target-dbname", "postgres", "PostgreSQL database")
+	flagListen := flag.String("listen", "", "HTTP listen address:port (default :8989)")
+	flagHistory := flag.Duration("history", 2*time.Hour, "Memory retention for live mode")
+	flagNoAuth := flag.Bool("no-auth", false, "Disable authentication")
+	flagConfig := flag.String("config", "pgpulse.yml", "Config file path")
 	flag.Parse()
 
 	// Bootstrap logger at info level; reconfigured once config is loaded.
@@ -35,10 +45,45 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 
-	cfg, err := config.Load(*configPath)
-	if err != nil {
-		logger.Error("failed to load config", "err", err)
+	// Validate mutually exclusive flags.
+	if *flagTarget != "" && *flagTargetHost != "" {
+		logger.Error("--target and --target-host are mutually exclusive")
 		os.Exit(1)
+	}
+
+	// Synthesize CLI instance if --target or --target-host provided.
+	cliInstance, err := synthesizeCLIInstance(*flagTarget, *flagTargetHost, *flagTargetPort, *flagTargetUser, *flagTargetPassword, *flagTargetDBName)
+	if err != nil {
+		logger.Error("invalid target", "err", err)
+		os.Exit(1)
+	}
+
+	// Load config, allowing missing file when CLI target is provided.
+	cfg, err := config.Load(*flagConfig)
+	if err != nil {
+		if cliInstance != nil {
+			// No config file but --target provided — use defaults.
+			logger.Info("no config file found, using CLI flags", "config", *flagConfig)
+			cfg = config.Config{}
+		} else {
+			logger.Error("failed to load config", "err", err,
+				"hint", "provide a config file or use --target to monitor a PostgreSQL instance")
+			os.Exit(1)
+		}
+	}
+
+	// CLI flag overrides.
+	if cliInstance != nil {
+		cfg.Instances = []config.InstanceConfig{*cliInstance}
+	}
+	if *flagNoAuth {
+		cfg.Auth.Enabled = false
+	}
+	if *flagListen != "" {
+		cfg.Server.Listen = *flagListen
+	}
+	if cfg.Server.Listen == "" {
+		cfg.Server.Listen = ":8989"
 	}
 
 	// Reconfigure logger with the level from config.
@@ -53,7 +98,16 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Initialise storage: real PostgreSQL when DSN is configured, log-only otherwise.
+	// Determine operating mode and auth mode.
+	var (
+		liveMode bool
+		authMode = auth.AuthEnabled
+	)
+	if !cfg.Auth.Enabled || *flagNoAuth {
+		authMode = auth.AuthDisabled
+	}
+
+	// Initialise storage: real PostgreSQL when DSN is configured, memory or log-only otherwise.
 	var store collector.MetricStore
 	var pinger api.Pinger // nil unless using PGStore
 
@@ -242,7 +296,8 @@ func main() {
 			}
 			jwtSvc := auth.NewJWTService(cfg.Auth.JWTSecret, refreshSecret, cfg.Auth.AccessTokenTTL, cfg.Auth.RefreshTokenTTL)
 			apiServer := api.New(cfg, store, pinger, jwtSvc, userStore, logger,
-				alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore)
+				alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore,
+				false, 0, auth.AuthEnabled)
 			apiServer.SetPlanStore(planStore)
 			apiServer.SetSnapshotStore(snapshotStore)
 			if mlDetector != nil {
@@ -254,15 +309,34 @@ func main() {
 
 		// Auth disabled with storage.
 		apiServer := api.New(cfg, store, pinger, nil, nil, logger,
-			alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore)
+			alertRuleStore, alertHistoryStore, apiEvaluator, notifierRegistry, instanceStore,
+			false, 0, authMode)
 		apiServer.SetPlanStore(planStore)
 		apiServer.SetSnapshotStore(snapshotStore)
 		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
+	} else if len(cfg.Instances) > 0 {
+		// Live mode — in-memory storage with configured instances.
+		liveMode = true
+		memStore := storage.NewMemoryStore(*flagHistory)
+		store = memStore
+		logger.Info("starting in live mode", "storage", "memory", "retention", flagHistory.String())
+
+		// Disable features that require persistent storage.
+		cfg.ML.Enabled = false
+		cfg.PlanCapture.Enabled = false
+		cfg.SettingsSnapshot.Enabled = false
+
+		apiServer := api.New(cfg, store, pinger, nil, nil, logger,
+			nil, alert.NewNullAlertHistoryStore(), nil, nil, nil,
+			liveMode, *flagHistory, authMode)
+		startServer(ctx, stop, cfg, apiServer, store, logger,
+			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil)
 	} else {
 		store = orchestrator.NewLogStore(logger)
 		logger.Info("no storage DSN configured, using log-only mode")
 
-		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil, nil)
+		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil, nil,
+			false, 0, authMode)
 		startServer(ctx, stop, cfg, apiServer, store, logger,
 			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil)
 	}
@@ -391,6 +465,27 @@ func parseLogLevel(s string) (slog.Level, error) {
 	default:
 		return slog.LevelInfo, fmt.Errorf("unknown log level %q", s)
 	}
+}
+
+// synthesizeCLIInstance builds an InstanceConfig from --target or --target-host CLI flags.
+func synthesizeCLIInstance(target, host string, port int, user, password, dbname string) (*config.InstanceConfig, error) {
+	dsn := target
+	if dsn == "" && host != "" {
+		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
+			url.PathEscape(user), url.PathEscape(password), host, port, dbname)
+	}
+	if dsn == "" {
+		return nil, nil
+	}
+	h, p := extractHostPort(dsn)
+	name := fmt.Sprintf("%s:%d", h, p)
+	enabled := true
+	return &config.InstanceConfig{
+		ID:      "cli-target",
+		Name:    name,
+		DSN:     dsn,
+		Enabled: &enabled,
+	}, nil
 }
 
 // noOpAlertEvaluator discards anomaly alerts when alerting is disabled.

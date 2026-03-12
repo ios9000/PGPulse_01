@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
 	"github.com/ios9000/PGPulse_01/internal/storage"
@@ -72,5 +73,5 @@ func newTestServer(
 		Instances: instances,
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(cfg, store, pool, nil, nil, logger, nil, nil, nil, nil, nil)
+	return New(cfg, store, pool, nil, nil, logger, nil, nil, nil, nil, nil, false, 0, auth.AuthDisabled)
 }

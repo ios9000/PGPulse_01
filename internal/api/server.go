@@ -50,6 +50,9 @@ type APIServer struct {
 	snapshotStore     *settings.PGSnapshotStore // nil when settings snapshot disabled
 	mlDetector        *ml.Detector              // nil until SetMLDetector called
 	mlConfig          config.MLConfig
+	liveMode          bool
+	memoryRetention   time.Duration
+	authMode          auth.AuthMode
 }
 
 // New creates an APIServer. jwtSvc and userStore are nil when auth is disabled.
@@ -61,9 +64,10 @@ func New(cfg config.Config, store collector.MetricStore, pool Pinger,
 	alertRuleStore alert.AlertRuleStore, alertHistoryStore alert.AlertHistoryStore,
 	evaluator *alert.Evaluator, registry *alert.NotifierRegistry,
 	instanceStore storage.InstanceStore,
+	liveMode bool, memoryRetention time.Duration, authMode auth.AuthMode,
 ) *APIServer {
 	var rl *auth.RateLimiter
-	if cfg.Auth.Enabled {
+	if cfg.Auth.Enabled && authMode == auth.AuthEnabled {
 		rl = auth.NewRateLimiter(10, 15*time.Minute)
 	}
 	return &APIServer{
@@ -83,6 +87,9 @@ func New(cfg config.Config, store collector.MetricStore, pool Pinger,
 		notifierRegistry:  registry,
 		alertingCfg:       cfg.Alerting,
 		instanceStore:     instanceStore,
+		liveMode:          liveMode,
+		memoryRetention:   memoryRetention,
+		authMode:          authMode,
 	}
 }
 
@@ -122,8 +129,9 @@ func (s *APIServer) Routes() http.Handler {
 	}
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// Health is always public.
+		// Public endpoints — no auth required.
 		r.Get("/health", s.handleHealth)
+		r.Get("/system/mode", s.handleSystemMode)
 
 		if s.authCfg.Enabled {
 			// Login is rate-limited and public.
@@ -217,9 +225,10 @@ func (s *APIServer) Routes() http.Handler {
 				r.Put("/auth/me/password", s.handleChangePassword)
 			})
 		} else {
-			// Auth disabled — preserve current open behaviour.
+			// Auth disabled — inject implicit admin claims for downstream handlers.
 			r.Group(func(r chi.Router) {
-				r.Use(authStubMiddleware)
+				r.Use(auth.NewAuthMiddleware(nil, auth.AuthDisabled, writeErrorRaw))
+				r.Get("/auth/me", s.handleMe)
 				r.Get("/instances", s.handleListInstances)
 				r.Get("/instances/{id}", s.handleGetInstance)
 				r.Get("/instances/{id}/metrics", s.handleQueryMetrics)
@@ -305,6 +314,18 @@ func (s *APIServer) rateLimitMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// handleSystemMode returns the current operating mode (live or persistent).
+func (s *APIServer) handleSystemMode(w http.ResponseWriter, _ *http.Request) {
+	resp := map[string]any{
+		"mode": "persistent",
+	}
+	if s.liveMode {
+		resp["mode"] = "live"
+		resp["retention"] = s.memoryRetention.String()
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // instanceExists reports whether an instance with the given ID is known (DB store or config).

@@ -124,7 +124,7 @@ func newAuthTestServer(t *testing.T, userStore auth.UserStore, jwtSvc *auth.JWTS
 		Instances: []config.InstanceConfig{{ID: "x", DSN: "postgres://x"}},
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(cfg, nil, nil, jwtSvc, userStore, logger, nil, nil, nil, nil, nil)
+	return New(cfg, nil, nil, jwtSvc, userStore, logger, nil, nil, nil, nil, nil, false, 0, auth.AuthEnabled)
 }
 
 func testJWTSvc() *auth.JWTService {
