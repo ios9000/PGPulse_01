@@ -202,9 +202,10 @@ type UserStore interface {
 - Iteration deliverables: prefix files with iteration ID (e.g. M4_01_requirements.md)
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
-## Current Iteration
-M8_11 — OS Metrics via PostgreSQL (pg_read_file)
-See: docs/iterations/M8_11_03102026_os-metrics-sql/
+## Current Iteration: MW_01 — Portable Windows Executable + Live Mode
+
+Docs: docs/iterations/MW_01_03112026_portable-windows/
+Team: 3 specialists (Storage & Config, API & Auth, Frontend & Build)
 
 ### What Was Just Completed
 M8 — P1 Features + ML Phase 1 (10 sub-iterations):
