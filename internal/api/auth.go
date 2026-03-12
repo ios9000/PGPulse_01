@@ -59,6 +59,22 @@ type changePasswordRequest struct {
 }
 
 func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if s.authMode == auth.AuthDisabled {
+		writeJSON(w, http.StatusOK, loginResponse{
+			AccessToken:  "disabled",
+			RefreshToken: "disabled",
+			ExpiresIn:    0,
+			User: userResponse{
+				ID:          0,
+				Username:    "admin",
+				Role:        string(auth.RoleSuperAdmin),
+				Active:      true,
+				Permissions: auth.PermissionsForRole(auth.RoleSuperAdmin),
+			},
+		})
+		return
+	}
+
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")

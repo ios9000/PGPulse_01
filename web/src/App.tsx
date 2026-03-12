@@ -17,6 +17,7 @@ import { SettingsDiff } from '@/pages/SettingsDiff'
 import { NotFound } from '@/pages/NotFound'
 import { useAuthStore } from '@/stores/authStore'
 import { pgpulseTheme } from '@/lib/echartsTheme'
+import { SystemModeProvider } from '@/hooks/useSystemMode'
 
 export function App() {
   const initialize = useAuthStore((s) => s.initialize)
@@ -27,6 +28,7 @@ export function App() {
   }, [initialize])
 
   return (
+    <SystemModeProvider>
     <Routes>
       <Route path="/login" element={<Login />} />
 
@@ -46,5 +48,6 @@ export function App() {
         </Route>
       </Route>
     </Routes>
+    </SystemModeProvider>
   )
 }

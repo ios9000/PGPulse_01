@@ -1,0 +1,43 @@
+# PGPulse — Sample Configuration
+# Copy to pgpulse.yml and customize for your environment.
+#
+# Quick-start (no config file needed):
+#   pgpulse-server --target "postgres://user:pass@host:5432/postgres"
+
+server:
+  # listen: ":8989"     # HTTP listen address (override with --listen)
+  # port: 8989          # HTTP port (alternative to listen)
+  log_level: info        # debug, info, warn, error
+
+# Storage — leave empty for live mode (in-memory, 2h retention)
+# storage:
+#   dsn: "postgres://pgpulse:secret@localhost:5432/pgpulse?sslmode=disable"
+#   use_timescaledb: true
+#   retention_days: 30
+
+# Authentication — disabled by default; requires storage.dsn
+# auth:
+#   enabled: true
+#   jwt_secret: "your-secret-key-at-least-32-characters-long"
+#   initial_admin:
+#     username: admin
+#     password: changeme
+
+# Alerting — disabled by default; requires storage.dsn
+# alerting:
+#   enabled: true
+#   default_channels: [email]
+#   email:
+#     host: smtp.example.com
+#     port: 587
+#     from: pgpulse@example.com
+#     recipients: [dba@example.com]
+
+# Monitored PostgreSQL instances
+instances:
+  - id: my-postgres
+    name: "My PostgreSQL"
+    dsn: "postgres://pgpulse_monitor:password@localhost:5432/postgres?sslmode=disable"
+    # enabled: true
+    # max_conns: 5
+    # os_metrics_method: sql   # sql, agent, disabled

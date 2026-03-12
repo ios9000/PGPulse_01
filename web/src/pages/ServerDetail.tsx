@@ -22,11 +22,13 @@ import { PlanHistory } from '@/components/PlanHistory'
 import { SettingsTimeline } from '@/components/SettingsTimeline'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatPercent, formatBytes } from '@/lib/formatters'
+import { useSystemMode } from '@/hooks/useSystemMode'
 
 type TabKey = 'overview' | 'settings-diff' | 'plan-history' | 'settings-timeline'
 
 export function ServerDetail() {
   const { serverId } = useParams()
+  const { mode } = useSystemMode()
   const { data: instances } = useInstances()
   const { data: currentMetrics } = useCurrentMetrics(serverId)
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
@@ -120,9 +122,11 @@ export function ServerDetail() {
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: 'overview', label: 'Overview' },
-    { key: 'plan-history', label: 'Plan History' },
-    { key: 'settings-diff', label: 'Settings Diff' },
-    { key: 'settings-timeline', label: 'Settings Timeline' },
+    ...(mode !== 'live' ? [
+      { key: 'plan-history' as TabKey, label: 'Plan History' },
+      { key: 'settings-diff' as TabKey, label: 'Settings Diff' },
+      { key: 'settings-timeline' as TabKey, label: 'Settings Timeline' },
+    ] : []),
   ]
 
   return (

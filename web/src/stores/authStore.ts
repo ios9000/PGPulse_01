@@ -143,17 +143,43 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   initialize: async () => {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
-    if (!refreshToken) {
-      set({ isLoading: false })
+    if (refreshToken) {
+      const success = await get().refresh()
+      if (!success) {
+        set({ isLoading: false })
+      } else {
+        set({ isAuthenticated: true, isLoading: false })
+      }
       return
     }
 
-    const success = await get().refresh()
-    if (!success) {
-      set({ isLoading: false })
-    } else {
-      set({ isAuthenticated: true, isLoading: false })
+    // No refresh token — check if auth is disabled (implicit admin).
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+      const res = await fetch(`${API_BASE}/auth/me`)
+      if (res.ok) {
+        const meData = await res.json()
+        const role = meData.role as Role
+        const permissions = getPermissions(role)
+        set({
+          user: {
+            id: meData.id,
+            username: meData.username,
+            role,
+            active: meData.active,
+            permissions,
+          },
+          isAuthenticated: true,
+          isLoading: false,
+          permissions,
+        })
+        return
+      }
+    } catch {
+      // Auth is enabled and no token — fall through to unauthenticated.
     }
+
+    set({ isLoading: false })
   },
 
   scheduleRefresh: (expiresIn: number) => {

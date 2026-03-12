@@ -4,6 +4,7 @@ import { useLayoutStore } from '@/stores/layoutStore'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { Breadcrumb } from './Breadcrumb'
 import { useAuth } from '@/hooks/useAuth'
+import { useSystemMode } from '@/hooks/useSystemMode'
 import { ChangePasswordModal } from '@/components/auth/ChangePasswordModal'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -16,6 +17,7 @@ const ROLE_LABELS: Record<string, string> = {
 export function TopBar() {
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar)
   const { user, logout } = useAuth()
+  const { mode, retention } = useSystemMode()
   const [showDropdown, setShowDropdown] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -43,6 +45,18 @@ export function TopBar() {
           </button>
           <Breadcrumb />
         </div>
+
+        {mode === 'live' && (
+          <div className="relative group">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
+              Live Mode
+            </span>
+            <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-gray-800 rounded-lg shadow-lg text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none">
+              Metrics stored in memory for {retention || '2h'}. Add a storage database for persistent monitoring.
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-1">
           <button

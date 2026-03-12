@@ -28,7 +28,17 @@
       "Bash(python3:*)",
       "Bash(claude:*)",
       "Bash(mkdir:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(find . -name '*.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/*' | wc -l && find . -name '*.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/*' -exec cat {} + | wc -l)",
+      "Bash(find . -name '*.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/node_modules/*' | wc -l && find . -name '*.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/node_modules/*' -exec cat {} + | wc -l)",
+      "Bash(find ./web/src -name '*.ts' -o -name '*.tsx' -o -name '*.css' | wc -l && find ./web/src -name '*.ts' -o -name '*.tsx' -o -name '*.css' -exec cat {} + | wc -l)",
+      "Bash(grep -rP 'Metric:\\\\s' internal/collector/ --include='*.go' -h | grep -v '//' | head -30)",
+      "Bash(grep -rP 'metricPrefix|const.*metric|\"pgpulse\\\\.|\"os\\\\.' internal/collector/ --include='*.go' -h | grep -v '_test.go' | grep -v '//' | sort -u | head -50)",
+      "Bash(grep -rP '\"pgpulse\\\\.' internal/collector/ --include='*.go' -h | grep -v '_test.go' | grep -v '//' | grep -oP '\"pgpulse\\\\.[^\"]*\"' | sort -u)",
+      "Bash(grep -rP '\"os\\\\.' internal/collector/ --include='*.go' -h | grep -v '_test.go' | grep -v '//' | grep -oP '\"os\\\\.[^\"]*\"' | sort -u)",
+      "Bash(grep '\\\\.point\\(' internal/collector/server_info.go | grep -oP '\\\\.point\\\\\\(\"[^\"]*\"' | sed 's/\\\\.point\\(\"//')",
+      "Bash(chmod +x C:/Users/Archer/Projects/PGPulse_01/scripts/build-release.sh)",
+      "Bash(cd C:/Users/Archer/Projects/PGPulse_01 && mv web/src/hooks/useSystemMode.ts web/src/hooks/useSystemMode.tsx)"
     ]
   }
 }

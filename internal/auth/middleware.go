@@ -18,6 +18,36 @@ func ClaimsFromContext(ctx context.Context) *Claims {
 	return claims
 }
 
+// AuthMode controls authentication behavior.
+type AuthMode int
+
+const (
+	AuthEnabled  AuthMode = iota // Full JWT auth
+	AuthDisabled                 // All requests treated as implicit admin
+)
+
+// NewAuthMiddleware returns the appropriate auth middleware based on mode.
+// When mode is AuthDisabled, it injects implicit admin claims into the context
+// so all downstream handlers see an authenticated super_admin user.
+func NewAuthMiddleware(jwtService *JWTService, mode AuthMode, errorWriter func(w http.ResponseWriter, code int, errCode, message string)) func(http.Handler) http.Handler {
+	if mode == AuthDisabled {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				claims := &Claims{
+					UserID:      0,
+					Username:    "admin",
+					Role:        string(RoleSuperAdmin),
+					Type:        TokenAccess,
+					Permissions: PermissionsForRole(RoleSuperAdmin),
+				}
+				ctx := context.WithValue(r.Context(), claimsContextKey, claims)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			})
+		}
+	}
+	return RequireAuth(jwtService, errorWriter)
+}
+
 // RequireAuth returns chi middleware that validates the Bearer token
 // and injects claims into the request context.
 // errorWriter is provided by the API layer to write JSON error responses
