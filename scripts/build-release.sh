@@ -62,7 +62,11 @@ for platform in "${PLATFORMS[@]}"; do
   cp README.txt "${archive_dir}/" 2>/dev/null || true
 
   if [ "${goos}" = "windows" ]; then
-    (cd "${DIST_DIR}" && zip -qr "${archive_name}.zip" "${archive_name}/")
+    if command -v zip &>/dev/null; then
+      (cd "${DIST_DIR}" && zip -qr "${archive_name}.zip" "${archive_name}/")
+    else
+      powershell -Command "Compress-Archive -Path '${DIST_DIR}/${archive_name}/*' -DestinationPath '${DIST_DIR}/${archive_name}.zip' -Force"
+    fi
     echo "  -> ${DIST_DIR}/${archive_name}.zip"
   else
     tar -czf "${DIST_DIR}/${archive_name}.tar.gz" -C "${DIST_DIR}" "${archive_name}"
