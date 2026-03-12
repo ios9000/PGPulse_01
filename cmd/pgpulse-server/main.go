@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -459,7 +460,7 @@ func parseLogLevel(s string) (slog.Level, error) {
 	switch s {
 	case "debug":
 		return slog.LevelDebug, nil
-	case "info":
+	case "", "info":
 		return slog.LevelInfo, nil
 	case "warn":
 		return slog.LevelWarn, nil
@@ -481,7 +482,15 @@ func synthesizeCLIInstance(target, host string, port int, user, password, dbname
 		return nil, nil
 	}
 	h, p := extractHostPort(dsn)
-	name := fmt.Sprintf("%s:%d", h, p)
+	u, _ := url.Parse(dsn)
+	db := ""
+	if u != nil {
+		db = strings.TrimPrefix(u.Path, "/")
+	}
+	if db == "" {
+		db = "postgres"
+	}
+	name := fmt.Sprintf("%s:%d/%s", h, p, db)
 	enabled := true
 	return &config.InstanceConfig{
 		ID:       "cli-target",
