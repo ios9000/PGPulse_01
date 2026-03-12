@@ -82,6 +82,9 @@ func main() {
 	if *flagListen != "" {
 		cfg.Server.Listen = *flagListen
 	}
+	if cfg.Server.Port != 0 && cfg.Server.Listen == "" {
+		cfg.Server.Listen = fmt.Sprintf(":%d", cfg.Server.Port)
+	}
 	if cfg.Server.Listen == "" {
 		cfg.Server.Listen = ":8989"
 	}
@@ -481,10 +484,11 @@ func synthesizeCLIInstance(target, host string, port int, user, password, dbname
 	name := fmt.Sprintf("%s:%d", h, p)
 	enabled := true
 	return &config.InstanceConfig{
-		ID:      "cli-target",
-		Name:    name,
-		DSN:     dsn,
-		Enabled: &enabled,
+		ID:       "cli-target",
+		Name:     name,
+		DSN:      dsn,
+		Enabled:  &enabled,
+		MaxConns: 5,
 	}, nil
 }
 

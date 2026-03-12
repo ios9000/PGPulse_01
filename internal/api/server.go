@@ -225,7 +225,20 @@ func (s *APIServer) Routes() http.Handler {
 				r.Put("/auth/me/password", s.handleChangePassword)
 			})
 		} else {
-			// Auth disabled — inject implicit admin claims for downstream handlers.
+			// Auth disabled — stub login/refresh so the frontend doesn't break.
+			r.Post("/auth/login", func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]interface{}{
+					"access_token":  "disabled",
+					"refresh_token": "disabled",
+				})
+			})
+			r.Post("/auth/refresh", func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]interface{}{
+					"access_token":  "disabled",
+					"refresh_token": "disabled",
+				})
+			})
+			// Inject implicit admin claims for downstream handlers.
 			r.Group(func(r chi.Router) {
 				r.Use(auth.NewAuthMiddleware(nil, auth.AuthDisabled, writeErrorRaw))
 				r.Get("/auth/me", s.handleMe)
