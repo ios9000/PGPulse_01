@@ -143,13 +143,13 @@ func (r *DBRunner) Run(ctx context.Context, ic collector.InstanceContext) {
 	// Emit internal telemetry.
 	now := time.Now()
 	telemetry := []collector.MetricPoint{
-		{InstanceID: r.instanceID, Metric: "pgpulse.agent.db.discovered", Value: float64(discovered), Timestamp: now},
-		{InstanceID: r.instanceID, Metric: "pgpulse.agent.db.collected", Value: float64(collected), Timestamp: now},
-		{InstanceID: r.instanceID, Metric: "pgpulse.agent.db.errors",
+		{InstanceID: r.instanceID, Metric: "pg.agent.db.discovered", Value: float64(discovered), Timestamp: now},
+		{InstanceID: r.instanceID, Metric: "pg.agent.db.collected", Value: float64(collected), Timestamp: now},
+		{InstanceID: r.instanceID, Metric: "pg.agent.db.errors",
 			Value: float64(errTimeout), Labels: map[string]string{"reason": "timeout"}, Timestamp: now},
-		{InstanceID: r.instanceID, Metric: "pgpulse.agent.db.errors",
+		{InstanceID: r.instanceID, Metric: "pg.agent.db.errors",
 			Value: float64(errPerm), Labels: map[string]string{"reason": "permission_denied"}, Timestamp: now},
-		{InstanceID: r.instanceID, Metric: "pgpulse.agent.db.errors",
+		{InstanceID: r.instanceID, Metric: "pg.agent.db.errors",
 			Value: float64(errOther), Labels: map[string]string{"reason": "other"}, Timestamp: now},
 	}
 	_ = r.metricStore.Write(ctx, telemetry)

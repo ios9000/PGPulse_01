@@ -15,16 +15,16 @@ export function InstanceCard({ instance }: InstanceCardProps) {
   const hasMetrics = Object.keys(m).length > 0
   const status = hasMetrics ? 'ok' : 'unknown'
 
-  const versionNum = m['pgpulse.server.version_num']
+  const versionNum = m['pg.server.version_num']
   const versionStr = versionNum ? formatPGVersion(versionNum) : null
-  const isReplica = m['pgpulse.server.is_in_recovery'] === 1
+  const isReplica = m['pg.server.is_in_recovery'] === 1
 
-  const active = m['pgpulse.connections.active'] ?? 0
-  const maxConns = m['pgpulse.connections.max_connections'] ?? 0
+  const active = m['pg.connections.active'] ?? 0
+  const maxConns = m['pg.connections.max_connections'] ?? 0
   const connUtil = maxConns > 0 ? (active / maxConns) * 100 : 0
 
-  const cacheHit = m['pgpulse.cache.hit_ratio']
-  const replLag = m['pgpulse.replication.replay_lag_bytes']
+  const cacheHit = m['pg.cache.hit_ratio']
+  const replLag = m['pg.replication.replay_lag_bytes']
 
   const alertCounts = instance.alert_counts ?? {}
   const criticals = alertCounts['critical'] ?? 0

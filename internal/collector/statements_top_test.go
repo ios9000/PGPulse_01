@@ -122,7 +122,7 @@ func TestStatementsTopCollector_NegativeCpuTime(t *testing.T) {
 	points := c.buildTopMetrics(rows)
 
 	for _, p := range points {
-		if p.Metric == "pgpulse.statements.top.cpu_time_ms" && p.Value < 0 {
+		if p.Metric == "pg.statements.top.cpu_time_ms" && p.Value < 0 {
 			t.Errorf("cpu_time_ms must be clamped to 0, got %v", p.Value)
 		}
 	}
@@ -130,7 +130,7 @@ func TestStatementsTopCollector_NegativeCpuTime(t *testing.T) {
 	// The cpu_time_ms for queryid="1" must be 0.
 	found := false
 	for _, p := range points {
-		if p.Metric == "pgpulse.statements.top.cpu_time_ms" && p.Labels["queryid"] == "1" {
+		if p.Metric == "pg.statements.top.cpu_time_ms" && p.Labels["queryid"] == "1" {
 			found = true
 			if p.Value != 0 {
 				t.Errorf("cpu_time_ms for queryid=1 = %v, want 0 (clamped)", p.Value)
@@ -170,12 +170,12 @@ func TestStatementsTopCollector_OtherBucketArithmetic(t *testing.T) {
 		metric string
 		want   float64
 	}{
-		{"pgpulse.statements.top.calls", 150},       // 300 - (100+50)
-		{"pgpulse.statements.top.rows", 300},        // 1000 - (500+200)
-		{"pgpulse.statements.top.total_time_ms", 2000}, // 5000 - (2000+1000)
-		{"pgpulse.statements.top.io_time_ms", 300},  // 1000 - (500+200)
-		{"pgpulse.statements.top.cpu_time_ms", 1700}, // 4000 - (1500+800)
-		{"pgpulse.statements.top.avg_time_ms", 2000.0 / 150.0}, // otherTime/otherCalls
+		{"pg.statements.top.calls", 150},       // 300 - (100+50)
+		{"pg.statements.top.rows", 300},        // 1000 - (500+200)
+		{"pg.statements.top.total_time_ms", 2000}, // 5000 - (2000+1000)
+		{"pg.statements.top.io_time_ms", 300},  // 1000 - (500+200)
+		{"pg.statements.top.cpu_time_ms", 1700}, // 4000 - (1500+800)
+		{"pg.statements.top.avg_time_ms", 2000.0 / 150.0}, // otherTime/otherCalls
 	}
 
 	for _, tc := range tests {

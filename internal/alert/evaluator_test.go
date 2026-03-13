@@ -154,7 +154,7 @@ func makePoint(instanceID, metric string, value float64, labels map[string]strin
 // --- Tests ---
 
 func TestEvaluate_OKToFiring(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 3)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 3)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -163,7 +163,7 @@ func TestEvaluate_OKToFiring(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	pt := makePoint("inst-1", "pgpulse.test.metric", 90, nil)
+	pt := makePoint("inst-1", "pg.test.metric", 90, nil)
 
 	// Call 1: breach, state=Pending, count=1 — no event
 	events, err := ev.Evaluate(context.Background(), []collector.MetricPoint{pt})
@@ -211,7 +211,7 @@ func TestEvaluate_OKToFiring(t *testing.T) {
 }
 
 func TestEvaluate_PendingResetOnOK(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 3)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 3)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -220,8 +220,8 @@ func TestEvaluate_PendingResetOnOK(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	breach := makePoint("inst-1", "pgpulse.test.metric", 90, nil)
-	ok := makePoint("inst-1", "pgpulse.test.metric", 50, nil)
+	breach := makePoint("inst-1", "pg.test.metric", 90, nil)
+	ok := makePoint("inst-1", "pg.test.metric", 50, nil)
 
 	// Call 1: breach (count=1)
 	events, _ := ev.Evaluate(context.Background(), []collector.MetricPoint{breach})
@@ -249,7 +249,7 @@ func TestEvaluate_PendingResetOnOK(t *testing.T) {
 }
 
 func TestEvaluate_FiringToOK(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 1)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 1)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -258,8 +258,8 @@ func TestEvaluate_FiringToOK(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	breach := makePoint("inst-1", "pgpulse.test.metric", 90, nil)
-	ok := makePoint("inst-1", "pgpulse.test.metric", 50, nil)
+	breach := makePoint("inst-1", "pg.test.metric", 90, nil)
+	ok := makePoint("inst-1", "pg.test.metric", 50, nil)
 
 	// Fire the alert (consecutive_count=1)
 	events, err := ev.Evaluate(context.Background(), []collector.MetricPoint{breach})
@@ -292,7 +292,7 @@ func TestEvaluate_FiringToOK(t *testing.T) {
 }
 
 func TestEvaluate_Hysteresis_ExactThreshold(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 3)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 3)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -301,7 +301,7 @@ func TestEvaluate_Hysteresis_ExactThreshold(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	pt := makePoint("inst-1", "pgpulse.test.metric", 90, nil)
+	pt := makePoint("inst-1", "pg.test.metric", 90, nil)
 
 	// Calls 1 and 2 should NOT fire
 	for i := 1; i <= 2; i++ {
@@ -319,7 +319,7 @@ func TestEvaluate_Hysteresis_ExactThreshold(t *testing.T) {
 }
 
 func TestEvaluate_ConsecutiveCountOne(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 1)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 1)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -328,7 +328,7 @@ func TestEvaluate_ConsecutiveCountOne(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	pt := makePoint("inst-1", "pgpulse.test.metric", 90, nil)
+	pt := makePoint("inst-1", "pg.test.metric", 90, nil)
 
 	// First breach — immediate fire
 	events, err := ev.Evaluate(context.Background(), []collector.MetricPoint{pt})
@@ -344,7 +344,7 @@ func TestEvaluate_ConsecutiveCountOne(t *testing.T) {
 }
 
 func TestEvaluate_NoMatchingMetrics(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.cache.hit_ratio", OpLess, 0.9, SeverityWarning, 1)
+	rule := makeRule("test_rule", "pg.cache.hit_ratio", OpLess, 0.9, SeverityWarning, 1)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -354,7 +354,7 @@ func TestEvaluate_NoMatchingMetrics(t *testing.T) {
 	}
 
 	// Different metric name — should not match
-	pt := makePoint("inst-1", "pgpulse.connections.total", 100, nil)
+	pt := makePoint("inst-1", "pg.connections.total", 100, nil)
 
 	events, err := ev.Evaluate(context.Background(), []collector.MetricPoint{pt})
 	if err != nil {
@@ -366,7 +366,7 @@ func TestEvaluate_NoMatchingMetrics(t *testing.T) {
 }
 
 func TestEvaluate_LabelFiltering(t *testing.T) {
-	rule := makeRule("slot_rule", "pgpulse.replication.slot_active", OpEqual, 0, SeverityWarning, 1)
+	rule := makeRule("slot_rule", "pg.replication.slot_active", OpEqual, 0, SeverityWarning, 1)
 	rule.Labels = map[string]string{"slot_name": "my_slot"}
 
 	rs := &mockRuleStore{rules: []Rule{rule}}
@@ -377,9 +377,9 @@ func TestEvaluate_LabelFiltering(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	matchingPt := makePoint("inst-1", "pgpulse.replication.slot_active", 0,
+	matchingPt := makePoint("inst-1", "pg.replication.slot_active", 0,
 		map[string]string{"slot_name": "my_slot", "extra": "val"})
-	nonMatchingPt := makePoint("inst-1", "pgpulse.replication.slot_active", 0,
+	nonMatchingPt := makePoint("inst-1", "pg.replication.slot_active", 0,
 		map[string]string{"slot_name": "other_slot"})
 
 	events, err := ev.Evaluate(context.Background(), []collector.MetricPoint{matchingPt, nonMatchingPt})
@@ -397,8 +397,8 @@ func TestEvaluate_LabelFiltering(t *testing.T) {
 }
 
 func TestEvaluate_MultipleRules(t *testing.T) {
-	warning := makeRule("conn_warn", "pgpulse.connections.utilization_pct", OpGreater, 80, SeverityWarning, 1)
-	critical := makeRule("conn_crit", "pgpulse.connections.utilization_pct", OpGreaterEqual, 99, SeverityCritical, 1)
+	warning := makeRule("conn_warn", "pg.connections.utilization_pct", OpGreater, 80, SeverityWarning, 1)
+	critical := makeRule("conn_crit", "pg.connections.utilization_pct", OpGreaterEqual, 99, SeverityCritical, 1)
 
 	rs := &mockRuleStore{rules: []Rule{warning, critical}}
 	hs := &mockHistoryStore{}
@@ -408,7 +408,7 @@ func TestEvaluate_MultipleRules(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	pt := makePoint("inst-1", "pgpulse.connections.utilization_pct", 100, nil)
+	pt := makePoint("inst-1", "pg.connections.utilization_pct", 100, nil)
 
 	events, err := ev.Evaluate(context.Background(), []collector.MetricPoint{pt})
 	if err != nil {
@@ -431,7 +431,7 @@ func TestEvaluate_MultipleRules(t *testing.T) {
 }
 
 func TestEvaluate_ResolutionAlwaysEmits(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 1)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 1)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -440,8 +440,8 @@ func TestEvaluate_ResolutionAlwaysEmits(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	breach := makePoint("inst-1", "pgpulse.test.metric", 90, nil)
-	ok := makePoint("inst-1", "pgpulse.test.metric", 50, nil)
+	breach := makePoint("inst-1", "pg.test.metric", 90, nil)
+	ok := makePoint("inst-1", "pg.test.metric", 50, nil)
 
 	// Fire
 	events, _ := ev.Evaluate(context.Background(), []collector.MetricPoint{breach})
@@ -468,7 +468,7 @@ func TestEvaluate_ResolutionAlwaysEmits(t *testing.T) {
 }
 
 func TestEvaluate_EmptyPoints(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 1)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 1)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -492,7 +492,7 @@ func TestEvaluate_NoRulesLoaded(t *testing.T) {
 	ev := NewEvaluator(rs, hs, discardLogger())
 
 	// Don't call LoadRules — no rules
-	pt := makePoint("inst-1", "pgpulse.test.metric", 90, nil)
+	pt := makePoint("inst-1", "pg.test.metric", 90, nil)
 
 	events, err := ev.Evaluate(context.Background(), []collector.MetricPoint{pt})
 	if err != nil {
@@ -504,7 +504,7 @@ func TestEvaluate_NoRulesLoaded(t *testing.T) {
 }
 
 func TestEvaluate_FiringStaysWhileBreached(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 1)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 1)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 	hs := &mockHistoryStore{}
 	ev := NewEvaluator(rs, hs, discardLogger())
@@ -513,7 +513,7 @@ func TestEvaluate_FiringStaysWhileBreached(t *testing.T) {
 		t.Fatalf("LoadRules: %v", err)
 	}
 
-	breach := makePoint("inst-1", "pgpulse.test.metric", 90, nil)
+	breach := makePoint("inst-1", "pg.test.metric", 90, nil)
 
 	// Fire
 	events, _ := ev.Evaluate(context.Background(), []collector.MetricPoint{breach})
@@ -558,7 +558,7 @@ func TestLabelsMatch(t *testing.T) {
 }
 
 func TestRestoreState(t *testing.T) {
-	rule := makeRule("test_rule", "pgpulse.test.metric", OpGreater, 80, SeverityWarning, 1)
+	rule := makeRule("test_rule", "pg.test.metric", OpGreater, 80, SeverityWarning, 1)
 	rs := &mockRuleStore{rules: []Rule{rule}}
 
 	// Pre-populate the history store with an unresolved event
@@ -569,7 +569,7 @@ func TestRestoreState(t *testing.T) {
 				RuleID:     "test_rule",
 				InstanceID: "inst-1",
 				Severity:   SeverityWarning,
-				Metric:     "pgpulse.test.metric",
+				Metric:     "pg.test.metric",
 				Value:      90,
 				Threshold:  80,
 				Operator:   OpGreater,
@@ -591,7 +591,7 @@ func TestRestoreState(t *testing.T) {
 
 	// Now feed an OK metric — should generate a resolution event
 	// because RestoreState set state to Firing
-	ok := makePoint("inst-1", "pgpulse.test.metric", 50, nil)
+	ok := makePoint("inst-1", "pg.test.metric", 50, nil)
 	events, err := ev.Evaluate(ctx, []collector.MetricPoint{ok})
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)

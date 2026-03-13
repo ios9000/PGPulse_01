@@ -102,10 +102,10 @@ func TestCheckpoint_FirstCycleNoRates(t *testing.T) {
 	}
 
 	// Verify absolute metrics are present.
-	if !hasMetric(points, "pgpulse.checkpoint.timed") {
+	if !hasMetric(points, "pg.checkpoint.timed") {
 		t.Error("expected pgpulse.checkpoint.timed in first cycle")
 	}
-	if !hasMetric(points, "pgpulse.bgwriter.buffers_clean") {
+	if !hasMetric(points, "pg.bgwriter.buffers_clean") {
 		t.Error("expected pgpulse.bgwriter.buffers_clean in first cycle")
 	}
 
@@ -159,10 +159,10 @@ func TestCheckpoint_SecondCycleEmitsRates(t *testing.T) {
 	points := c.computeMetrics(curr, &prev, prevTime, now)
 
 	// Verify absolute metrics are present.
-	if !hasMetric(points, "pgpulse.checkpoint.timed") {
+	if !hasMetric(points, "pg.checkpoint.timed") {
 		t.Error("expected pgpulse.checkpoint.timed")
 	}
-	if !hasMetric(points, "pgpulse.bgwriter.buffers_alloc") {
+	if !hasMetric(points, "pg.bgwriter.buffers_alloc") {
 		t.Error("expected pgpulse.bgwriter.buffers_alloc")
 	}
 
@@ -172,7 +172,7 @@ func TestCheckpoint_SecondCycleEmitsRates(t *testing.T) {
 	}
 
 	// Verify rate math: timed went from 10 to 70 over 60s → delta=60, rate=1.0/s.
-	m, ok := findCheckpointMetric(points, "pgpulse.checkpoint.timed_per_second")
+	m, ok := findCheckpointMetric(points, "pg.checkpoint.timed_per_second")
 	if !ok {
 		t.Fatal("expected pgpulse.checkpoint.timed_per_second metric")
 	}
@@ -181,7 +181,7 @@ func TestCheckpoint_SecondCycleEmitsRates(t *testing.T) {
 	}
 
 	// Verify rate math: buffers_clean went from 50 to 200 over 60s → delta=150, rate=2.5/s.
-	m, ok = findCheckpointMetric(points, "pgpulse.bgwriter.buffers_clean_per_second")
+	m, ok = findCheckpointMetric(points, "pg.bgwriter.buffers_clean_per_second")
 	if !ok {
 		t.Fatal("expected pgpulse.bgwriter.buffers_clean_per_second metric")
 	}
@@ -190,7 +190,7 @@ func TestCheckpoint_SecondCycleEmitsRates(t *testing.T) {
 	}
 
 	// Verify PG ≤ 16 emits buffers_backend rate.
-	if !hasMetric(points, "pgpulse.bgwriter.buffers_backend_per_second") {
+	if !hasMetric(points, "pg.bgwriter.buffers_backend_per_second") {
 		t.Error("PG 16 must emit bgwriter.buffers_backend_per_second")
 	}
 }
@@ -286,13 +286,13 @@ func TestCheckpoint_PG17HasRestartpoints(t *testing.T) {
 	points := c.absolutePoints(snap)
 
 	// Restartpoints must be present.
-	if !hasMetric(points, "pgpulse.checkpoint.restartpoints_timed") {
+	if !hasMetric(points, "pg.checkpoint.restartpoints_timed") {
 		t.Error("PG 17 must emit checkpoint.restartpoints_timed")
 	}
-	if !hasMetric(points, "pgpulse.checkpoint.restartpoints_done") {
+	if !hasMetric(points, "pg.checkpoint.restartpoints_done") {
 		t.Error("PG 17 must emit checkpoint.restartpoints_done")
 	}
-	if !hasMetric(points, "pgpulse.checkpoint.restartpoints_req") {
+	if !hasMetric(points, "pg.checkpoint.restartpoints_req") {
 		t.Error("PG 17 must emit checkpoint.restartpoints_req")
 	}
 

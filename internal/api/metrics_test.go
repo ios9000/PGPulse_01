@@ -117,7 +117,7 @@ func TestQueryMetrics_StorageError(t *testing.T) {
 func TestQueryMetrics_JSONFormat(t *testing.T) {
 	ts := time.Date(2026, 2, 27, 12, 0, 0, 0, time.UTC)
 	store := &mockStore{points: []collector.MetricPoint{
-		{InstanceID: "inst1", Metric: "pgpulse.conn.active", Value: 42, Labels: map[string]string{"state": "active"}, Timestamp: ts},
+		{InstanceID: "inst1", Metric: "pg.conn.active", Value: 42, Labels: map[string]string{"state": "active"}, Timestamp: ts},
 	}}
 	s := newTestServer(t, store, nil, testInstance("inst1"))
 
@@ -142,7 +142,7 @@ func TestQueryMetrics_JSONFormat(t *testing.T) {
 func TestQueryMetrics_CSVFormat(t *testing.T) {
 	ts := time.Date(2026, 2, 27, 12, 0, 0, 0, time.UTC)
 	store := &mockStore{points: []collector.MetricPoint{
-		{InstanceID: "inst1", Metric: "pgpulse.conn.active", Value: 42, Labels: map[string]string{}, Timestamp: ts},
+		{InstanceID: "inst1", Metric: "pg.conn.active", Value: 42, Labels: map[string]string{}, Timestamp: ts},
 	}}
 	s := newTestServer(t, store, nil, testInstance("inst1"))
 
@@ -204,8 +204,8 @@ func TestHandleCurrentMetrics_Success(t *testing.T) {
 			InstanceID:  "inst1",
 			CollectedAt: now,
 			Metrics: map[string]storage.MetricValue{
-				"pgpulse.conn.active": {Value: 42, Labels: map[string]string{"state": "active"}},
-				"pgpulse.cache.ratio": {Value: 0.99},
+				"pg.conn.active": {Value: 42, Labels: map[string]string{"state": "active"}},
+				"pg.cache.ratio": {Value: 0.99},
 			},
 		},
 	}
@@ -224,7 +224,7 @@ func TestHandleCurrentMetrics_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &env))
 	assert.Equal(t, "inst1", env.Data.InstanceID)
 	assert.Len(t, env.Data.Metrics, 2)
-	assert.InDelta(t, 42.0, env.Data.Metrics["pgpulse.conn.active"].Value, 0.01)
+	assert.InDelta(t, 42.0, env.Data.Metrics["pg.conn.active"].Value, 0.01)
 }
 
 func TestHandleCurrentMetrics_InstanceNotFound(t *testing.T) {
@@ -250,7 +250,7 @@ func TestHandleMetricsHistory_Success(t *testing.T) {
 			To:         to,
 			Step:       "5m",
 			Series: map[string][]storage.TimeSeriesPoint{
-				"pgpulse.conn.active": {
+				"pg.conn.active": {
 					{T: from, V: 10},
 					{T: from.Add(5 * time.Minute), V: 12},
 				},
@@ -273,7 +273,7 @@ func TestHandleMetricsHistory_Success(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &env))
 	assert.Equal(t, "inst1", env.Data.InstanceID)
-	assert.Len(t, env.Data.Series["pgpulse.conn.active"], 2)
+	assert.Len(t, env.Data.Series["pg.conn.active"], 2)
 }
 
 func TestHandleMetricsHistory_InvalidStep(t *testing.T) {

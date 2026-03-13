@@ -37,9 +37,9 @@ func TestLockTreeCollector_Collect(t *testing.T) {
 	if len(points) != 3 {
 		t.Fatalf("expected 3 metric points, got %d", len(points))
 	}
-	assertLockVal(t, points, "pgpulse.locks.blocker_count", 1)
-	assertLockVal(t, points, "pgpulse.locks.blocked_count", 2)
-	assertLockVal(t, points, "pgpulse.locks.max_chain_depth", 1)
+	assertLockVal(t, points, "pg.locks.blocker_count", 1)
+	assertLockVal(t, points, "pg.locks.blocked_count", 2)
+	assertLockVal(t, points, "pg.locks.max_chain_depth", 1)
 }
 
 // TestLockTreeCollector_Collect_NoBlocking verifies that zero edges produce
@@ -52,9 +52,9 @@ func TestLockTreeCollector_Collect_NoBlocking(t *testing.T) {
 	if len(points) != 3 {
 		t.Fatalf("expected 3 metric points, got %d", len(points))
 	}
-	assertLockVal(t, points, "pgpulse.locks.blocker_count", 0)
-	assertLockVal(t, points, "pgpulse.locks.blocked_count", 0)
-	assertLockVal(t, points, "pgpulse.locks.max_chain_depth", 0)
+	assertLockVal(t, points, "pg.locks.blocker_count", 0)
+	assertLockVal(t, points, "pg.locks.blocked_count", 0)
+	assertLockVal(t, points, "pg.locks.max_chain_depth", 0)
 }
 
 // --- computeLockStats pure function tests ---

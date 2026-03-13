@@ -27,10 +27,10 @@ func TestSettingsCollector_PG17(t *testing.T) {
 	require.NotEmpty(t, points)
 
 	names := metricNames(points)
-	assert.Contains(t, names, "pgpulse.settings.track_io_timing")
-	assert.Contains(t, names, "pgpulse.settings.shared_buffers_8kb")
-	assert.Contains(t, names, "pgpulse.settings.max_locks_per_tx")
-	assert.Contains(t, names, "pgpulse.settings.max_prepared_tx")
+	assert.Contains(t, names, "pg.settings.track_io_timing")
+	assert.Contains(t, names, "pg.settings.shared_buffers_8kb")
+	assert.Contains(t, names, "pg.settings.max_locks_per_tx")
+	assert.Contains(t, names, "pg.settings.max_prepared_tx")
 }
 
 func TestSettingsCollector_BoolConversion(t *testing.T) {
@@ -44,7 +44,7 @@ func TestSettingsCollector_BoolConversion(t *testing.T) {
 	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 
-	trackIO := findMetric(points, "pgpulse.settings.track_io_timing")
+	trackIO := findMetric(points, "pg.settings.track_io_timing")
 	require.NotNil(t, trackIO)
 	// Must be exactly 0.0 or 1.0 — no other value is valid for a bool setting
 	assert.True(t, trackIO.Value == 0.0 || trackIO.Value == 1.0,
@@ -62,7 +62,7 @@ func TestSettingsCollector_SharedBuffersPositive(t *testing.T) {
 	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 
-	sharedBufs := findMetric(points, "pgpulse.settings.shared_buffers_8kb")
+	sharedBufs := findMetric(points, "pg.settings.shared_buffers_8kb")
 	require.NotNil(t, sharedBufs)
 	assert.Greater(t, sharedBufs.Value, 0.0, "shared_buffers must be positive")
 }

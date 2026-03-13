@@ -40,21 +40,21 @@ func TestWaitEventsCollector_Collect(t *testing.T) {
 	}
 
 	// Verify individual count points.
-	io := findWaitEventMetric(points, "pgpulse.wait_events.count", "IO", "WALRead")
+	io := findWaitEventMetric(points, "pg.wait_events.count", "IO", "WALRead")
 	if io == nil {
 		t.Error("expected wait_events.count for IO/WALRead")
 	} else if io.Value != 5 {
 		t.Errorf("IO/WALRead count = %v, want 5", io.Value)
 	}
 
-	lock := findWaitEventMetric(points, "pgpulse.wait_events.count", "Lock", "relation")
+	lock := findWaitEventMetric(points, "pg.wait_events.count", "Lock", "relation")
 	if lock == nil {
 		t.Error("expected wait_events.count for Lock/relation")
 	} else if lock.Value != 3 {
 		t.Errorf("Lock/relation count = %v, want 3", lock.Value)
 	}
 
-	cpu := findWaitEventMetric(points, "pgpulse.wait_events.count", "CPU", "Running")
+	cpu := findWaitEventMetric(points, "pg.wait_events.count", "CPU", "Running")
 	if cpu == nil {
 		t.Error("expected wait_events.count for CPU/Running")
 	} else if cpu.Value != 10 {
@@ -62,7 +62,7 @@ func TestWaitEventsCollector_Collect(t *testing.T) {
 	}
 
 	// Verify total = 5+3+10 = 18.
-	total, ok := findCheckpointMetric(points, "pgpulse.wait_events.total_backends")
+	total, ok := findCheckpointMetric(points, "pg.wait_events.total_backends")
 	if !ok {
 		t.Fatal("expected pgpulse.wait_events.total_backends")
 	}
@@ -82,7 +82,7 @@ func TestWaitEventsCollector_Collect_Empty(t *testing.T) {
 		t.Errorf("expected 1 point (total_backends only), got %d", len(points))
 	}
 
-	total, ok := findCheckpointMetric(points, "pgpulse.wait_events.total_backends")
+	total, ok := findCheckpointMetric(points, "pg.wait_events.total_backends")
 	if !ok {
 		t.Fatal("expected pgpulse.wait_events.total_backends")
 	}
@@ -110,7 +110,7 @@ func TestWaitEventsCollector_Collect_NullEventHandling(t *testing.T) {
 		t.Errorf("expected 2 points, got %d", len(points))
 	}
 
-	p := findWaitEventMetric(points, "pgpulse.wait_events.count", "CPU", "Running")
+	p := findWaitEventMetric(points, "pg.wait_events.count", "CPU", "Running")
 	if p == nil {
 		t.Fatal("expected wait_events.count with wait_event_type=CPU, wait_event=Running")
 	}
@@ -118,7 +118,7 @@ func TestWaitEventsCollector_Collect_NullEventHandling(t *testing.T) {
 		t.Errorf("CPU/Running count = %v, want 7", p.Value)
 	}
 
-	total, ok := findCheckpointMetric(points, "pgpulse.wait_events.total_backends")
+	total, ok := findCheckpointMetric(points, "pg.wait_events.total_backends")
 	if !ok {
 		t.Fatal("expected pgpulse.wait_events.total_backends")
 	}

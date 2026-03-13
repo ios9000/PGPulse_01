@@ -37,10 +37,10 @@ func TestLongTransactionsCollector_Collect_Both(t *testing.T) {
 		t.Fatalf("expected 4 points, got %d: %v", len(points), stmtMetricNames(points))
 	}
 
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.count", "active", 3)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.oldest_seconds", "active", 120.5)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.count", "waiting", 1)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.oldest_seconds", "waiting", 45.2)
+	assertLongTxnVal(t, points, "pg.long_transactions.count", "active", 3)
+	assertLongTxnVal(t, points, "pg.long_transactions.oldest_seconds", "active", 120.5)
+	assertLongTxnVal(t, points, "pg.long_transactions.count", "waiting", 1)
+	assertLongTxnVal(t, points, "pg.long_transactions.oldest_seconds", "waiting", 45.2)
 }
 
 // TestLongTransactionsCollector_Collect_ActiveOnly verifies that when only active
@@ -59,12 +59,12 @@ func TestLongTransactionsCollector_Collect_ActiveOnly(t *testing.T) {
 	}
 
 	// Active values should be present.
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.count", "active", 5)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.oldest_seconds", "active", 200.0)
+	assertLongTxnVal(t, points, "pg.long_transactions.count", "active", 5)
+	assertLongTxnVal(t, points, "pg.long_transactions.oldest_seconds", "active", 200.0)
 
 	// Waiting should be zero-filled.
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.count", "waiting", 0)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.oldest_seconds", "waiting", 0)
+	assertLongTxnVal(t, points, "pg.long_transactions.count", "waiting", 0)
+	assertLongTxnVal(t, points, "pg.long_transactions.oldest_seconds", "waiting", 0)
 }
 
 // TestLongTransactionsCollector_Collect_None verifies that zero rows produce
@@ -78,10 +78,10 @@ func TestLongTransactionsCollector_Collect_None(t *testing.T) {
 		t.Fatalf("expected 4 points, got %d", len(points))
 	}
 
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.count", "active", 0)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.oldest_seconds", "active", 0)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.count", "waiting", 0)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.oldest_seconds", "waiting", 0)
+	assertLongTxnVal(t, points, "pg.long_transactions.count", "active", 0)
+	assertLongTxnVal(t, points, "pg.long_transactions.oldest_seconds", "active", 0)
+	assertLongTxnVal(t, points, "pg.long_transactions.count", "waiting", 0)
+	assertLongTxnVal(t, points, "pg.long_transactions.oldest_seconds", "waiting", 0)
 }
 
 // TestLongTransactionsCollector_Collect_WaitingOnly verifies that when only waiting
@@ -100,12 +100,12 @@ func TestLongTransactionsCollector_Collect_WaitingOnly(t *testing.T) {
 	}
 
 	// Waiting values should be present.
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.count", "waiting", 2)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.oldest_seconds", "waiting", 60.0)
+	assertLongTxnVal(t, points, "pg.long_transactions.count", "waiting", 2)
+	assertLongTxnVal(t, points, "pg.long_transactions.oldest_seconds", "waiting", 60.0)
 
 	// Active should be zero-filled.
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.count", "active", 0)
-	assertLongTxnVal(t, points, "pgpulse.long_transactions.oldest_seconds", "active", 0)
+	assertLongTxnVal(t, points, "pg.long_transactions.count", "active", 0)
+	assertLongTxnVal(t, points, "pg.long_transactions.oldest_seconds", "active", 0)
 }
 
 // --- helpers local to this file ---

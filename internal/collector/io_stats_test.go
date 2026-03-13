@@ -61,35 +61,35 @@ func TestIOStats_NullSkipped(t *testing.T) {
 	}
 
 	// Metrics with non-negative values must be present.
-	if !hasMetric(points, "pgpulse.io.reads") {
+	if !hasMetric(points, "pg.io.reads") {
 		t.Error("expected pgpulse.io.reads")
 	}
-	if !hasMetric(points, "pgpulse.io.writes") {
+	if !hasMetric(points, "pg.io.writes") {
 		t.Error("expected pgpulse.io.writes")
 	}
-	if !hasMetric(points, "pgpulse.io.hits") {
+	if !hasMetric(points, "pg.io.hits") {
 		t.Error("expected pgpulse.io.hits")
 	}
 	// evictions=0 is valid; zero must be emitted (only -1 is suppressed).
-	if !hasMetric(points, "pgpulse.io.evictions") {
+	if !hasMetric(points, "pg.io.evictions") {
 		t.Error("expected pgpulse.io.evictions=0 to be emitted (zero is valid, not NULL)")
 	}
 
 	// Metrics mapped from NULL (-1) must not appear.
-	if hasMetric(points, "pgpulse.io.read_time") {
-		t.Error("pgpulse.io.read_time must not be emitted when value is -1 (NULL)")
+	if hasMetric(points, "pg.io.read_time") {
+		t.Error("pg.io.read_time must not be emitted when value is -1 (NULL)")
 	}
-	if hasMetric(points, "pgpulse.io.write_time") {
-		t.Error("pgpulse.io.write_time must not be emitted when value is -1 (NULL)")
+	if hasMetric(points, "pg.io.write_time") {
+		t.Error("pg.io.write_time must not be emitted when value is -1 (NULL)")
 	}
-	if hasMetric(points, "pgpulse.io.extends") {
-		t.Error("pgpulse.io.extends must not be emitted when value is -1 (NULL)")
+	if hasMetric(points, "pg.io.extends") {
+		t.Error("pg.io.extends must not be emitted when value is -1 (NULL)")
 	}
-	if hasMetric(points, "pgpulse.io.fsyncs") {
-		t.Error("pgpulse.io.fsyncs must not be emitted when value is -1 (NULL)")
+	if hasMetric(points, "pg.io.fsyncs") {
+		t.Error("pg.io.fsyncs must not be emitted when value is -1 (NULL)")
 	}
-	if hasMetric(points, "pgpulse.io.fsync_time") {
-		t.Error("pgpulse.io.fsync_time must not be emitted when value is -1 (NULL)")
+	if hasMetric(points, "pg.io.fsync_time") {
+		t.Error("pg.io.fsync_time must not be emitted when value is -1 (NULL)")
 	}
 }
 

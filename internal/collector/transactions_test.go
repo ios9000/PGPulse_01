@@ -33,13 +33,13 @@ func TestTransactionsCollector_PG17(t *testing.T) {
 	require.NotEmpty(t, points, "expected metrics after running transactions")
 
 	// Find commit_ratio_pct for testdb
-	commitRatio := findMetricWithLabel(points, "pgpulse.transactions.commit_ratio_pct", "database", "testdb")
+	commitRatio := findMetricWithLabel(points, "pg.transactions.commit_ratio_pct", "database", "testdb")
 	require.NotNil(t, commitRatio, "testdb should have commit_ratio_pct after a transaction")
 	assert.GreaterOrEqual(t, commitRatio.Value, 0.0)
 	assert.LessOrEqual(t, commitRatio.Value, 100.0)
 
 	// Find deadlocks for testdb
-	deadlocks := findMetricWithLabel(points, "pgpulse.transactions.deadlocks", "database", "testdb")
+	deadlocks := findMetricWithLabel(points, "pg.transactions.deadlocks", "database", "testdb")
 	require.NotNil(t, deadlocks, "testdb should have deadlocks metric")
 	assert.GreaterOrEqual(t, deadlocks.Value, 0.0)
 }

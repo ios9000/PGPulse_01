@@ -271,13 +271,13 @@ func TestOSSQLCollector_MetricKeys(t *testing.T) {
 		"os.cpu.iowait_pct": true,
 		"os.cpu.idle_pct":   true,
 		// Diskstat (per device)
-		"os.diskstat.reads_completed":  true,
-		"os.diskstat.writes_completed": true,
-		"os.diskstat.read_kb":          true,
-		"os.diskstat.write_kb":         true,
-		"os.diskstat.read_await_ms":    true,
-		"os.diskstat.write_await_ms":   true,
-		"os.diskstat.util_pct":         true,
+		"os.disk.reads_completed":  true,
+		"os.disk.writes_completed": true,
+		"os.disk.read_bytes_per_sec":          true,
+		"os.disk.write_bytes_per_sec":         true,
+		"os.disk.read_await_ms":    true,
+		"os.disk.write_await_ms":   true,
+		"os.disk.util_pct":         true,
 	}
 
 	for key := range wantKeys {

@@ -12,7 +12,7 @@ import (
 
 const (
 	defaultTimeout = 5 * time.Second
-	metricPrefix   = "pgpulse"
+	metricPrefix   = "pg"
 )
 
 // Base provides common fields and helpers shared by all collectors.
@@ -27,7 +27,7 @@ func newBase(instanceID string, v version.PGVersion, interval time.Duration) Bas
 	return Base{instanceID: instanceID, pgVersion: v, interval: interval}
 }
 
-// point creates a MetricPoint with the metric name prefixed by "pgpulse.",
+// point creates a MetricPoint with the metric name prefixed by "pg.",
 // InstanceID set to b.instanceID, and Timestamp set to the current time.
 func (b *Base) point(metric string, value float64, labels map[string]string) MetricPoint {
 	return MetricPoint{

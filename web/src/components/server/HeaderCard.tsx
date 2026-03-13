@@ -12,10 +12,10 @@ interface HeaderCardProps {
 export function HeaderCard({ instanceName, host, port, currentMetrics }: HeaderCardProps) {
   const m = currentMetrics?.metrics ?? {}
 
-  const versionNum = m['pgpulse.server.version_num']?.value
+  const versionNum = m['pg.server.version_num']?.value
   const versionStr = versionNum ? formatPGVersion(versionNum) : null
-  const isReplica = m['pgpulse.server.is_in_recovery']?.value === 1
-  const uptimeSeconds = m['pgpulse.server.uptime_seconds']?.value
+  const isReplica = m['pg.server.is_in_recovery']?.value === 1
+  const uptimeSeconds = m['pg.server.uptime_seconds']?.value
   const hasData = Object.keys(m).length > 0
 
   return (

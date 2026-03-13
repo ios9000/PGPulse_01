@@ -181,13 +181,13 @@ func snapshotToMetricPoints(snap *agent.OSSnapshot, instanceID string) []MetricP
 	for _, ds := range snap.DiskStats {
 		labels := map[string]string{"device": ds.Device}
 		points = append(points,
-			point("os.diskstat.reads_completed", float64(ds.ReadsCompleted), labels),
-			point("os.diskstat.writes_completed", float64(ds.WritesCompleted), labels),
-			point("os.diskstat.read_kb", float64(ds.ReadKB), labels),
-			point("os.diskstat.write_kb", float64(ds.WriteKB), labels),
-			point("os.diskstat.read_await_ms", ds.ReadAwaitMs, labels),
-			point("os.diskstat.write_await_ms", ds.WriteAwaitMs, labels),
-			point("os.diskstat.util_pct", ds.UtilPct, labels),
+			point("os.disk.reads_completed", float64(ds.ReadsCompleted), labels),
+			point("os.disk.writes_completed", float64(ds.WritesCompleted), labels),
+			point("os.disk.read_bytes_per_sec", float64(ds.ReadKB)*1024, labels),
+			point("os.disk.write_bytes_per_sec", float64(ds.WriteKB)*1024, labels),
+			point("os.disk.read_await_ms", ds.ReadAwaitMs, labels),
+			point("os.disk.write_await_ms", ds.WriteAwaitMs, labels),
+			point("os.disk.util_pct", ds.UtilPct, labels),
 		)
 	}
 
