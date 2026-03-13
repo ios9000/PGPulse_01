@@ -80,9 +80,9 @@ func newTestGroup(collectors []collector.Collector, store collector.MetricStore)
 func TestIntervalGroup_Collect_AllSuccess(t *testing.T) {
 	store := &mockStore{}
 	collectors := []collector.Collector{
-		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
-		&mockCollector{name: "b", points: []collector.MetricPoint{makePoint("pgpulse.b")}},
-		&mockCollector{name: "c", points: []collector.MetricPoint{makePoint("pgpulse.c"), makePoint("pgpulse.c2")}},
+		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pg.a")}},
+		&mockCollector{name: "b", points: []collector.MetricPoint{makePoint("pg.b")}},
+		&mockCollector{name: "c", points: []collector.MetricPoint{makePoint("pg.c"), makePoint("pg.c2")}},
 	}
 
 	g := newTestGroup(collectors, store)
@@ -101,9 +101,9 @@ func TestIntervalGroup_Collect_AllSuccess(t *testing.T) {
 func TestIntervalGroup_Collect_PartialFailure(t *testing.T) {
 	store := &mockStore{}
 	collectors := []collector.Collector{
-		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
+		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pg.a")}},
 		&mockCollector{name: "b", err: errors.New("db error")},
-		&mockCollector{name: "c", points: []collector.MetricPoint{makePoint("pgpulse.c")}},
+		&mockCollector{name: "c", points: []collector.MetricPoint{makePoint("pg.c")}},
 	}
 
 	g := newTestGroup(collectors, store)
@@ -199,7 +199,7 @@ func TestGroupCollect_WithEvaluator(t *testing.T) {
 	}
 	disp := &mockAlertDispatcher{}
 	cols := []collector.Collector{
-		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
+		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pg.a")}},
 	}
 
 	g := newTestGroupWithEvaluator(cols, store, ev, disp)
@@ -224,7 +224,7 @@ func TestGroupCollect_WithEvaluator(t *testing.T) {
 func TestGroupCollect_NoOpEvaluator(t *testing.T) {
 	store := &mockStore{}
 	cols := []collector.Collector{
-		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
+		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pg.a")}},
 	}
 
 	g := newTestGroupWithEvaluator(cols, store, &NoOpAlertEvaluator{}, &NoOpAlertDispatcher{})
@@ -244,7 +244,7 @@ func TestGroupCollect_EvaluatorError(t *testing.T) {
 	ev := &mockAlertEvaluator{err: errors.New("eval error")}
 	disp := &mockAlertDispatcher{}
 	cols := []collector.Collector{
-		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pgpulse.a")}},
+		&mockCollector{name: "a", points: []collector.MetricPoint{makePoint("pg.a")}},
 	}
 
 	g := newTestGroupWithEvaluator(cols, store, ev, disp)

@@ -33,38 +33,38 @@ export function ServerDetail() {
   const { data: currentMetrics } = useCurrentMetrics(serverId)
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
 
-  const maxConns = currentMetrics?.metrics?.['pgpulse.connections.max_connections']?.value
+  const maxConns = currentMetrics?.metrics?.['pg.connections.max_connections']?.value
 
   const { data: connHistory, isLoading: connLoading } = useMetricsHistory(serverId, [
-    'pgpulse.connections.active',
-    'pgpulse.connections.idle',
-    'pgpulse.connections.total',
+    'pg.connections.active',
+    'pg.connections.idle',
+    'pg.connections.total',
   ])
 
   const { data: cacheHistory, isLoading: cacheLoading } = useMetricsHistory(serverId, [
-    'pgpulse.cache.hit_ratio',
+    'pg.cache.hit_ratio',
   ])
 
   const { data: txnHistory, isLoading: txnLoading } = useMetricsHistory(serverId, [
-    'pgpulse.transactions.commit_ratio_pct',
+    'pg.transactions.commit_ratio_pct',
   ])
 
   const { data: replLagHistory, isLoading: replLagLoading } = useMetricsHistory(serverId, [
-    'pgpulse.replication.lag.replay_bytes',
+    'pg.replication.lag.replay_bytes',
   ])
 
   // Forecast overlays
-  const connForecast = useForecastChart(serverId ?? '', 'pgpulse.connections.active')
-  const cacheForecast = useForecastChart(serverId ?? '', 'pgpulse.cache.hit_ratio')
-  const txnForecast = useForecastChart(serverId ?? '', 'pgpulse.transactions.commit_ratio_pct')
-  const replLagForecast = useForecastChart(serverId ?? '', 'pgpulse.replication.lag.replay_bytes')
+  const connForecast = useForecastChart(serverId ?? '', 'pg.connections.active')
+  const cacheForecast = useForecastChart(serverId ?? '', 'pg.cache.hit_ratio')
+  const txnForecast = useForecastChart(serverId ?? '', 'pg.transactions.commit_ratio_pct')
+  const replLagForecast = useForecastChart(serverId ?? '', 'pg.replication.lag.replay_bytes')
 
   const instance = instances?.find((i) => i.id === serverId)
 
   const connSeries = useMemo(() => {
     if (!connHistory?.series) return []
     return Object.entries(connHistory.series).map(([key, points]) => {
-      const shortName = key.replace('pgpulse.connections.', '')
+      const shortName = key.replace('pg.connections.', '')
       const colors: Record<string, string> = {
         active: '#3b82f6',
         idle: '#94a3b8',
@@ -83,7 +83,7 @@ export function ServerDetail() {
   const cacheSeries = useMemo(() => {
     if (!cacheHistory?.series) return []
     return Object.entries(cacheHistory.series).map(([key, points]) => ({
-      name: key.replace('pgpulse.cache.', ''),
+      name: key.replace('pg.cache.', ''),
       data: points,
       color: '#10b981',
       type: 'area' as const,
@@ -93,7 +93,7 @@ export function ServerDetail() {
   const txnSeries = useMemo(() => {
     if (!txnHistory?.series) return []
     return Object.entries(txnHistory.series).map(([key, points]) => ({
-      name: key.replace('pgpulse.transactions.', ''),
+      name: key.replace('pg.transactions.', ''),
       data: points,
       color: '#8b5cf6',
       type: 'area' as const,
@@ -103,7 +103,7 @@ export function ServerDetail() {
   const replLagSeries = useMemo(() => {
     if (!replLagHistory?.series) return []
     return Object.entries(replLagHistory.series).map(([key, points]) => ({
-      name: key.replace('pgpulse.replication.lag.', ''),
+      name: key.replace('pg.replication.lag.', ''),
       data: points,
       color: '#f59e0b',
       type: 'area' as const,

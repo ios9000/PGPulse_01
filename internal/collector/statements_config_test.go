@@ -44,13 +44,13 @@ func TestStatementsConfigCollector_Normal(t *testing.T) {
 	}
 
 	// statements.max = 10000
-	assertStmtVal(t, points, "pgpulse.statements.max", 10000.0)
+	assertStmtVal(t, points, "pg.statements.max", 10000.0)
 
 	// statements.fill_pct = 500/10000*100 = 5.0
-	assertStmtVal(t, points, "pgpulse.statements.fill_pct", 5.0)
+	assertStmtVal(t, points, "pg.statements.fill_pct", 5.0)
 
 	// statements.track = 1 with label value="all"
-	m, ok := findCheckpointMetric(points, "pgpulse.statements.track")
+	m, ok := findCheckpointMetric(points, "pg.statements.track")
 	if !ok {
 		t.Error("expected pgpulse.statements.track metric")
 	} else {
@@ -63,13 +63,13 @@ func TestStatementsConfigCollector_Normal(t *testing.T) {
 	}
 
 	// statements.track_io_timing = 1 (on)
-	assertStmtVal(t, points, "pgpulse.statements.track_io_timing", 1.0)
+	assertStmtVal(t, points, "pg.statements.track_io_timing", 1.0)
 
 	// statements.count = 500
-	assertStmtVal(t, points, "pgpulse.statements.count", 500.0)
+	assertStmtVal(t, points, "pg.statements.count", 500.0)
 
 	// statements.stats_reset_age_seconds = 3600
-	assertStmtVal(t, points, "pgpulse.statements.stats_reset_age_seconds", 3600.0)
+	assertStmtVal(t, points, "pg.statements.stats_reset_age_seconds", 3600.0)
 }
 
 // TestStatementsConfigCollector_NullStatsReset verifies that buildMetrics emits
@@ -92,7 +92,7 @@ func TestStatementsConfigCollector_NullStatsReset(t *testing.T) {
 	}
 
 	for _, p := range points {
-		if p.Metric == "pgpulse.statements.stats_reset_age_seconds" {
+		if p.Metric == "pg.statements.stats_reset_age_seconds" {
 			t.Error("stats_reset_age_seconds must not be emitted when stats_reset is NULL")
 		}
 	}
@@ -111,7 +111,7 @@ func TestStatementsConfigCollector_TrackIoTimingOn(t *testing.T) {
 	resetAge := 0.0
 
 	points := c.buildMetrics(settings, 0, &resetAge)
-	assertStmtVal(t, points, "pgpulse.statements.track_io_timing", 1.0)
+	assertStmtVal(t, points, "pg.statements.track_io_timing", 1.0)
 }
 
 // TestStatementsConfigCollector_TrackIoTimingOff verifies that any non-"on"
@@ -127,7 +127,7 @@ func TestStatementsConfigCollector_TrackIoTimingOff(t *testing.T) {
 	resetAge := 0.0
 
 	points := c.buildMetrics(settings, 0, &resetAge)
-	assertStmtVal(t, points, "pgpulse.statements.track_io_timing", 0.0)
+	assertStmtVal(t, points, "pg.statements.track_io_timing", 0.0)
 }
 
 // --- helpers local to this file ---

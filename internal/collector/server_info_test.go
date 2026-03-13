@@ -27,28 +27,28 @@ func TestServerInfoCollector_PG17(t *testing.T) {
 	require.NotEmpty(t, points)
 
 	names := metricNames(points)
-	assert.Contains(t, names, "pgpulse.server.start_time_unix")
-	assert.Contains(t, names, "pgpulse.server.uptime_seconds")
-	assert.Contains(t, names, "pgpulse.server.is_in_recovery")
-	assert.Contains(t, names, "pgpulse.server.is_in_backup")
+	assert.Contains(t, names, "pg.server.start_time_unix")
+	assert.Contains(t, names, "pg.server.uptime_seconds")
+	assert.Contains(t, names, "pg.server.is_in_recovery")
+	assert.Contains(t, names, "pg.server.is_in_backup")
 
 	// Start time must be after 2020-01-01
-	startTime := findMetric(points, "pgpulse.server.start_time_unix")
+	startTime := findMetric(points, "pg.server.start_time_unix")
 	require.NotNil(t, startTime)
 	assert.Greater(t, startTime.Value, float64(1577836800), "start_time should be after 2020-01-01")
 
 	// Uptime must be positive
-	uptime := findMetric(points, "pgpulse.server.uptime_seconds")
+	uptime := findMetric(points, "pg.server.uptime_seconds")
 	require.NotNil(t, uptime)
 	assert.Greater(t, uptime.Value, 0.0)
 
 	// InstanceContext{IsRecovery: false} → must emit 0.0
-	recovery := findMetric(points, "pgpulse.server.is_in_recovery")
+	recovery := findMetric(points, "pg.server.is_in_recovery")
 	require.NotNil(t, recovery)
 	assert.Equal(t, 0.0, recovery.Value)
 
 	// PG 17: pg_is_in_backup() removed — must emit 0.0 without error
-	backup := findMetric(points, "pgpulse.server.is_in_backup")
+	backup := findMetric(points, "pg.server.is_in_backup")
 	require.NotNil(t, backup)
 	assert.Equal(t, 0.0, backup.Value)
 }
@@ -65,7 +65,7 @@ func TestServerInfoCollector_PG14(t *testing.T) {
 	require.NoError(t, err)
 
 	// PG 14: pg_is_in_backup() must execute without error and return 0.0 (no backup running)
-	backup := findMetric(points, "pgpulse.server.is_in_backup")
+	backup := findMetric(points, "pg.server.is_in_backup")
 	require.NotNil(t, backup, "PG14 must emit is_in_backup via pg_is_in_backup()")
 	assert.Equal(t, 0.0, backup.Value, "no backup should be running in test container")
 }
@@ -83,7 +83,7 @@ func TestServerInfoCollector_IsRecovery_Primary(t *testing.T) {
 	points, err := c.Collect(ctx, conn, collector.InstanceContext{IsRecovery: false})
 	require.NoError(t, err)
 
-	recovery := findMetric(points, "pgpulse.server.is_in_recovery")
+	recovery := findMetric(points, "pg.server.is_in_recovery")
 	require.NotNil(t, recovery)
 	assert.Equal(t, 0.0, recovery.Value, "primary mode: is_in_recovery must be 0.0")
 }
@@ -101,7 +101,7 @@ func TestServerInfoCollector_IsRecovery_Replica(t *testing.T) {
 	points, err := c.Collect(ctx, conn, collector.InstanceContext{IsRecovery: true})
 	require.NoError(t, err)
 
-	recovery := findMetric(points, "pgpulse.server.is_in_recovery")
+	recovery := findMetric(points, "pg.server.is_in_recovery")
 	require.NotNil(t, recovery)
 	assert.Equal(t, 1.0, recovery.Value, "replica mode: is_in_recovery must be 1.0")
 }

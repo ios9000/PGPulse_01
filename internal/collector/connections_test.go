@@ -31,19 +31,19 @@ func TestConnectionsCollector_PG17(t *testing.T) {
 	require.NotEmpty(t, points)
 
 	names := metricNames(points)
-	assert.Contains(t, names, "pgpulse.connections.total")
-	assert.Contains(t, names, "pgpulse.connections.max")
-	assert.Contains(t, names, "pgpulse.connections.superuser_reserved")
-	assert.Contains(t, names, "pgpulse.connections.utilization_pct")
+	assert.Contains(t, names, "pg.connections.total")
+	assert.Contains(t, names, "pg.connections.max")
+	assert.Contains(t, names, "pg.connections.superuser_reserved")
+	assert.Contains(t, names, "pg.connections.utilization_pct")
 
 	// conn1 is idle → at least one "by_state" metric should exist
-	assert.Contains(t, names, "pgpulse.connections.by_state")
+	assert.Contains(t, names, "pg.connections.by_state")
 
-	maxConn := findMetric(points, "pgpulse.connections.max")
+	maxConn := findMetric(points, "pg.connections.max")
 	require.NotNil(t, maxConn)
 	assert.Greater(t, maxConn.Value, 0.0)
 
-	total := findMetric(points, "pgpulse.connections.total")
+	total := findMetric(points, "pg.connections.total")
 	require.NotNil(t, total)
 	assert.GreaterOrEqual(t, total.Value, 1.0, "conn1 should be visible to the collector running on conn2")
 }
@@ -65,7 +65,7 @@ func TestConnectionsCollector_ExcludesSelf(t *testing.T) {
 	points, err := c.Collect(ctx, conn2, collector.InstanceContext{})
 	require.NoError(t, err)
 
-	total := findMetric(points, "pgpulse.connections.total")
+	total := findMetric(points, "pg.connections.total")
 	require.NotNil(t, total)
 
 	// conn2 (collector) is excluded. conn1 is counted. So total must be at least 1.
@@ -79,7 +79,7 @@ func TestConnectionsCollector_ExcludesSelf(t *testing.T) {
 	points2, err := c2.Collect(ctx, conn1, collector.InstanceContext{})
 	require.NoError(t, err)
 
-	total2 := findMetric(points2, "pgpulse.connections.total")
+	total2 := findMetric(points2, "pg.connections.total")
 	require.NotNil(t, total2)
 	// Both runs should count the same number of "other" connections.
 	assert.Equal(t, total.Value, total2.Value, "self-exclusion should be symmetric")
@@ -96,7 +96,7 @@ func TestConnectionsCollector_Utilization(t *testing.T) {
 	points, err := c.Collect(ctx, conn, collector.InstanceContext{})
 	require.NoError(t, err)
 
-	util := findMetric(points, "pgpulse.connections.utilization_pct")
+	util := findMetric(points, "pg.connections.utilization_pct")
 	require.NotNil(t, util)
 	assert.GreaterOrEqual(t, util.Value, 0.0)
 	assert.LessOrEqual(t, util.Value, 100.0)

@@ -27,13 +27,13 @@ func TestDatabaseSizesCollector_PG17(t *testing.T) {
 	require.NotEmpty(t, points)
 
 	// testdb must be present
-	testdbSize := findMetricWithLabel(points, "pgpulse.database.size_bytes", "database", "testdb")
+	testdbSize := findMetricWithLabel(points, "pg.database.size_bytes", "database", "testdb")
 	require.NotNil(t, testdbSize, "testdb must appear in database sizes")
 	assert.Greater(t, testdbSize.Value, 0.0, "testdb size must be positive")
 
 	// All emitted metrics must have positive sizes and database labels
 	for _, p := range points {
-		assert.Equal(t, "pgpulse.database.size_bytes", p.Metric)
+		assert.Equal(t, "pg.database.size_bytes", p.Metric)
 		assert.NotEmpty(t, p.Labels["database"])
 		assert.Greater(t, p.Value, 0.0)
 	}

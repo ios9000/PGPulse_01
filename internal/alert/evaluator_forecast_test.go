@@ -129,7 +129,7 @@ func baseForecastRule() Rule {
 	return Rule{
 		ID:                        "fc_test",
 		Name:                      "Forecast Test Rule",
-		Metric:                    "pgpulse.connections.utilization_pct",
+		Metric:                    "pg.connections.utilization_pct",
 		Operator:                  OpGreater,
 		Threshold:                 90,
 		Severity:                  SeverityWarning,
@@ -148,7 +148,7 @@ func baseForecastRule() Rule {
 func dummyPoint(instanceID string) collector.MetricPoint {
 	return collector.MetricPoint{
 		InstanceID: instanceID,
-		Metric:     "pgpulse.connections.utilization_pct",
+		Metric:     "pg.connections.utilization_pct",
 		Value:      50, // below threshold; only forecast path matters
 		Timestamp:  time.Now(),
 	}

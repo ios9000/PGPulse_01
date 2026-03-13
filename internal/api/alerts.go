@@ -382,11 +382,11 @@ func (s *APIServer) handleTestNotification(w http.ResponseWriter, r *http.Reques
 	}
 
 	testEvent := alert.AlertEvent{
-		RuleID:     "pgpulse.test",
+		RuleID:     "pg.test",
 		RuleName:   "Test Notification",
 		InstanceID: "test",
 		Severity:   alert.SeverityInfo,
-		Metric:     "pgpulse.test",
+		Metric:     "pg.test",
 		FiredAt:    time.Now(),
 	}
 

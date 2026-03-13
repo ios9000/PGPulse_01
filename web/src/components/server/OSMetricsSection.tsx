@@ -26,9 +26,9 @@ const OS_CPU_METRICS = [
 const OS_LOAD_METRICS = ['os.load.1m', 'os.load.5m', 'os.load.15m']
 
 const OS_DISK_METRICS = [
-  'os.diskstat.read_kb',
-  'os.diskstat.write_kb',
-  'os.diskstat.util_pct',
+  'os.disk.read_bytes_per_sec',
+  'os.disk.write_bytes_per_sec',
+  'os.disk.util_pct',
 ]
 
 function formatKB(kb: number): string {
@@ -82,7 +82,7 @@ export function OSMetricsSection({ instanceId }: OSMetricsSectionProps) {
   const load5 = m['os.load.5m']?.value
   const load15 = m['os.load.15m']?.value
 
-  const diskUtil = m['os.diskstat.util_pct']?.value
+  const diskUtil = m['os.disk.util_pct']?.value
 
   // Chart series
   const memSeries = useMemo(() => {
@@ -150,25 +150,25 @@ export function OSMetricsSection({ instanceId }: OSMetricsSectionProps) {
       dashed?: boolean
     }> = []
 
-    const readPoints = diskHistory.series['os.diskstat.read_kb']
+    const readPoints = diskHistory.series['os.disk.read_bytes_per_sec']
     if (readPoints) {
       result.push({
-        name: 'Read KB/s',
+        name: 'Read B/s',
         data: readPoints,
         color: '#3b82f6',
         type: 'area',
       })
     }
-    const writePoints = diskHistory.series['os.diskstat.write_kb']
+    const writePoints = diskHistory.series['os.disk.write_bytes_per_sec']
     if (writePoints) {
       result.push({
-        name: 'Write KB/s',
+        name: 'Write B/s',
         data: writePoints,
         color: '#10b981',
         type: 'area',
       })
     }
-    const utilPoints = diskHistory.series['os.diskstat.util_pct']
+    const utilPoints = diskHistory.series['os.disk.util_pct']
     if (utilPoints) {
       result.push({
         name: 'Util %',
@@ -277,7 +277,7 @@ export function OSMetricsSection({ instanceId }: OSMetricsSectionProps) {
           <h3 className="mb-3 text-sm font-medium text-pgp-text-secondary">Disk I/O</h3>
           <TimeSeriesChart
             series={diskSeries}
-            yAxisLabel="KB/s"
+            yAxisLabel="B/s"
             yAxisMin={0}
             loading={diskLoading}
           />

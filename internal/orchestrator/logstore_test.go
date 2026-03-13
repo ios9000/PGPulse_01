@@ -13,7 +13,7 @@ func TestLogStore_Write(t *testing.T) {
 	store := NewLogStore(discardLogger())
 	points := make([]collector.MetricPoint, 10)
 	for i := range points {
-		points[i] = makePoint("pgpulse.test")
+		points[i] = makePoint("pg.test")
 	}
 	if err := store.Write(context.Background(), points); err != nil {
 		t.Errorf("Write() error = %v", err)

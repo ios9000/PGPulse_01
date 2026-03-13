@@ -28,7 +28,7 @@ func TestForecastForAlert_ConvertsPoints(t *testing.T) {
 	const (
 		period     = 10
 		instanceID = "inst-1"
-		metricKey  = "pgpulse.connections.utilization_pct"
+		metricKey  = "pg.connections.utilization_pct"
 		horizon    = 5
 	)
 
@@ -119,7 +119,7 @@ func TestForecastForAlert_EmptyPoints(t *testing.T) {
 	const (
 		period     = 10
 		instanceID = "inst-1"
-		metricKey  = "pgpulse.test.metric"
+		metricKey  = "pg.test.metric"
 	)
 
 	// Create a baseline that is NOT warm enough for Forecast (totalSeen < period).

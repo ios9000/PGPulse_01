@@ -41,11 +41,11 @@ func TestBuildQuery_InstanceOnly(t *testing.T) {
 }
 
 func TestBuildQuery_MetricPrefix(t *testing.T) {
-	sql, args := buildQuery(collector.MetricQuery{Metric: "pgpulse.connections"})
+	sql, args := buildQuery(collector.MetricQuery{Metric: "pg.connections"})
 	if !strings.Contains(sql, "metric LIKE $1") {
 		t.Errorf("sql %q missing metric LIKE $1", sql)
 	}
-	if len(args) != 1 || args[0] != "pgpulse.connections%" {
+	if len(args) != 1 || args[0] != "pg.connections%" {
 		t.Errorf("args = %v, want [pgpulse.connections%%]", args)
 	}
 }
@@ -95,7 +95,7 @@ func TestBuildQuery_WithLimit(t *testing.T) {
 func TestBuildQuery_AllFilters(t *testing.T) {
 	q := collector.MetricQuery{
 		InstanceID: "prod",
-		Metric:     "pgpulse.connections",
+		Metric:     "pg.connections",
 		Start:      time.Now().Add(-1 * time.Hour),
 		End:        time.Now(),
 		Labels:     map[string]string{"state": "active"},
@@ -126,7 +126,7 @@ func TestPGStore_Write_NilLabels(t *testing.T) {
 	// Verify that nil Labels are converted to {} before marshaling.
 	p := collector.MetricPoint{
 		InstanceID: "test",
-		Metric:     "pgpulse.test",
+		Metric:     "pg.test",
 		Value:      1.0,
 		Labels:     nil,
 	}

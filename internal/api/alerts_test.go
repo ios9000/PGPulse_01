@@ -313,8 +313,8 @@ func TestGetAlertHistory_LimitCapped(t *testing.T) {
 func TestGetAlertRules(t *testing.T) {
 	rs := &mockAlertRuleStore{
 		rules: []alert.Rule{
-			{ID: "rule-1", Name: "Rule 1", Metric: "pgpulse.test", Operator: alert.OpGreater, Threshold: 80, Severity: alert.SeverityWarning, Source: alert.SourceBuiltin, Enabled: true},
-			{ID: "rule-2", Name: "Rule 2", Metric: "pgpulse.test2", Operator: alert.OpLess, Threshold: 0.9, Severity: alert.SeverityCritical, Source: alert.SourceCustom, Enabled: true},
+			{ID: "rule-1", Name: "Rule 1", Metric: "pg.test", Operator: alert.OpGreater, Threshold: 80, Severity: alert.SeverityWarning, Source: alert.SourceBuiltin, Enabled: true},
+			{ID: "rule-2", Name: "Rule 2", Metric: "pg.test2", Operator: alert.OpLess, Threshold: 0.9, Severity: alert.SeverityCritical, Source: alert.SourceCustom, Enabled: true},
 		},
 	}
 	srv := newAlertTestServer(t, rs, &mockAlertHistoryStore{}, nil)
@@ -357,7 +357,7 @@ func TestCreateAlertRule_Valid(t *testing.T) {
 	body := `{
 		"id": "my-rule",
 		"name": "My Rule",
-		"metric": "pgpulse.test.metric",
+		"metric": "pg.test.metric",
 		"operator": ">",
 		"threshold": 80,
 		"severity": "warning",
@@ -402,7 +402,7 @@ func TestCreateAlertRule_Defaults(t *testing.T) {
 	body := `{
 		"id": "my-rule",
 		"name": "My Rule",
-		"metric": "pgpulse.test.metric",
+		"metric": "pg.test.metric",
 		"operator": ">",
 		"threshold": 80,
 		"severity": "warning"
@@ -449,7 +449,7 @@ func TestCreateAlertRule_InvalidOperator(t *testing.T) {
 	body := `{
 		"id": "my-rule",
 		"name": "My Rule",
-		"metric": "pgpulse.test.metric",
+		"metric": "pg.test.metric",
 		"operator": ">>>",
 		"threshold": 80,
 		"severity": "warning"
@@ -482,7 +482,7 @@ func TestCreateAlertRule_MissingID(t *testing.T) {
 
 	body := `{
 		"name": "My Rule",
-		"metric": "pgpulse.test.metric",
+		"metric": "pg.test.metric",
 		"operator": ">",
 		"threshold": 80,
 		"severity": "warning"
@@ -549,7 +549,7 @@ func TestCreateAlertRule_DuplicateID(t *testing.T) {
 	body := `{
 		"id": "my-rule",
 		"name": "My Rule",
-		"metric": "pgpulse.test.metric",
+		"metric": "pg.test.metric",
 		"operator": ">",
 		"threshold": 80,
 		"severity": "warning"
@@ -579,7 +579,7 @@ func TestCreateAlertRule_DuplicateID(t *testing.T) {
 func TestUpdateAlertRule_Success(t *testing.T) {
 	rs := &mockAlertRuleStore{
 		rules: []alert.Rule{
-			{ID: "my-rule", Name: "Old Name", Metric: "pgpulse.test", Operator: alert.OpGreater, Threshold: 80, Severity: alert.SeverityWarning, Source: alert.SourceCustom, Enabled: true},
+			{ID: "my-rule", Name: "Old Name", Metric: "pg.test", Operator: alert.OpGreater, Threshold: 80, Severity: alert.SeverityWarning, Source: alert.SourceCustom, Enabled: true},
 		},
 	}
 	srv := newAlertTestServer(t, rs, &mockAlertHistoryStore{}, nil)
@@ -654,7 +654,7 @@ func TestUpdateAlertRule_BuiltinLimited(t *testing.T) {
 	rs := &mockAlertRuleStore{
 		rules: []alert.Rule{
 			{
-				ID: "builtin-rule", Name: "Builtin Rule", Metric: "pgpulse.test",
+				ID: "builtin-rule", Name: "Builtin Rule", Metric: "pg.test",
 				Operator: alert.OpGreater, Threshold: 80, Severity: alert.SeverityWarning,
 				Source: alert.SourceBuiltin, Enabled: true,
 			},
@@ -665,7 +665,7 @@ func TestUpdateAlertRule_BuiltinLimited(t *testing.T) {
 	defer ts.Close()
 
 	// Try to change metric and threshold — only threshold should change for builtin
-	body := `{"metric": "pgpulse.hacked", "threshold": 99}`
+	body := `{"metric": "pg.hacked", "threshold": 99}`
 	req, err := http.NewRequest(http.MethodPut, ts.URL+"/api/v1/alerts/rules/builtin-rule", bytes.NewBufferString(body))
 	if err != nil {
 		t.Fatalf("new request: %v", err)
@@ -697,8 +697,8 @@ func TestUpdateAlertRule_BuiltinLimited(t *testing.T) {
 		t.Errorf("threshold = %v, want 99", data["threshold"])
 	}
 	// Metric should NOT be changed for builtin rules
-	if data["metric"] != "pgpulse.test" {
-		t.Errorf("metric = %v, want %q (builtin metric should not change)", data["metric"], "pgpulse.test")
+	if data["metric"] != "pg.test" {
+		t.Errorf("metric = %v, want %q (builtin metric should not change)", data["metric"], "pg.test")
 	}
 }
 

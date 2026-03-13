@@ -29,13 +29,13 @@ package collector
 //     os.cpu.idle_pct           — idle %
 //
 //   /proc/diskstats (stateful — delta between cycles):
-//     os.diskstat.reads_completed  (label: device)
-//     os.diskstat.writes_completed (label: device)
-//     os.diskstat.read_kb          (label: device)
-//     os.diskstat.write_kb         (label: device)
-//     os.diskstat.read_await_ms    (label: device)
-//     os.diskstat.write_await_ms   (label: device)
-//     os.diskstat.util_pct         (label: device)
+//     os.disk.reads_completed      (label: device)
+//     os.disk.writes_completed     (label: device)
+//     os.disk.read_bytes_per_sec   (label: device) — value in bytes (ReadKB * 1024)
+//     os.disk.write_bytes_per_sec  (label: device) — value in bytes (WriteKB * 1024)
+//     os.disk.read_await_ms        (label: device)
+//     os.disk.write_await_ms       (label: device)
+//     os.disk.util_pct             (label: device)
 //
 // Disk space metrics (os.disk.total_bytes, etc.) require syscall.Statfs
 // and cannot be collected via pg_read_file — those remain agent-only.
@@ -266,13 +266,13 @@ func (c *OSSQLCollector) readDiskStats(ctx context.Context, conn *pgx.Conn) []Me
 		info := agent.DiskStatsDelta(prev, curr, intervalMs)
 		labels := map[string]string{"device": name}
 		points = append(points,
-			c.point("os.diskstat.reads_completed", float64(info.ReadsCompleted), labels),
-			c.point("os.diskstat.writes_completed", float64(info.WritesCompleted), labels),
-			c.point("os.diskstat.read_kb", float64(info.ReadKB), labels),
-			c.point("os.diskstat.write_kb", float64(info.WriteKB), labels),
-			c.point("os.diskstat.read_await_ms", info.ReadAwaitMs, labels),
-			c.point("os.diskstat.write_await_ms", info.WriteAwaitMs, labels),
-			c.point("os.diskstat.util_pct", info.UtilPct, labels),
+			c.point("os.disk.reads_completed", float64(info.ReadsCompleted), labels),
+			c.point("os.disk.writes_completed", float64(info.WritesCompleted), labels),
+			c.point("os.disk.read_bytes_per_sec", float64(info.ReadKB)*1024, labels),
+			c.point("os.disk.write_bytes_per_sec", float64(info.WriteKB)*1024, labels),
+			c.point("os.disk.read_await_ms", info.ReadAwaitMs, labels),
+			c.point("os.disk.write_await_ms", info.WriteAwaitMs, labels),
+			c.point("os.disk.util_pct", info.UtilPct, labels),
 		)
 	}
 
