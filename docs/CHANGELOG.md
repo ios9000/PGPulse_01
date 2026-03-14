@@ -1,3 +1,31 @@
+## [M9_01] — 2026-03-14 — Alert & Advisor Polish
+
+### Fixed
+- **12 alert rule metric key mismatches** corrected to match canonical collector keys:
+  - Wraparound: `pg.databases.wraparound_pct` → `pg.server.wraparound_pct`
+  - Multixact: `pg.databases.multixact_pct` → `pg.server.multixact_pct`
+  - Commit ratio: `pg.transactions.commit_ratio` → `pg.transactions.commit_ratio_pct`
+  - Replication slot: `pg.replication.slot_active` → `pg.replication.slot.active`
+  - Long transactions: `pg.transactions.longest_seconds` → `pg.long_transactions.oldest_seconds`
+  - Table bloat: `pg.tables.bloat_pct` → `pg.db.bloat.table_ratio`
+  - PGSS fill: `pg.statements.dealloc_count` → `pg.extensions.pgss_fill_pct` (threshold 0 → 95)
+  - Replication lag: `pg.replication.lag_bytes` → `pg.replication.lag.total_bytes`
+- **DSN port parsing**: `parseHostPort()` and `extractHostPort()` now handle keyword/value DSN format (`host=x port=5433 dbname=z`)
+
+### Added
+- **AlertsTabBar**: Three-tab navigation (Active | History | Rules) on AlertsDashboard and AlertRules pages
+- **Sidebar expandable Alerts group**: Dashboard and Rules sub-items, auto-expands on `/alerts*`
+- **Diagnose MetricKey/MetricValue**: `RuleResult` now carries MetricKey and MetricValue; `Diagnose()` propagates them; all 25 rules (17 PG + 8 OS) set them
+- **DiagnosePanel formatting**: Metric values formatted by suffix (`_pct` → %, `_bytes` → bytes, `_seconds` → duration)
+- **New tests**: `TestBuiltinRulesMetricKeys`, `TestParseHostPort`, `TestExtractHostPort`, `TestDiagnose_PopulatesMetricKeyAndValue`
+
+### Notes
+- 2-agent parallel execution (Backend + Frontend)
+- 17 files changed, +374 lines
+- All checks pass: go build, go test (14 packages), golangci-lint (0), npm build + typecheck + lint (0 errors)
+
+---
+
 ## [REM_01c] — 2026-03-14 — Remediation Metric Key Fix (Bugfix)
 
 ### Fixed
