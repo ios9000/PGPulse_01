@@ -160,6 +160,7 @@ export type AlertSeverityFilter = 'all' | 'warning' | 'critical'
 export type AlertStateFilter = 'all' | 'firing' | 'resolved'
 
 export interface AlertEvent {
+  id: number
   rule_id: string
   rule_name: string
   instance_id: string
@@ -173,6 +174,7 @@ export interface AlertEvent {
   fired_at: string
   resolved_at?: string
   is_resolution: boolean
+  recommendations?: Recommendation[]
 }
 
 export interface AlertRule {
@@ -573,4 +575,38 @@ export interface SubscriptionStats {
   latest_end_time: string
   apply_error_count?: number
   sync_error_count?: number
+}
+
+// --- Remediation / Advisor types (REM_01b) ---
+
+export type RecommendationPriority = 'info' | 'suggestion' | 'action_required'
+export type RecommendationCategory = 'performance' | 'capacity' | 'configuration' | 'replication' | 'maintenance'
+
+export interface Recommendation {
+  id: number
+  rule_id: string
+  instance_id: string
+  alert_event_id?: number
+  metric_key: string
+  metric_value: number
+  priority: RecommendationPriority
+  category: RecommendationCategory
+  title: string
+  description: string
+  doc_url?: string
+  created_at: string
+  acknowledged_at?: string
+  acknowledged_by?: string
+}
+
+export interface DiagnoseResponse {
+  recommendations: Recommendation[]
+  metrics_evaluated: number
+  rules_evaluated: number
+}
+
+export interface RemediationRule {
+  id: string
+  priority: RecommendationPriority
+  category: RecommendationCategory
 }

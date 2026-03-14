@@ -11,14 +11,15 @@ import (
 )
 
 type templateData struct {
-	Event         AlertEvent
-	DashboardURL  string
-	SeverityColor string
-	SeverityEmoji string
-	Duration      string
-	Timestamp     string
-	ResolvedTime  string
-	LabelPairs    []labelPair
+	Event           AlertEvent
+	DashboardURL    string
+	SeverityColor   string
+	SeverityEmoji   string
+	Duration        string
+	Timestamp       string
+	ResolvedTime    string
+	LabelPairs      []labelPair
+	Recommendations []RemediationResult
 }
 
 type labelPair struct {
@@ -62,8 +63,9 @@ func severityEmoji(s Severity) string {
 }
 
 // RenderHTMLTemplate renders the appropriate HTML email body for the event.
-func RenderHTMLTemplate(event AlertEvent, dashboardURL string) (string, error) {
+func RenderHTMLTemplate(event AlertEvent, dashboardURL string, recommendations []RemediationResult) (string, error) {
 	data := buildTemplateData(event, dashboardURL)
+	data.Recommendations = recommendations
 	tmpl := fireHTMLTemplate
 	if event.IsResolution {
 		tmpl = resolveHTMLTemplate
@@ -76,8 +78,9 @@ func RenderHTMLTemplate(event AlertEvent, dashboardURL string) (string, error) {
 }
 
 // RenderTextTemplate renders the appropriate plain-text email body for the event.
-func RenderTextTemplate(event AlertEvent, dashboardURL string) (string, error) {
+func RenderTextTemplate(event AlertEvent, dashboardURL string, recommendations []RemediationResult) (string, error) {
 	data := buildTemplateData(event, dashboardURL)
+	data.Recommendations = recommendations
 	tmpl := fireTextTemplate
 	if event.IsResolution {
 		tmpl = resolveTextTemplate
@@ -114,8 +117,20 @@ func buildTemplateData(event AlertEvent, dashboardURL string) templateData {
 	return data
 }
 
+func recommendationColor(priority string) string {
+	switch priority {
+	case "action_required":
+		return "#EF4444"
+	case "suggestion":
+		return "#EAB308"
+	default:
+		return "#3B82F6"
+	}
+}
+
 var fireHTMLTemplate = template.Must(template.New("fire_html").Funcs(template.FuncMap{
-	"printf": fmt.Sprintf,
+	"printf":  fmt.Sprintf,
+	"recColor": recommendationColor,
 }).Parse(`<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -160,6 +175,20 @@ var fireHTMLTemplate = template.Must(template.New("fire_html").Funcs(template.Fu
         </tr>
 {{- end}}
       </table>
+{{- if .Recommendations}}
+      <div style="margin-top:24px;">
+        <div style="font-weight:bold;font-size:15px;margin-bottom:12px;">Recommendations</div>
+{{- range .Recommendations}}
+        <div style="border-left:4px solid {{recColor .Priority}};padding:8px 12px;margin-bottom:8px;background:#f9fafb;">
+          <div style="font-weight:bold;margin-bottom:4px;">{{.Title}}</div>
+          <div style="font-size:13px;color:#374151;">{{.Description}}</div>
+{{- if .DocURL}}
+          <div style="font-size:12px;margin-top:4px;"><a href="{{.DocURL}}" style="color:#2563eb;">Documentation</a></div>
+{{- end}}
+        </div>
+{{- end}}
+      </div>
+{{- end}}
 {{- if .DashboardURL}}
       <div style="margin-top:24px;text-align:center;">
         <a href="{{.DashboardURL}}/instances/{{.Event.InstanceID}}" style="display:inline-block;background:{{.SeverityColor}};color:#fff;padding:10px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">View in Dashboard</a>
@@ -261,6 +290,13 @@ Severity:      {{.Event.Severity}}
 Fired At:      {{.Timestamp}}
 {{- if .LabelPairs}}
 Labels:        {{range $i, $lp := .LabelPairs}}{{if $i}}, {{end}}{{$lp.Key}}={{$lp.Value}}{{end}}
+{{- end}}
+{{- if .Recommendations}}
+
+Recommendations:
+{{- range .Recommendations}}
+  - [{{.Priority}}] {{.Title}}: {{.Description}}
+{{- end}}
 {{- end}}
 {{- if .DashboardURL}}
 

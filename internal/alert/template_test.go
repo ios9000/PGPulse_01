@@ -58,7 +58,7 @@ func TestFormatSubject_Resolution(t *testing.T) {
 
 func TestRenderHTMLTemplate_Fire(t *testing.T) {
 	ev := newTestEvent()
-	html, err := RenderHTMLTemplate(ev, "")
+	html, err := RenderHTMLTemplate(ev, "", nil)
 	if err != nil {
 		t.Fatalf("RenderHTMLTemplate() error = %v", err)
 	}
@@ -91,7 +91,7 @@ func TestRenderHTMLTemplate_Resolution(t *testing.T) {
 	resolvedAt := ev.FiredAt.Add(10 * time.Minute)
 	ev.ResolvedAt = &resolvedAt
 
-	html, err := RenderHTMLTemplate(ev, "")
+	html, err := RenderHTMLTemplate(ev, "", nil)
 	if err != nil {
 		t.Fatalf("RenderHTMLTemplate() error = %v", err)
 	}
@@ -116,7 +116,7 @@ func TestRenderHTMLTemplate_Resolution(t *testing.T) {
 
 func TestRenderTextTemplate_Fire(t *testing.T) {
 	ev := newTestEvent()
-	text, err := RenderTextTemplate(ev, "")
+	text, err := RenderTextTemplate(ev, "", nil)
 	if err != nil {
 		t.Fatalf("RenderTextTemplate() error = %v", err)
 	}
@@ -148,7 +148,7 @@ func TestRenderTextTemplate_Resolution(t *testing.T) {
 	resolvedAt := ev.FiredAt.Add(5 * time.Minute)
 	ev.ResolvedAt = &resolvedAt
 
-	text, err := RenderTextTemplate(ev, "")
+	text, err := RenderTextTemplate(ev, "", nil)
 	if err != nil {
 		t.Fatalf("RenderTextTemplate() error = %v", err)
 	}
@@ -176,7 +176,7 @@ func TestRenderHTMLTemplate_WithLabels(t *testing.T) {
 		"app":      "pgpulse",
 	}
 
-	html, err := RenderHTMLTemplate(ev, "")
+	html, err := RenderHTMLTemplate(ev, "", nil)
 	if err != nil {
 		t.Fatalf("RenderHTMLTemplate() error = %v", err)
 	}
@@ -201,7 +201,7 @@ func TestRenderHTMLTemplate_WithLabels(t *testing.T) {
 
 func TestRenderHTMLTemplate_WithDashboardURL(t *testing.T) {
 	ev := newTestEvent()
-	html, err := RenderHTMLTemplate(ev, "https://monitor.example.com")
+	html, err := RenderHTMLTemplate(ev, "https://monitor.example.com", nil)
 	if err != nil {
 		t.Fatalf("RenderHTMLTemplate() error = %v", err)
 	}
@@ -217,7 +217,7 @@ func TestRenderHTMLTemplate_WithDashboardURL(t *testing.T) {
 
 func TestRenderHTMLTemplate_NoDashboardURL(t *testing.T) {
 	ev := newTestEvent()
-	html, err := RenderHTMLTemplate(ev, "")
+	html, err := RenderHTMLTemplate(ev, "", nil)
 	if err != nil {
 		t.Fatalf("RenderHTMLTemplate() error = %v", err)
 	}

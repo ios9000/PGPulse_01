@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutGrid, Bell, Settings, Database, GitCompareArrows } from 'lucide-react'
+import { LayoutGrid, Bell, Lightbulb, Settings, Database, GitCompareArrows } from 'lucide-react'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Permission } from '@/lib/permissions'
@@ -16,6 +16,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Fleet Overview', icon: LayoutGrid, path: '/fleet' },
   { label: 'Alerts', icon: Bell, path: '/alerts' },
+  { label: 'Advisor', icon: Lightbulb, path: '/advisor' },
   { label: 'Settings Diff', icon: GitCompareArrows, path: '/settings/diff' },
   { label: 'Administration', icon: Settings, path: '/admin' },
 ]

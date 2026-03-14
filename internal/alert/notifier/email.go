@@ -33,11 +33,11 @@ func (n *EmailNotifier) Name() string { return "email" }
 // Send renders and delivers an alert event as a MIME email.
 func (n *EmailNotifier) Send(ctx context.Context, event alert.AlertEvent) error {
 	subject := alert.FormatSubject(event)
-	htmlBody, err := alert.RenderHTMLTemplate(event, n.dashboardURL)
+	htmlBody, err := alert.RenderHTMLTemplate(event, n.dashboardURL, event.Recommendations)
 	if err != nil {
 		return fmt.Errorf("render html: %w", err)
 	}
-	textBody, err := alert.RenderTextTemplate(event, n.dashboardURL)
+	textBody, err := alert.RenderTextTemplate(event, n.dashboardURL, event.Recommendations)
 	if err != nil {
 		return fmt.Errorf("render text: %w", err)
 	}

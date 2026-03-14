@@ -12,7 +12,14 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/ios9000/PGPulse_01/internal/alert"
+	"github.com/ios9000/PGPulse_01/internal/remediation"
 )
+
+// alertEventResponse wraps AlertEvent with remediation recommendations.
+type alertEventResponse struct {
+	alert.AlertEvent
+	Recommendations []remediation.Recommendation `json:"recommendations,omitempty"`
+}
 
 type createRuleRequest struct {
 	ID               string            `json:"id"`
@@ -82,9 +89,10 @@ func (s *APIServer) handleGetActiveAlerts(w http.ResponseWriter, r *http.Request
 		s.logger.Error("list active alerts failed", "error", err)
 		return
 	}
+	enriched := s.enrichAlertEvents(r.Context(), events)
 	writeJSON(w, http.StatusOK, Envelope{
-		Data: events,
-		Meta: map[string]interface{}{"count": len(events)},
+		Data: enriched,
+		Meta: map[string]interface{}{"count": len(enriched)},
 	})
 }
 
@@ -145,9 +153,10 @@ func (s *APIServer) handleGetAlertHistory(w http.ResponseWriter, r *http.Request
 		s.logger.Error("query alert history failed", "error", err)
 		return
 	}
+	enriched := s.enrichAlertEvents(r.Context(), events)
 	writeJSON(w, http.StatusOK, Envelope{
-		Data: events,
-		Meta: map[string]interface{}{"count": len(events)},
+		Data: enriched,
+		Meta: map[string]interface{}{"count": len(enriched)},
 	})
 }
 
@@ -350,6 +359,25 @@ func (s *APIServer) handleDeleteAlertRule(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// enrichAlertEvents wraps events with remediation recommendations when the store is available.
+func (s *APIServer) enrichAlertEvents(ctx context.Context, events []alert.AlertEvent) []alertEventResponse {
+	result := make([]alertEventResponse, len(events))
+	for i, ev := range events {
+		resp := alertEventResponse{AlertEvent: ev}
+		if s.remediationStore != nil && ev.ID > 0 {
+			recs, err := s.remediationStore.ListByAlertEvent(ctx, ev.ID)
+			if err != nil {
+				s.logger.Warn("failed to fetch recommendations for alert event",
+					"event_id", ev.ID, "error", err)
+			} else if len(recs) > 0 {
+				resp.Recommendations = recs
+			}
+		}
+		result[i] = resp
+	}
+	return result
 }
 
 type testNotificationRequest struct {
