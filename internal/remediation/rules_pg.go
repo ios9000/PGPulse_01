@@ -9,39 +9,25 @@ func pgRules() []Rule {
 			Priority: PrioritySuggestion,
 			Category: CategoryCapacity,
 			Evaluate: func(ctx EvalContext) *RuleResult {
-				if ctx.MetricKey == "pg.connections.active" {
-					maxConn, ok := ctx.Snapshot.Get("pg.connections.max_connections")
-					if !ok || maxConn == 0 {
-						return nil
-					}
-					pct := (ctx.Value / maxConn) * 100
-					if pct > 80 && pct < 99 {
-						return &RuleResult{
-							Title: "Consider connection pooling",
-							Description: fmt.Sprintf(
-								"Connection utilization at %.0f%% (%v/%v). "+
-									"Consider adding PgBouncer or increasing max_connections. "+
-									"Review application connection pool settings for idle connections.",
-								pct, ctx.Value, maxConn),
-							DocURL: "https://www.pgbouncer.org/",
-						}
-					}
+				var pct float64
+				var ok bool
+				if ctx.MetricKey == "pg.connections.utilization_pct" {
+					pct = ctx.Value
+					ok = true
+				} else {
+					pct, ok = ctx.Snapshot.Get("pg.connections.utilization_pct")
+				}
+				if !ok {
 					return nil
 				}
-				active, ok1 := ctx.Snapshot.Get("pg.connections.active")
-				maxConn, ok2 := ctx.Snapshot.Get("pg.connections.max_connections")
-				if !ok1 || !ok2 || maxConn == 0 {
-					return nil
-				}
-				pct := (active / maxConn) * 100
 				if pct > 80 && pct < 99 {
 					return &RuleResult{
 						Title: "Consider connection pooling",
 						Description: fmt.Sprintf(
-							"Connection utilization at %.0f%% (%v/%v). "+
+							"Connection utilization at %.0f%%. "+
 								"Consider adding PgBouncer or increasing max_connections. "+
 								"Review application connection pool settings for idle connections.",
-							pct, active, maxConn),
+							pct),
 						DocURL: "https://www.pgbouncer.org/",
 					}
 				}
@@ -53,39 +39,25 @@ func pgRules() []Rule {
 			Priority: PriorityActionRequired,
 			Category: CategoryCapacity,
 			Evaluate: func(ctx EvalContext) *RuleResult {
-				if ctx.MetricKey == "pg.connections.active" {
-					maxConn, ok := ctx.Snapshot.Get("pg.connections.max_connections")
-					if !ok || maxConn == 0 {
-						return nil
-					}
-					pct := (ctx.Value / maxConn) * 100
-					if pct >= 99 {
-						return &RuleResult{
-							Title: "Connections near limit",
-							Description: fmt.Sprintf(
-								"Connection utilization at %.0f%% (%v/%v). "+
-									"New connections will be refused. Immediately terminate idle sessions "+
-									"and deploy a connection pooler like PgBouncer.",
-								pct, ctx.Value, maxConn),
-							DocURL: "https://www.postgresql.org/docs/current/runtime-config-connection.html",
-						}
-					}
+				var pct float64
+				var ok bool
+				if ctx.MetricKey == "pg.connections.utilization_pct" {
+					pct = ctx.Value
+					ok = true
+				} else {
+					pct, ok = ctx.Snapshot.Get("pg.connections.utilization_pct")
+				}
+				if !ok {
 					return nil
 				}
-				active, ok1 := ctx.Snapshot.Get("pg.connections.active")
-				maxConn, ok2 := ctx.Snapshot.Get("pg.connections.max_connections")
-				if !ok1 || !ok2 || maxConn == 0 {
-					return nil
-				}
-				pct := (active / maxConn) * 100
 				if pct >= 99 {
 					return &RuleResult{
 						Title: "Connections near limit",
 						Description: fmt.Sprintf(
-							"Connection utilization at %.0f%% (%v/%v). "+
+							"Connection utilization at %.0f%%. "+
 								"New connections will be refused. Immediately terminate idle sessions "+
 								"and deploy a connection pooler like PgBouncer.",
-							pct, active, maxConn),
+							pct),
 						DocURL: "https://www.postgresql.org/docs/current/runtime-config-connection.html",
 					}
 				}
@@ -129,11 +101,11 @@ func pgRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "pg.transactions.commit_ratio" {
+				if ctx.MetricKey == "pg.transactions.commit_ratio_pct" {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("pg.transactions.commit_ratio")
+					val, ok = ctx.Snapshot.Get("pg.transactions.commit_ratio_pct")
 				}
 				if !ok {
 					return nil
@@ -159,11 +131,11 @@ func pgRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "pg.replication.replay_lag_bytes" {
+				if ctx.MetricKey == "pg.replication.lag.replay_bytes" {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("pg.replication.replay_lag_bytes")
+					val, ok = ctx.Snapshot.Get("pg.replication.lag.replay_bytes")
 				}
 				if !ok {
 					return nil
@@ -190,11 +162,11 @@ func pgRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "pg.replication.replay_lag_bytes" {
+				if ctx.MetricKey == "pg.replication.lag.replay_bytes" {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("pg.replication.replay_lag_bytes")
+					val, ok = ctx.Snapshot.Get("pg.replication.lag.replay_bytes")
 				}
 				if !ok {
 					return nil
@@ -219,28 +191,22 @@ func pgRules() []Rule {
 			Priority: PriorityActionRequired,
 			Category: CategoryReplication,
 			Evaluate: func(ctx EvalContext) *RuleResult {
-				var val float64
-				var ok bool
-				if ctx.MetricKey == "pg.replication.slot_inactive" {
-					val = ctx.Value
-					ok = true
-				} else {
-					val, ok = ctx.Snapshot.Get("pg.replication.slot_inactive")
-				}
-				if !ok {
+				// Alert-triggered: collector emits pg.replication.slot.active = 1 (active) / 0 (inactive) per slot.
+				// Fire when slot is inactive (value == 0).
+				if ctx.MetricKey == "pg.replication.slot.active" {
+					if ctx.Value == 0 {
+						return &RuleResult{
+							Title: "Inactive replication slots detected",
+							Description: "An inactive replication slot was detected. " +
+								"Inactive slots prevent WAL cleanup and can fill the disk. " +
+								"Drop unused slots with pg_drop_replication_slot() or reconnect the subscriber.",
+							DocURL: "https://www.postgresql.org/docs/current/view-pg-replication-slots.html",
+						}
+					}
 					return nil
 				}
-				if val > 0 {
-					return &RuleResult{
-						Title: "Inactive replication slots detected",
-						Description: fmt.Sprintf(
-							"%.0f inactive replication slot(s) found. "+
-								"Inactive slots prevent WAL cleanup and can fill the disk. "+
-								"Drop unused slots with pg_drop_replication_slot() or reconnect the subscriber.",
-							val),
-						DocURL: "https://www.postgresql.org/docs/current/view-pg-replication-slots.html",
-					}
-				}
+				// Diagnose mode: slot metrics are per-slot (labeled), simple snapshot
+				// lookup won't reliably find them. Skip in Diagnose mode.
 				return nil
 			},
 		},
@@ -251,11 +217,11 @@ func pgRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "pg.transactions.oldest_active_sec" {
+				if ctx.MetricKey == "pg.long_transactions.oldest_seconds" {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("pg.transactions.oldest_active_sec")
+					val, ok = ctx.Snapshot.Get("pg.long_transactions.oldest_seconds")
 				}
 				if !ok {
 					return nil
@@ -281,11 +247,11 @@ func pgRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "pg.transactions.oldest_active_sec" {
+				if ctx.MetricKey == "pg.long_transactions.oldest_seconds" {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("pg.transactions.oldest_active_sec")
+					val, ok = ctx.Snapshot.Get("pg.long_transactions.oldest_seconds")
 				}
 				if !ok {
 					return nil
@@ -341,11 +307,11 @@ func pgRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "pg.statements.fill_pct" {
+				if ctx.MetricKey == "pg.extensions.pgss_fill_pct" {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("pg.statements.fill_pct")
+					val, ok = ctx.Snapshot.Get("pg.extensions.pgss_fill_pct")
 				}
 				if !ok {
 					return nil
@@ -489,11 +455,11 @@ func pgRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "pg.db.bloat.ratio" {
+				if ctx.MetricKey == "pg.db.bloat.table_ratio" {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("pg.db.bloat.ratio")
+					val, ok = ctx.Snapshot.Get("pg.db.bloat.table_ratio")
 				}
 				if !ok {
 					return nil
@@ -519,11 +485,11 @@ func pgRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "pg.db.bloat.ratio" {
+				if ctx.MetricKey == "pg.db.bloat.table_ratio" {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("pg.db.bloat.ratio")
+					val, ok = ctx.Snapshot.Get("pg.db.bloat.table_ratio")
 				}
 				if !ok {
 					return nil

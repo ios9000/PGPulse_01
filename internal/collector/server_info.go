@@ -80,6 +80,19 @@ func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn, ic In
 		points = append(points, c.point("server.is_in_backup", 0.0, nil))
 	}
 
+	// Wraparound risk: max transaction age as percentage of 2B limit
+	tctx4, cancel4 := queryContext(ctx)
+	var wraparoundPct float64
+	err = conn.QueryRow(tctx4,
+		"SELECT COALESCE(max(age(datfrozenxid))::float / 2147483647 * 100, 0) FROM pg_database WHERE datallowconn",
+	).Scan(&wraparoundPct)
+	cancel4()
+	if err != nil {
+		slog.Warn("server_info: failed to collect wraparound", "error", err)
+	} else {
+		points = append(points, c.point("server.wraparound_pct", wraparoundPct, nil))
+	}
+
 	// Hostname — read via pg_read_file (graceful failure).
 	hostname, err := readServerFile(ctx, conn, "/etc/hostname")
 	if err == nil {
