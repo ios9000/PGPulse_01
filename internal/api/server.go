@@ -15,6 +15,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/config"
 	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/plans"
+	"github.com/ios9000/PGPulse_01/internal/remediation"
 	"github.com/ios9000/PGPulse_01/internal/settings"
 	"github.com/ios9000/PGPulse_01/internal/storage"
 )
@@ -50,6 +51,9 @@ type APIServer struct {
 	snapshotStore     *settings.PGSnapshotStore // nil when settings snapshot disabled
 	mlDetector        *ml.Detector              // nil until SetMLDetector called
 	mlConfig          config.MLConfig
+	remediationEngine *remediation.Engine            // nil until SetRemediation called
+	remediationStore  remediation.RecommendationStore // nil until SetRemediation called
+	metricSource      remediation.MetricSource        // nil until SetRemediation called
 	liveMode          bool
 	memoryRetention   time.Duration
 	authMode          auth.AuthMode
@@ -114,6 +118,13 @@ func (s *APIServer) SetSnapshotStore(ss *settings.PGSnapshotStore) {
 func (s *APIServer) SetMLDetector(d *ml.Detector, cfg config.MLConfig) {
 	s.mlDetector = d
 	s.mlConfig = cfg
+}
+
+// SetRemediation sets the remediation engine, store, and metric source.
+func (s *APIServer) SetRemediation(engine *remediation.Engine, store remediation.RecommendationStore, source remediation.MetricSource) {
+	s.remediationEngine = engine
+	s.remediationStore = store
+	s.metricSource = source
 }
 
 // Routes builds the chi router with all middleware and endpoints.
@@ -198,6 +209,20 @@ func (s *APIServer) Routes() http.Handler {
 						r.Put("/alerts/rules/{id}", s.handleUpdateAlertRule)
 						r.Delete("/alerts/rules/{id}", s.handleDeleteAlertRule)
 						r.Post("/alerts/test", s.handleTestNotification)
+					})
+				}
+
+
+				// Remediation routes (always available when engine is set).
+				if s.remediationEngine != nil {
+					r.Get("/instances/{id}/recommendations", s.handleListRecommendations)
+					r.Post("/instances/{id}/diagnose", s.handleDiagnose)
+					r.Get("/recommendations", s.handleListAllRecommendations)
+					r.Get("/recommendations/rules", s.handleListRemediationRules)
+
+					r.Group(func(r chi.Router) {
+						r.Use(auth.RequirePermission(auth.PermAlertManagement, writeErrorRaw))
+						r.Put("/recommendations/{id}/acknowledge", s.handleAcknowledgeRecommendation)
 					})
 				}
 
@@ -289,6 +314,16 @@ func (s *APIServer) Routes() http.Handler {
 					r.Put("/alerts/rules/{id}", s.handleUpdateAlertRule)
 					r.Delete("/alerts/rules/{id}", s.handleDeleteAlertRule)
 					r.Post("/alerts/test", s.handleTestNotification)
+				}
+
+
+				// Remediation routes (no auth check when auth disabled).
+				if s.remediationEngine != nil {
+					r.Get("/instances/{id}/recommendations", s.handleListRecommendations)
+					r.Post("/instances/{id}/diagnose", s.handleDiagnose)
+					r.Get("/recommendations", s.handleListAllRecommendations)
+					r.Get("/recommendations/rules", s.handleListRemediationRules)
+					r.Put("/recommendations/{id}/acknowledge", s.handleAcknowledgeRecommendation)
 				}
 
 				// Instance management (no auth check when auth disabled).
