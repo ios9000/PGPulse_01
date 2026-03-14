@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Plus } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { AlertsTabBar } from '@/components/alerts/AlertsTabBar'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { RuleRow } from '@/components/alerts/RuleRow'
@@ -66,6 +67,8 @@ export function AlertRules() {
           </button>
         }
       />
+
+      <AlertsTabBar activeTab="rules" />
 
       <div className="rounded-lg border border-pgp-border bg-pgp-bg-card">
         {isLoading ? (

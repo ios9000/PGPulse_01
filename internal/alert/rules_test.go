@@ -62,6 +62,39 @@ func TestBuiltinRulesCount(t *testing.T) {
 	}
 }
 
+func TestBuiltinRulesMetricKeys(t *testing.T) {
+	rules := BuiltinRules()
+	ruleMap := make(map[string]Rule)
+	for _, r := range rules {
+		ruleMap[r.ID] = r
+	}
+
+	expected := map[string]string{
+		"wraparound_warning":        "pg.server.wraparound_pct",
+		"connections_warning":       "pg.connections.utilization_pct",
+		"cache_hit_warning":         "pg.cache.hit_ratio",
+		"commit_ratio_warning":      "pg.transactions.commit_ratio_pct",
+		"replication_slot_inactive":  "pg.replication.slot.active",
+		"long_transaction_warning":   "pg.long_transactions.oldest_seconds",
+		"table_bloat_warning":        "pg.db.bloat.table_ratio",
+		"pgss_dealloc_warning":       "pg.extensions.pgss_fill_pct",
+		"replication_lag_warning":    "pg.replication.lag.total_bytes",
+		"logical_repl_pending_sync":  "pg.db.logical_replication.pending_sync_tables",
+	}
+
+	for ruleID, wantMetric := range expected {
+		t.Run(ruleID, func(t *testing.T) {
+			r, ok := ruleMap[ruleID]
+			if !ok {
+				t.Fatalf("rule %q not found", ruleID)
+			}
+			if r.Metric != wantMetric {
+				t.Errorf("rule %q: Metric = %q, want %q", ruleID, r.Metric, wantMetric)
+			}
+		})
+	}
+}
+
 func TestDeferredRulesDisabled(t *testing.T) {
 	deferredIDs := map[string]bool{
 		"wal_spike_warning":        true,

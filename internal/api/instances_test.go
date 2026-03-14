@@ -94,6 +94,52 @@ func TestGetInstance_NotFound(t *testing.T) {
 	assert.Equal(t, "not_found", errResp.Error.Code)
 }
 
+func TestParseHostPort(t *testing.T) {
+	tests := []struct {
+		name     string
+		dsn      string
+		wantHost string
+		wantPort int
+	}{
+		{"url with port", "postgres://user:pass@myhost:5433/mydb", "myhost", 5433},
+		{"url without port", "postgres://user:pass@myhost/mydb", "myhost", 5432},
+		{"url with IP", "postgres://user:pass@10.0.0.1:5432/db", "10.0.0.1", 5432},
+		{"keyword/value with port", "host=myhost port=5433 dbname=mydb user=pgpulse", "myhost", 5433},
+		{"keyword/value without port", "host=myhost dbname=mydb user=pgpulse", "myhost", 5432},
+		{"keyword/value with IP", "host=10.0.0.1 port=5434 dbname=db", "10.0.0.1", 5434},
+		{"empty string", "", "", 5432},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			host, port := parseHostPort(tt.dsn)
+			assert.Equal(t, tt.wantHost, host)
+			assert.Equal(t, tt.wantPort, port)
+		})
+	}
+}
+
+func TestExtractHostPort(t *testing.T) {
+	tests := []struct {
+		name     string
+		dsn      string
+		wantHost string
+		wantPort int
+	}{
+		{"url with port", "postgres://user:pass@myhost:5433/mydb", "myhost", 5433},
+		{"url without port", "postgres://user:pass@myhost/mydb", "myhost", 5432},
+		{"keyword/value with port", "host=myhost port=5433 dbname=mydb", "myhost", 5433},
+		{"keyword/value without port", "host=myhost dbname=mydb", "myhost", 5432},
+		{"empty string", "", "", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			host, port := extractHostPort(tt.dsn)
+			assert.Equal(t, tt.wantHost, host)
+			assert.Equal(t, tt.wantPort, port)
+		})
+	}
+}
+
 func TestListInstances_FieldMapping(t *testing.T) {
 	instances := []config.InstanceConfig{
 		{

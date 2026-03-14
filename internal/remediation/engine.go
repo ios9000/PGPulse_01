@@ -71,6 +71,8 @@ func (e *Engine) Diagnose(
 			recs = append(recs, Recommendation{
 				RuleID:      rule.ID,
 				InstanceID:  instanceID,
+				MetricKey:   result.MetricKey,
+				MetricValue: result.MetricValue,
 				Priority:    rule.Priority,
 				Category:    rule.Category,
 				Title:       result.Title,

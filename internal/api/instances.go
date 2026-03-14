@@ -192,21 +192,32 @@ func toInstanceResponse(ic config.InstanceConfig) InstanceResponse {
 	}
 }
 
-// extractHostPort parses a postgres URL DSN and returns host and port.
-// Returns empty string and 0 if the DSN cannot be parsed or is not URL format.
+// extractHostPort parses a DSN and returns host and port.
+// Supports both URL format (postgres://host:port/db) and keyword/value format (host=x port=5433 dbname=z).
+// Returns empty string and 0 if the DSN cannot be parsed.
 func extractHostPort(dsn string) (string, int) {
+	// Try URL format first.
 	u, err := url.Parse(dsn)
-	if err != nil || u.Host == "" {
+	if err == nil && u.Host != "" {
+		host := u.Hostname()
+		portStr := u.Port()
+		if portStr == "" {
+			return host, 5432
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return host, 5432
+		}
+		return host, port
+	}
+
+	// Try keyword/value format.
+	host, port := parseKeyValueDSN(dsn, 0)
+	if host == "" {
 		return "", 0
 	}
-	host := u.Hostname()
-	portStr := u.Port()
-	if portStr == "" {
-		return host, 5432
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return host, 5432
+	if port == 0 {
+		port = 5432
 	}
 	return host, port
 }

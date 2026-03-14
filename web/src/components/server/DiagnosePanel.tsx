@@ -2,7 +2,15 @@ import { X, CheckCircle } from 'lucide-react'
 import { PriorityBadge } from '@/components/advisor/PriorityBadge'
 import { useAcknowledge } from '@/hooks/useRecommendations'
 import { toast } from '@/stores/toastStore'
+import { formatBytes, formatPercent, formatDuration } from '@/lib/formatters'
 import type { DiagnoseResponse } from '@/types/models'
+
+function formatMetricValue(key: string, value: number): string {
+  if (key.endsWith('_pct')) return formatPercent(value, 1)
+  if (key.endsWith('_bytes')) return formatBytes(value)
+  if (key.endsWith('_seconds')) return formatDuration(value)
+  return value.toFixed(2)
+}
 
 interface DiagnosePanelProps {
   data: DiagnoseResponse
@@ -53,7 +61,9 @@ export function DiagnosePanel({ data, onClose }: DiagnosePanelProps) {
                 <p className="text-sm font-medium text-pgp-text-primary">{rec.title}</p>
                 <p className="mt-1 text-xs text-pgp-text-muted">{rec.description}</p>
                 <div className="mt-1 flex flex-wrap gap-3 text-xs text-pgp-text-muted">
-                  <span>{rec.metric_key} = {rec.metric_value.toFixed(2)}</span>
+                  {rec.metric_key && rec.metric_value !== 0 && (
+                    <span>{rec.metric_key} = {formatMetricValue(rec.metric_key, rec.metric_value)}</span>
+                  )}
                   <span className="rounded bg-pgp-bg-secondary px-1.5 py-0.5">{rec.category}</span>
                   {rec.doc_url && (
                     <a

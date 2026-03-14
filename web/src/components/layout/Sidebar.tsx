@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutGrid, Bell, Lightbulb, Settings, Database, GitCompareArrows } from 'lucide-react'
+import { LayoutGrid, Bell, Lightbulb, Settings, Database, GitCompareArrows, ChevronDown, ChevronRight } from 'lucide-react'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Permission } from '@/lib/permissions'
@@ -15,10 +16,15 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Fleet Overview', icon: LayoutGrid, path: '/fleet' },
-  { label: 'Alerts', icon: Bell, path: '/alerts' },
+  // Alerts is handled separately as an expandable group
   { label: 'Advisor', icon: Lightbulb, path: '/advisor' },
   { label: 'Settings Diff', icon: GitCompareArrows, path: '/settings/diff' },
   { label: 'Administration', icon: Settings, path: '/admin' },
+]
+
+const alertSubItems = [
+  { label: 'Dashboard', path: '/alerts' },
+  { label: 'Rules', path: '/alerts/rules' },
 ]
 
 export function Sidebar() {
@@ -28,11 +34,40 @@ export function Sidebar() {
   const { data: instances } = useInstances()
 
   const isActive = (path: string) => location.pathname.startsWith(path)
+  const alertsExpanded = isActive('/alerts')
+  const [alertsOpen, setAlertsOpen] = useState(alertsExpanded)
+
+  // Keep open when navigating to alerts routes
+  const isAlertsOpen = alertsOpen || alertsExpanded
 
   const visibleNavItems = navItems.filter((item) => {
     if (item.path === '/admin') return can('user_management') || can('instance_management')
     return !item.permission || can(item.permission)
   })
+
+  // Split items: before alerts (Fleet Overview) and after alerts (Advisor, Settings Diff, Admin)
+  const beforeAlerts = visibleNavItems.filter((item) => item.path === '/fleet')
+  const afterAlerts = visibleNavItems.filter((item) => item.path !== '/fleet')
+
+  const renderNavLink = (item: NavItem) => {
+    const active = isActive(item.path)
+    return (
+      <li key={item.path}>
+        <Link
+          to={item.path}
+          className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+            active
+              ? 'border-l-2 border-pgp-accent bg-pgp-bg-hover text-pgp-text-primary'
+              : 'text-pgp-text-secondary hover:bg-pgp-bg-hover hover:text-pgp-text-primary'
+          } ${collapsed ? 'justify-center px-2' : ''}`}
+          title={collapsed ? item.label : undefined}
+        >
+          <item.icon className="h-5 w-5 shrink-0" />
+          {!collapsed && <span>{item.label}</span>}
+        </Link>
+      </li>
+    )
+  }
 
   return (
     <aside
@@ -51,25 +86,69 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2">
         <ul className="space-y-1 px-2">
-          {visibleNavItems.map((item) => {
-            const active = isActive(item.path)
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                    active
+          {beforeAlerts.map(renderNavLink)}
+
+          {/* Alerts expandable group */}
+          <li>
+            {collapsed ? (
+              <Link
+                to="/alerts"
+                className={`flex items-center justify-center rounded-md px-2 py-2 text-sm transition-colors ${
+                  alertsExpanded
+                    ? 'border-l-2 border-pgp-accent bg-pgp-bg-hover text-pgp-text-primary'
+                    : 'text-pgp-text-secondary hover:bg-pgp-bg-hover hover:text-pgp-text-primary'
+                }`}
+                title="Alerts"
+              >
+                <Bell className="h-5 w-5 shrink-0" />
+              </Link>
+            ) : (
+              <>
+                <button
+                  onClick={() => setAlertsOpen(!isAlertsOpen)}
+                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+                    alertsExpanded
                       ? 'border-l-2 border-pgp-accent bg-pgp-bg-hover text-pgp-text-primary'
                       : 'text-pgp-text-secondary hover:bg-pgp-bg-hover hover:text-pgp-text-primary'
-                  } ${collapsed ? 'justify-center px-2' : ''}`}
-                  title={collapsed ? item.label : undefined}
+                  }`}
                 >
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
-                </Link>
-              </li>
-            )
-          })}
+                  <Bell className="h-5 w-5 shrink-0" />
+                  <span className="flex-1 text-left">Alerts</span>
+                  {isAlertsOpen ? (
+                    <ChevronDown className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0" />
+                  )}
+                </button>
+                {isAlertsOpen && (
+                  <ul className="ml-5 mt-1 space-y-0.5">
+                    {alertSubItems.map((sub) => {
+                      const subActive =
+                        sub.path === '/alerts'
+                          ? location.pathname === '/alerts'
+                          : location.pathname.startsWith(sub.path)
+                      return (
+                        <li key={sub.path}>
+                          <Link
+                            to={sub.path}
+                            className={`block rounded-md px-3 py-1.5 text-xs transition-colors ${
+                              subActive
+                                ? 'bg-pgp-bg-hover text-pgp-text-primary font-medium'
+                                : 'text-pgp-text-secondary hover:bg-pgp-bg-hover hover:text-pgp-text-primary'
+                            }`}
+                          >
+                            {sub.label}
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </>
+            )}
+          </li>
+
+          {afterAlerts.map(renderNavLink)}
         </ul>
 
         {/* Divider */}

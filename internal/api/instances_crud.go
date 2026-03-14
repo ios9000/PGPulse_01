@@ -362,21 +362,42 @@ func (s *APIServer) handleTestConnection(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// parseHostPort extracts host and port from a postgres:// URL DSN.
+// parseHostPort extracts host and port from a DSN.
+// Supports both URL format (postgres://host:port/db) and keyword/value format (host=x port=5433 dbname=z).
 // Returns empty string and 5432 for unparseable DSNs.
 func parseHostPort(dsn string) (string, int) {
+	// Try URL format first.
 	u, err := url.Parse(dsn)
-	if err != nil || u.Host == "" {
-		return "", 5432
+	if err == nil && u.Host != "" {
+		host := u.Hostname()
+		portStr := u.Port()
+		if portStr == "" {
+			return host, 5432
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return host, 5432
+		}
+		return host, port
 	}
-	host := u.Hostname()
-	portStr := u.Port()
-	if portStr == "" {
-		return host, 5432
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return host, 5432
+
+	// Try keyword/value format: host=x port=5433 dbname=z
+	return parseKeyValueDSN(dsn, 5432)
+}
+
+// parseKeyValueDSN extracts host and port from a keyword/value DSN string.
+// Returns empty string and defaultPort if the DSN cannot be parsed.
+func parseKeyValueDSN(dsn string, defaultPort int) (string, int) {
+	var host string
+	port := defaultPort
+	for _, part := range strings.Fields(dsn) {
+		if strings.HasPrefix(part, "host=") {
+			host = strings.TrimPrefix(part, "host=")
+		} else if strings.HasPrefix(part, "port=") {
+			if p, err := strconv.Atoi(strings.TrimPrefix(part, "port=")); err == nil {
+				port = p
+			}
+		}
 	}
 	return host, port
 }

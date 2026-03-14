@@ -37,6 +37,8 @@ func osRules() []Rule {
 								"Investigate CPU-intensive queries with pg_stat_statements. "+
 								"Check for missing indexes causing sequential scans.",
 							total, user, sys),
+						MetricKey:   "os.cpu.user_pct",
+						MetricValue: total,
 					}
 				}
 				return nil
@@ -66,6 +68,8 @@ func osRules() []Rule {
 								"Check for queries doing large sequential scans or sorts spilling to disk. "+
 								"Consider faster storage (NVMe), increasing work_mem, or adding indexes.",
 							val),
+						MetricKey:   "os.cpu.iowait_pct",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -90,6 +94,8 @@ func osRules() []Rule {
 								"The system may start swapping, severely impacting PostgreSQL performance. "+
 								"Reduce shared_buffers, work_mem, or add more RAM.",
 							pct, avail, total),
+						MetricKey:   "os.memory.available_kb",
+						MetricValue: avail,
 					}
 				}
 				return nil
@@ -113,6 +119,8 @@ func osRules() []Rule {
 								"The OOM killer may terminate PostgreSQL processes under pressure. "+
 								"Review vm.overcommit_memory sysctl and reduce total memory reservations.",
 							committed, limit),
+						MetricKey:   "os.memory.committed_as_kb",
+						MetricValue: committed,
 					}
 				}
 				return nil
@@ -142,6 +150,8 @@ func osRules() []Rule {
 								"This indicates more processes are competing for CPU than available cores. "+
 								"Investigate with top/htop and check pg_stat_activity for runaway queries.",
 							val),
+						MetricKey:   "os.load.1m",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -171,6 +181,8 @@ func osRules() []Rule {
 								"This leads to increased query latencies and checkpoint stalls. "+
 								"Consider moving to faster storage or distributing I/O across multiple disks.",
 							val),
+						MetricKey:   "os.disk.util_pct",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -200,6 +212,8 @@ func osRules() []Rule {
 								"High read latency impacts sequential scans and index lookups. "+
 								"Check for I/O contention from other processes or consider storage upgrades.",
 							val),
+						MetricKey:   "os.disk.read_await_ms",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -229,6 +243,8 @@ func osRules() []Rule {
 								"High write latency impacts WAL writes and checkpoints. "+
 								"Consider enabling WAL compression, tuning checkpoint_completion_target, or upgrading storage.",
 							val),
+						MetricKey:   "os.disk.write_await_ms",
+						MetricValue: val,
 					}
 				}
 				return nil

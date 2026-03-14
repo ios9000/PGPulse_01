@@ -56,6 +56,8 @@ type RuleResult struct {
 	Title       string
 	Description string
 	DocURL      string
+	MetricKey   string  // which metric triggered this result
+	MetricValue float64 // the value of that metric
 }
 
 // Recommendation is the output persisted to the database and returned via API.
