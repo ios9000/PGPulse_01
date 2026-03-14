@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-10
+**Last updated:** 2026-03-14
 
 ---
 
@@ -17,8 +17,17 @@
 | M6 | Agent Mode + Cluster | ✅ Done | 2026-03-05 |
 | M7 | Per-Database Analysis | ✅ Done | 2026-03-08 |
 | M8 | P1 Features + ML Phase 1 | ✅ Done | 2026-03-09 |
+| REM_01a | Remediation Engine (Backend) | ✅ Done | 2026-03-13 |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
+
+---
+
+## REM_01a Sub-Iterations
+
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| REM_01a | Rule-based remediation engine: 25 rules (17 PG + 8 OS), Engine, PGStore, NullStore, AlertAdapter, 5 API endpoints, dispatcher integration | 2026-03-13 | ✅ Done |
 
 ---
 
@@ -126,7 +135,7 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | Deferred (need future data) | 3 | ⏸️ enabled=false |
 | **Total** | **23** | |
 
-## REST API Endpoints (38+ total)
+## REST API Endpoints (57 total)
 
 | Method | Path | Added |
 |--------|------|-------|
@@ -173,6 +182,11 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | PUT | /api/v1/alerts/rules/{id} | M4 |
 | DELETE | /api/v1/alerts/rules/{id} | M4 |
 | POST | /api/v1/alerts/test | M4 |
+| GET | /api/v1/instances/{id}/recommendations | REM_01a |
+| POST | /api/v1/instances/{id}/diagnose | REM_01a |
+| GET | /api/v1/recommendations | REM_01a |
+| GET | /api/v1/recommendations/rules | REM_01a |
+| PUT | /api/v1/recommendations/{id}/acknowledge | REM_01a |
 
 ---
 
@@ -187,6 +201,16 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | Shared Errors | `internal/mlerrors/errors.go` | `ErrNotBootstrapped`, `ErrNoBaseline` (breaks circular import) |
 | Forecast Provider | `internal/alert/forecast.go` | `ForecastProvider` interface + `ForecastPoint` mirror struct |
 | Forecast Evaluator | `internal/alert/evaluator.go` | `runForecastAlerts()` with sustained-crossing logic |
+
+## Remediation Rules (REM_01a)
+
+| Category | Count | Examples |
+|---|---|---|
+| PostgreSQL | 17 | conn_high, conn_exhausted, cache_low, repl_lag_high, lock_contention, long_tx, bloat, vacuum_behind, checkpoint_freq, statements_slow, temp_files, deadlocks, wal_growth |
+| OS | 8 | cpu_high, memory_pressure, swap_active, disk_full, disk_io_saturated, load_high, net_errors, oom_risk |
+| **Total** | **25** | |
+
+---
 
 ## Deferred Items (Resolved in M8_07/M8_08)
 
