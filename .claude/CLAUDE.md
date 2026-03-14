@@ -203,8 +203,8 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-REM_01a — Rule-Based Remediation Engine (Backend)
-See: docs/iterations/REM_01a_03132026_remediation-engine/
+REM_01c — Remediation Rule Metric Key Fix (bugfix)
+See: docs/iterations/REM_01c_03142026_metric-key-fix/
 
 ### What Was Just Completed
 M8 — P1 Features + ML Phase 1 (10 sub-iterations):
