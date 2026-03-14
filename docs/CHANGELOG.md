@@ -1,3 +1,28 @@
+## [REM_01c] — 2026-03-14 — Remediation Metric Key Fix (Bugfix)
+
+### Fixed
+- **13 remediation rules** had metric keys that didn't match actual collector output — all corrected:
+  - Connection rules: `pg.connections.active` + `max_connections` → `pg.connections.utilization_pct` (already a percentage, no division needed)
+  - Commit ratio: `pg.transactions.commit_ratio` → `pg.transactions.commit_ratio_pct`
+  - Replication lag: `pg.replication.replay_lag_bytes` → `pg.replication.lag.replay_bytes`
+  - Replication slot: `pg.replication.slot_inactive` → `pg.replication.slot.active` (inverted logic: 0 = inactive fires)
+  - Long transactions: `pg.transactions.oldest_active_sec` → `pg.long_transactions.oldest_seconds`
+  - Statements fill: `pg.statements.fill_pct` → `pg.extensions.pgss_fill_pct`
+  - Bloat: `pg.db.bloat.ratio` → `pg.db.bloat.table_ratio`
+- **Replication slot Diagnose mode**: returns nil (per-slot labeled metrics don't map to flat snapshot lookup)
+
+### Added
+- **Dual OS prefix support**: `getOS()`/`isOSMetric()` helpers check both `os.*` (agent) and `pg.os.*` (SQL collector) prefixes — all 8 OS rules updated
+- **Wraparound metric**: `pg.server.wraparound_pct` emitted by `ServerInfoCollector` via `max(age(datfrozenxid))::float / 2147483647 * 100`
+- **New tests**: `TestGetOS_BothPrefixes`, `TestOSRules_PGOSPrefix`, `TestWraparound_Fires`
+
+### Notes
+- Single-agent bugfix — no new packages, no new files, no migrations
+- All 25 remediation rules retain test coverage
+- All checks pass: go build, go test (17 packages), golangci-lint (0), npm build + typecheck + lint
+
+---
+
 ## [REM_01b] — 2026-03-14 — Remediation Frontend + Backend Gaps
 
 ### Added

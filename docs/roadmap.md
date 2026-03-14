@@ -19,6 +19,7 @@
 | M8 | P1 Features + ML Phase 1 | ✅ Done | 2026-03-09 |
 | REM_01a | Remediation Engine (Backend) | ✅ Done | 2026-03-13 |
 | REM_01b | Remediation Frontend + Backend Gaps | ✅ Done | 2026-03-14 |
+| REM_01c | Remediation Metric Key Fix (bugfix) | ✅ Done | 2026-03-14 |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
 
@@ -30,6 +31,7 @@
 |-----|-------|------|--------|
 | REM_01a | Rule-based remediation engine: 25 rules (17 PG + 8 OS), Engine, PGStore, NullStore, AlertAdapter, 5 API endpoints, dispatcher integration | 2026-03-13 | ✅ Done |
 | REM_01b | Remediation frontend + backend gaps: Advisor page, Diagnose button, alert enrichment, email template recommendations, AlertRow expand/collapse, handler/store tests | 2026-03-14 | ✅ Done |
+| REM_01c | Metric key fix: 13 broken rules corrected, dual OS prefix support (os.*/pg.os.*), wraparound metric added to server_info collector | 2026-03-14 | ✅ Done |
 
 ---
 
