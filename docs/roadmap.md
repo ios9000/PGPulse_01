@@ -18,6 +18,7 @@
 | M7 | Per-Database Analysis | ✅ Done | 2026-03-08 |
 | M8 | P1 Features + ML Phase 1 | ✅ Done | 2026-03-09 |
 | REM_01a | Remediation Engine (Backend) | ✅ Done | 2026-03-13 |
+| REM_01b | Remediation Frontend + Backend Gaps | ✅ Done | 2026-03-14 |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
 
@@ -28,6 +29,7 @@
 | Sub | Scope | Date | Status |
 |-----|-------|------|--------|
 | REM_01a | Rule-based remediation engine: 25 rules (17 PG + 8 OS), Engine, PGStore, NullStore, AlertAdapter, 5 API endpoints, dispatcher integration | 2026-03-13 | ✅ Done |
+| REM_01b | Remediation frontend + backend gaps: Advisor page, Diagnose button, alert enrichment, email template recommendations, AlertRow expand/collapse, handler/store tests | 2026-03-14 | ✅ Done |
 
 ---
 
