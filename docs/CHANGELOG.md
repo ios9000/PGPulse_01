@@ -1,3 +1,46 @@
+## [REM_01b] — 2026-03-14 — Remediation Frontend + Backend Gaps
+
+### Added
+- **Advisor Page**: Fleet-wide recommendation browser with filters (priority, category, status, instance), expandable rows, pagination, and acknowledge workflow
+  - `web/src/pages/Advisor.tsx` — full page with AdvisorFilters, AdvisorRow, PriorityBadge components
+  - `web/src/components/advisor/` — PriorityBadge (color-coded badge), AdvisorFilters (4 dropdowns), AdvisorRow (expandable table row with acknowledge)
+  - `web/src/hooks/useRecommendations.ts` — 5 hooks: useRecommendations, useInstanceRecommendations, useDiagnose, useAcknowledge, useRemediationRules
+  - Sidebar nav entry with Lightbulb icon, route at `/advisor`
+- **Diagnose Button**: On-demand instance diagnosis from ServerDetail page
+  - `web/src/components/server/DiagnosePanel.tsx` — slide-down results panel with summary, recommendation list, close button
+  - HeaderCard receives `instanceId` prop + Diagnose button (Lightbulb icon, loading spinner)
+  - ServerDetail wires useDiagnose hook, passes results to DiagnosePanel
+- **Alert Row Expand/Collapse**: AlertRow now expandable with chevron toggle
+  - Expanded row shows "View Server" link and recommendations sub-section
+  - Recommendations display PriorityBadge + title + description + optional doc URL link
+- **Alert Response Enrichment**: Alert API responses include per-event recommendations
+  - `alertEventResponse` wrapper struct in `internal/api/alerts.go`
+  - `enrichAlertEvents()` calls `remediationStore.ListByAlertEvent()` for each event
+  - Both `handleGetActiveAlerts` and `handleGetAlertHistory` return enriched responses
+- **Email Template Recommendations**: Alert notification emails include recommendation section
+  - HTML: colored left border (info=#3B82F6, suggestion=#EAB308, action_required=#EF4444), bold priority, title, description, optional doc link
+  - Plain text: bracketed priority labels with description
+  - Section omitted entirely when no recommendations exist
+- **Handler Tests**: `internal/api/remediation_test.go` — 14 test cases across 5 endpoint test functions
+- **Store Integration Tests**: `internal/remediation/pgstore_test.go` — 5 integration tests behind `//go:build integration` tag
+
+### Changed
+- `internal/alert/alert.go` — added `ID int64` and `Recommendations []RemediationResult` (transient) fields to `AlertEvent`
+- `internal/alert/pgstore.go` — prepended `id` to `eventColumns`, added to `scanEvent()`, `Record()` uses `RETURNING id`
+- `internal/alert/dispatcher.go` — `runRemediation()` moved before notification loop, returns `[]RemediationResult`, populates `event.Recommendations`
+- `internal/alert/template.go` — `templateData` includes `Recommendations`, render functions accept recommendations parameter
+- `internal/alert/notifier/email.go` — passes `event.Recommendations` to render functions
+- `web/src/pages/AlertsDashboard.tsx` — table header updated for new expand column
+- `web/src/types/models.ts` — added `id` and `recommendations` to AlertEvent, added Recommendation/DiagnoseResponse/RemediationRule types
+
+### Notes
+- 3-agent team (API Agent + Frontend Agent + QA Agent), parallel execution
+- 27 files changed, +2708 lines
+- All checks pass: go build, go test (17 packages), golangci-lint (0), npm build + typecheck + lint (0 errors)
+- No new API endpoints — existing 5 from REM_01a enriched with additional data
+
+---
+
 ## [REM_01a] — 2026-03-13 — Rule-Based Remediation Engine (Backend)
 
 ### Added
