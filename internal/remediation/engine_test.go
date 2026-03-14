@@ -122,6 +122,43 @@ func TestDiagnose_PartialSnapshot(t *testing.T) {
 	}
 }
 
+func TestDiagnose_PopulatesMetricKeyAndValue(t *testing.T) {
+	t.Parallel()
+	engine := NewEngine()
+	snapshot := MetricSnapshot{
+		"pg.connections.utilization_pct": 85,
+		"pg.cache.hit_ratio":            50,
+		"os.cpu.user_pct":               70,
+		"os.cpu.system_pct":             20,
+	}
+	recs := engine.Diagnose(context.Background(), "inst1", snapshot)
+	if len(recs) == 0 {
+		t.Fatal("expected at least one recommendation")
+	}
+	for _, r := range recs {
+		if r.MetricKey == "" {
+			t.Errorf("rule %s returned empty MetricKey", r.RuleID)
+		}
+		// MetricValue can be zero for some rules (e.g. track_io_timing=0),
+		// but for the snapshot above all triggered values are non-zero.
+		if r.MetricValue == 0 {
+			t.Errorf("rule %s returned zero MetricValue", r.RuleID)
+		}
+	}
+
+	// Verify specific rule has correct metric key.
+	for _, r := range recs {
+		if r.RuleID == "rem_conn_high" {
+			if r.MetricKey != "pg.connections.utilization_pct" {
+				t.Errorf("rem_conn_high: MetricKey = %q, want pg.connections.utilization_pct", r.MetricKey)
+			}
+			if r.MetricValue != 85 {
+				t.Errorf("rem_conn_high: MetricValue = %f, want 85", r.MetricValue)
+			}
+		}
+	}
+}
+
 func TestRules_ReturnsAll(t *testing.T) {
 	t.Parallel()
 	engine := NewEngine()

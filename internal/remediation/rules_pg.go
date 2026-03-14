@@ -28,7 +28,9 @@ func pgRules() []Rule {
 								"Consider adding PgBouncer or increasing max_connections. "+
 								"Review application connection pool settings for idle connections.",
 							pct),
-						DocURL: "https://www.pgbouncer.org/",
+						DocURL:      "https://www.pgbouncer.org/",
+						MetricKey:   "pg.connections.utilization_pct",
+						MetricValue: pct,
 					}
 				}
 				return nil
@@ -58,7 +60,9 @@ func pgRules() []Rule {
 								"New connections will be refused. Immediately terminate idle sessions "+
 								"and deploy a connection pooler like PgBouncer.",
 							pct),
-						DocURL: "https://www.postgresql.org/docs/current/runtime-config-connection.html",
+						DocURL:      "https://www.postgresql.org/docs/current/runtime-config-connection.html",
+						MetricKey:   "pg.connections.utilization_pct",
+						MetricValue: pct,
 					}
 				}
 				return nil
@@ -88,7 +92,9 @@ func pgRules() []Rule {
 								"Consider increasing shared_buffers or investigating queries that perform excessive sequential scans. "+
 								"Run EXPLAIN ANALYZE on slow queries to identify missing indexes.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/runtime-config-resource.html#GUC-SHARED-BUFFERS",
+						DocURL:      "https://www.postgresql.org/docs/current/runtime-config-resource.html#GUC-SHARED-BUFFERS",
+						MetricKey:   "pg.cache.hit_ratio",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -118,7 +124,9 @@ func pgRules() []Rule {
 								"Investigate application error handling and retry logic. "+
 								"Check pg_stat_database for rollback trends per database.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/monitoring-stats.html#MONITORING-PG-STAT-DATABASE-VIEW",
+						DocURL:      "https://www.postgresql.org/docs/current/monitoring-stats.html#MONITORING-PG-STAT-DATABASE-VIEW",
+						MetricKey:   "pg.transactions.commit_ratio_pct",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -149,7 +157,9 @@ func pgRules() []Rule {
 								"Verify replica is not under heavy read load and network latency is acceptable. "+
 								"Check wal_receiver_status_interval and recovery settings on the replica.",
 							mb),
-						DocURL: "https://www.postgresql.org/docs/current/warm-standby.html#STREAMING-REPLICATION-MONITORING",
+						DocURL:      "https://www.postgresql.org/docs/current/warm-standby.html#STREAMING-REPLICATION-MONITORING",
+						MetricKey:   "pg.replication.lag.replay_bytes",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -180,7 +190,9 @@ func pgRules() []Rule {
 								"Risk of slot-induced WAL retention bloat. Consider pausing non-essential replica workloads "+
 								"and verifying network connectivity. If unrecoverable, rebuild the replica.",
 							mb),
-						DocURL: "https://www.postgresql.org/docs/current/warm-standby.html#STREAMING-REPLICATION-MONITORING",
+						DocURL:      "https://www.postgresql.org/docs/current/warm-standby.html#STREAMING-REPLICATION-MONITORING",
+						MetricKey:   "pg.replication.lag.replay_bytes",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -200,7 +212,9 @@ func pgRules() []Rule {
 							Description: "An inactive replication slot was detected. " +
 								"Inactive slots prevent WAL cleanup and can fill the disk. " +
 								"Drop unused slots with pg_drop_replication_slot() or reconnect the subscriber.",
-							DocURL: "https://www.postgresql.org/docs/current/view-pg-replication-slots.html",
+							DocURL:      "https://www.postgresql.org/docs/current/view-pg-replication-slots.html",
+							MetricKey:   "pg.replication.slot.active",
+							MetricValue: ctx.Value,
 						}
 					}
 					return nil
@@ -234,7 +248,9 @@ func pgRules() []Rule {
 								"Long transactions hold locks, prevent autovacuum, and bloat tables. "+
 								"Identify the session in pg_stat_activity and consider terminating it.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/monitoring-stats.html#MONITORING-PG-STAT-ACTIVITY-VIEW",
+						DocURL:      "https://www.postgresql.org/docs/current/monitoring-stats.html#MONITORING-PG-STAT-ACTIVITY-VIEW",
+						MetricKey:   "pg.long_transactions.oldest_seconds",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -264,7 +280,9 @@ func pgRules() []Rule {
 								"This blocks autovacuum and causes table bloat. "+
 								"Use pg_terminate_backend() to kill the offending session immediately.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SIGNAL",
+						DocURL:      "https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SIGNAL",
+						MetricKey:   "pg.long_transactions.oldest_seconds",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -294,7 +312,9 @@ func pgRules() []Rule {
 								"Review the lock tree to identify the blocker and consider canceling the blocking query. "+
 								"Frequent blocking may indicate schema-level contention or missing indexes.",
 							val),
-						DocURL: "https://wiki.postgresql.org/wiki/Lock_Monitoring",
+						DocURL:      "https://wiki.postgresql.org/wiki/Lock_Monitoring",
+						MetricKey:   "pg.locks.blocked_count",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -324,7 +344,9 @@ func pgRules() []Rule {
 								"New query fingerprints will evict older entries, causing loss of historical data. "+
 								"Increase pg_stat_statements.max or call pg_stat_statements_reset() to reclaim slots.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/pgstatstatements.html",
+						DocURL:      "https://www.postgresql.org/docs/current/pgstatstatements.html",
+						MetricKey:   "pg.extensions.pgss_fill_pct",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -354,7 +376,9 @@ func pgRules() []Rule {
 								"Ensure autovacuum is running and not blocked by long transactions. "+
 								"Monitor pg_stat_user_tables.n_dead_tup for tables with high dead tuple counts.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/routine-vacuuming.html#VACUUM-FOR-WRAPAROUND",
+						DocURL:      "https://www.postgresql.org/docs/current/routine-vacuuming.html#VACUUM-FOR-WRAPAROUND",
+						MetricKey:   "pg.server.wraparound_pct",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -384,7 +408,9 @@ func pgRules() []Rule {
 								"PostgreSQL will shut down to prevent data corruption if this reaches 100%%. "+
 								"Run VACUUM FREEZE on the most affected databases immediately.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/routine-vacuuming.html#VACUUM-FOR-WRAPAROUND",
+						DocURL:      "https://www.postgresql.org/docs/current/routine-vacuuming.html#VACUUM-FOR-WRAPAROUND",
+						MetricKey:   "pg.server.wraparound_pct",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -412,7 +438,9 @@ func pgRules() []Rule {
 						Description: "track_io_timing is disabled. Without it, EXPLAIN ANALYZE cannot show I/O timing " +
 							"and pg_stat_statements lacks I/O cost data. Enable it with ALTER SYSTEM SET track_io_timing = on; " +
 							"SELECT pg_reload_conf(); — overhead is minimal on modern systems.",
-						DocURL: "https://www.postgresql.org/docs/current/runtime-config-statistics.html#GUC-TRACK-IO-TIMING",
+						DocURL:      "https://www.postgresql.org/docs/current/runtime-config-statistics.html#GUC-TRACK-IO-TIMING",
+						MetricKey:   "pg.settings.track_io_timing",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -442,7 +470,9 @@ func pgRules() []Rule {
 								"in concurrent transactions. Review application logic to ensure consistent lock ordering. "+
 								"Check pg_stat_database.deadlocks for per-database breakdown.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-DEADLOCKS",
+						DocURL:      "https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-DEADLOCKS",
+						MetricKey:   "pg.transactions.deadlocks",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -472,7 +502,9 @@ func pgRules() []Rule {
 								"Check autovacuum settings (autovacuum_vacuum_scale_factor, autovacuum_naptime). "+
 								"Consider running VACUUM FULL or pg_repack on heavily bloated tables.",
 							val),
-						DocURL: "https://www.postgresql.org/docs/current/routine-vacuuming.html",
+						DocURL:      "https://www.postgresql.org/docs/current/routine-vacuuming.html",
+						MetricKey:   "pg.db.bloat.table_ratio",
+						MetricValue: val,
 					}
 				}
 				return nil
@@ -502,7 +534,9 @@ func pgRules() []Rule {
 								"VACUUM FULL requires an exclusive lock; prefer pg_repack for online compaction. "+
 								"Schedule maintenance during a low-traffic window.",
 							val),
-						DocURL: "https://reorg.github.io/pg_repack/",
+						DocURL:      "https://reorg.github.io/pg_repack/",
+						MetricKey:   "pg.db.bloat.table_ratio",
+						MetricValue: val,
 					}
 				}
 				return nil

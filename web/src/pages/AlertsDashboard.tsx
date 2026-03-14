@@ -4,6 +4,7 @@ import { CheckCircle } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { AlertsTabBar } from '@/components/alerts/AlertsTabBar'
 import { AlertFilters } from '@/components/alerts/AlertFilters'
 import { AlertRow } from '@/components/alerts/AlertRow'
 import { useAlerts } from '@/hooks/useAlerts'
@@ -12,6 +13,8 @@ import type { AlertSeverityFilter, AlertStateFilter } from '@/types/models'
 
 export function AlertsDashboard() {
   const [searchParams] = useSearchParams()
+  const view = searchParams.get('view')
+  const activeTab = view === 'history' ? 'history' as const : 'active' as const
   const initialInstance = searchParams.get('instance_id') ?? ''
 
   const [severity, setSeverity] = useState<AlertSeverityFilter>('all')
@@ -35,6 +38,8 @@ export function AlertsDashboard() {
           ) : null
         }
       />
+
+      <AlertsTabBar activeTab={activeTab} />
 
       <div className="space-y-4">
         <AlertFilters
