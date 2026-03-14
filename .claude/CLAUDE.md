@@ -203,18 +203,18 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-REM_01c — Remediation Rule Metric Key Fix (bugfix)
-See: docs/iterations/REM_01c_03142026_metric-key-fix/
+M9 — Reports & Export (next sub-iteration TBD)
 
 ### What Was Just Completed
-M8 — P1 Features + ML Phase 1 (10 sub-iterations):
-- M8_01-M8_03: Session kill API, EXPLAIN API, settings diff, auto-plan capture, settings snapshots, ML anomaly detection, ML persistence, DB instance lister
-- M8_04-M8_05: STL-based forecasting, forecast API, forecast alerts (sustained crossing), forecast chart overlay
-- M8_06-M8_07: Session kill UI, settings diff UI, query plan viewer UI, plan history UI, settings timeline UI, toast system, application_name enrichment
-- M8_08: Logical replication monitoring (PGAM Q41)
-- M8_09-M8_10: Production hotfixes (TDZ crash, CSP, PG16 compat, explain handler recreation, scan errors)
-Build: clean. Deployed to Ubuntu 24 / PG 16.13 demo server.
+M9_01 — Alert & Advisor Polish (metric keys + UI nav + cosmetic fixes):
+- Fixed 12 alert rule metric key mismatches to match canonical collector keys
+- Added AlertsTabBar component (Active | History | Rules tabs)
+- Made sidebar Alerts item expandable with Dashboard/Rules sub-items
+- Fixed parseHostPort/extractHostPort to handle keyword/value DSN format
+- Added MetricKey/MetricValue to RuleResult, populated in Diagnose mode
+- Updated DiagnosePanel to display formatted metric values
+Build: clean. See: docs/iterations/M9_01_03142026_alert-rules-fix/
 
 ### What's Next
-M9 — Reports & Export.
+M9_02+ — Reports & Export.
 See: docs/iterations/HANDOFF_M8_to_M9.md
