@@ -1,3 +1,40 @@
+## [REM_01a] — 2026-03-13 — Rule-Based Remediation Engine (Backend)
+
+### Added
+- **Remediation Engine**: 25 compiled-in rules (17 PG + 8 OS) evaluate metrics and generate actionable recommendations
+  - `internal/remediation/engine.go` — `Engine` with `EvaluateMetric()` (alert-triggered, single metric) and `Diagnose()` (full snapshot scan)
+  - `internal/remediation/rule.go` — `Rule`, `Priority` (critical/warning/suggestion/info), `Category` (connections/cache/replication/locks/transactions/bloat/vacuum/checkpoints/statements/temp_files/deadlocks/wal/cpu/memory/swap/disk/io/load/network/oom), `EvalContext`, `MetricSnapshot`
+  - `internal/remediation/rules_pg.go` — 17 PostgreSQL rules: conn_high (80-99%), conn_exhausted (>=99%), cache_low (<95%), repl_lag_high, repl_lag_critical, lock_contention, long_tx, bloat_high, vacuum_behind, checkpoint_freq, statements_slow, temp_files_high, deadlocks_detected, wal_growth, idle_in_tx, disabled_autovacuum, connection_pool_sizing
+  - `internal/remediation/rules_os.go` — 8 OS rules: cpu_high, memory_pressure, swap_active, disk_full, disk_io_saturated, load_high, net_errors, oom_risk
+- **Recommendation Persistence**: `remediation_recommendations` table with PGStore
+  - `internal/remediation/pgstore.go` — Write, ListByInstance, ListAll, ListByAlertEvent, Acknowledge, CleanOld
+  - `internal/remediation/nullstore.go` — NullStore for live mode (matches NullAlertHistoryStore pattern)
+  - `internal/storage/migrations/013_remediation.sql` — table with 4 indexes
+- **Alert Pipeline Integration**: Remediation fires automatically when alerts trigger
+  - `internal/alert/remediation.go` — `RemediationProvider` interface + `RemediationResult` struct (no import of internal/remediation)
+  - `internal/remediation/adapter.go` — `AlertAdapter` bridges Engine to `alert.RemediationProvider`
+  - `internal/remediation/metricsource.go` — `StoreMetricSource` queries MetricStore for last 2 minutes to build snapshot
+  - `internal/alert/dispatcher.go` — `SetRemediationProvider()` setter, `runRemediation()` called after cooldown
+- **5 new API endpoints** (57 total):
+  - `GET /api/v1/instances/{id}/recommendations` — list recommendations for instance
+  - `POST /api/v1/instances/{id}/diagnose` — on-demand full snapshot scan
+  - `GET /api/v1/recommendations` — list all recommendations across instances
+  - `GET /api/v1/recommendations/rules` — introspect all 25 rules
+  - `PUT /api/v1/recommendations/{id}/acknowledge` — acknowledge a recommendation
+- **34 new tests**: 7 engine tests + 27 table-driven rule tests (all 25 rules with positive/negative/boundary/missing-key cases, unique ID check, NullStore compliance)
+
+### Changed
+- `internal/api/server.go` — added `SetRemediation()` setter, 5 new routes in both auth-enabled and auth-disabled sections
+- `cmd/pgpulse-server/main.go` — wired Engine, PGStore, StoreMetricSource, AlertAdapter; connected to dispatcher and API server
+
+### Notes
+- Agent team crashed with OOM — recovered in single-agent session
+- Import cycle prevention: alert defines interface, remediation implements it, main.go wires them
+- Dual-mode: alert-triggered (real-time, single metric) + Diagnose (advisory, full snapshot)
+- All checks pass: go build, go vet, go test, golangci-lint (0), npm build + typecheck
+
+---
+
 ## [M8_10] — 2026-03-10 — Hotfix: Explain + Scan Errors
 
 ### Fixed
