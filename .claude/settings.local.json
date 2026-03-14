@@ -39,7 +39,19 @@
       "Bash(grep '\\\\.point\\(' internal/collector/server_info.go | grep -oP '\\\\.point\\\\\\(\"[^\"]*\"' | sed 's/\\\\.point\\(\"//')",
       "Bash(chmod +x C:/Users/Archer/Projects/PGPulse_01/scripts/build-release.sh)",
       "Bash(cd C:/Users/Archer/Projects/PGPulse_01 && mv web/src/hooks/useSystemMode.ts web/src/hooks/useSystemMode.tsx)",
-      "Bash(cd C:/Users/Archer/Projects && sed -i 's/dba_postgresql@vtb\\\\.ru/ios900070025@proton.me/g' PGAM/mini/_pgawr.php PGAM/extended/_pgawr.php PGAM/extended_bak/analiz2test.php PGAM/extended_bak/analiz2testd.php PGAM-SOURCE/mini/_pgawr.php PGAM-SOURCE/extended/_pgawr.php PGAM-SOURCE/extended_bak/analiz2test.php PGAM-SOURCE/extended_bak/analiz2testd.php PGAM-SOURCE/PGAM_FEATURE_AUDIT.md)"
+      "Bash(cd C:/Users/Archer/Projects && sed -i 's/dba_postgresql@vtb\\\\.ru/ios900070025@proton.me/g' PGAM/mini/_pgawr.php PGAM/extended/_pgawr.php PGAM/extended_bak/analiz2test.php PGAM/extended_bak/analiz2testd.php PGAM-SOURCE/mini/_pgawr.php PGAM-SOURCE/extended/_pgawr.php PGAM-SOURCE/extended_bak/analiz2test.php PGAM-SOURCE/extended_bak/analiz2testd.php PGAM-SOURCE/PGAM_FEATURE_AUDIT.md)",
+      "Bash(find . -name '*.go' -not -name '*_test.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/*' | wc -l && find . -name '*.go' -not -name '*_test.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/*' -exec cat {} + | wc -l)",
+      "Bash(grep -rh 'point\\(' internal/collector/*.go internal/orchestrator/db_runner.go | grep -v '_test.go' | grep -v '//' | grep -oP '\"[a-z][a-z0-9._]+\"' | sort -u | wc -l)",
+      "Bash(grep -n \"ClaimsFromContext\\\\|UsernameFrom\\\\|GetUsername\\\\|claims.*context\" internal/auth/*.go | head -20)",
+      "Bash(grep -n \"type Claims \" internal/auth/*.go)",
+      "Bash(cd C:/Users/Archer/Projects/PGPulse_01 && find . -name '*.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/*' | wc -l && find . -name '*.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/*' -exec cat {} + | wc -l)",
+      "Bash(cd C:/Users/Archer/Projects/PGPulse_01 && find ./web/src -name '*.ts' -o -name '*.tsx' -o -name '*.css' | grep -v node_modules | wc -l && find ./web/src -name '*.ts' -o -name '*.tsx' -o -name '*.css' | grep -v node_modules | xargs cat | wc -l)",
+      "Bash(find /c/Users/Archer/Projects/PGPulse_01 -name \"*.go\" -type f | xargs grep -l \"buildCollectors\" | grep -v node_modules)",
+      "Bash(grep -n \"type.*Collector struct\" /c/Users/Archer/Projects/PGPulse_01/internal/collector/*.go | head -20)",
+      "Bash(grep -n \"Stateful\" /c/Users/Archer/Projects/PGPulse_01/internal/collector/*.go)",
+      "Bash(for f:*)",
+      "Bash(cd C:/Users/Archer/Projects/PGPulse_01 && find . -name '*.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/*' -not -path './.claude/*' | wc -l && find . -name '*.go' -not -path './.git/*' -not -path './vendor/*' -not -path './web/*' -not -path './.claude/*' -exec cat {} + | wc -l)",
+      "Bash(cd C:/Users/Archer/Projects/PGPulse_01 && grep -E 'r\\\\.\\(Get|Post|Put|Delete\\)\\\\\\(' internal/api/server.go | grep -v '//' | sed 's/.*r\\\\.\\\\\\(Get\\\\|Post\\\\|Put\\\\|Delete\\\\\\)\\(\"\\\\\\([^\"]*\\\\\\)\".*/\\\\1 \\\\2/' | sort -u)"
     ]
   }
 }
