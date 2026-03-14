@@ -2,6 +2,20 @@ package remediation
 
 import "fmt"
 
+// getOS looks up an OS metric in the snapshot, checking both the agent prefix
+// (os.*) and the SQL collector prefix (pg.os.*).
+func getOS(snap MetricSnapshot, suffix string) (float64, bool) {
+	if v, ok := snap.Get("os." + suffix); ok {
+		return v, true
+	}
+	return snap.Get("pg.os." + suffix)
+}
+
+// isOSMetric checks if a metric key matches an OS metric with either prefix.
+func isOSMetric(key, suffix string) bool {
+	return key == "os."+suffix || key == "pg.os."+suffix
+}
+
 func osRules() []Rule {
 	return []Rule{
 		{
@@ -9,8 +23,8 @@ func osRules() []Rule {
 			Priority: PrioritySuggestion,
 			Category: CategoryPerformance,
 			Evaluate: func(ctx EvalContext) *RuleResult {
-				user, ok1 := ctx.Snapshot.Get("os.cpu.user_pct")
-				sys, ok2 := ctx.Snapshot.Get("os.cpu.system_pct")
+				user, ok1 := getOS(ctx.Snapshot, "cpu.user_pct")
+				sys, ok2 := getOS(ctx.Snapshot, "cpu.system_pct")
 				if !ok1 || !ok2 {
 					return nil
 				}
@@ -35,11 +49,11 @@ func osRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "os.cpu.iowait_pct" {
+				if isOSMetric(ctx.MetricKey, "cpu.iowait_pct") {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("os.cpu.iowait_pct")
+					val, ok = getOS(ctx.Snapshot, "cpu.iowait_pct")
 				}
 				if !ok {
 					return nil
@@ -62,8 +76,8 @@ func osRules() []Rule {
 			Priority: PriorityActionRequired,
 			Category: CategoryCapacity,
 			Evaluate: func(ctx EvalContext) *RuleResult {
-				avail, ok1 := ctx.Snapshot.Get("os.memory.available_kb")
-				total, ok2 := ctx.Snapshot.Get("os.memory.total_kb")
+				avail, ok1 := getOS(ctx.Snapshot, "memory.available_kb")
+				total, ok2 := getOS(ctx.Snapshot, "memory.total_kb")
 				if !ok1 || !ok2 || total == 0 {
 					return nil
 				}
@@ -86,8 +100,8 @@ func osRules() []Rule {
 			Priority: PrioritySuggestion,
 			Category: CategoryCapacity,
 			Evaluate: func(ctx EvalContext) *RuleResult {
-				committed, ok1 := ctx.Snapshot.Get("os.memory.committed_as_kb")
-				limit, ok2 := ctx.Snapshot.Get("os.memory.commit_limit_kb")
+				committed, ok1 := getOS(ctx.Snapshot, "memory.committed_as_kb")
+				limit, ok2 := getOS(ctx.Snapshot, "memory.commit_limit_kb")
 				if !ok1 || !ok2 || limit == 0 {
 					return nil
 				}
@@ -111,11 +125,11 @@ func osRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "os.load.1m" {
+				if isOSMetric(ctx.MetricKey, "load.1m") {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("os.load.1m")
+					val, ok = getOS(ctx.Snapshot, "load.1m")
 				}
 				if !ok {
 					return nil
@@ -140,11 +154,11 @@ func osRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "os.disk.util_pct" {
+				if isOSMetric(ctx.MetricKey, "disk.util_pct") {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("os.disk.util_pct")
+					val, ok = getOS(ctx.Snapshot, "disk.util_pct")
 				}
 				if !ok {
 					return nil
@@ -169,11 +183,11 @@ func osRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "os.disk.read_await_ms" {
+				if isOSMetric(ctx.MetricKey, "disk.read_await_ms") {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("os.disk.read_await_ms")
+					val, ok = getOS(ctx.Snapshot, "disk.read_await_ms")
 				}
 				if !ok {
 					return nil
@@ -198,11 +212,11 @@ func osRules() []Rule {
 			Evaluate: func(ctx EvalContext) *RuleResult {
 				var val float64
 				var ok bool
-				if ctx.MetricKey == "os.disk.write_await_ms" {
+				if isOSMetric(ctx.MetricKey, "disk.write_await_ms") {
 					val = ctx.Value
 					ok = true
 				} else {
-					val, ok = ctx.Snapshot.Get("os.disk.write_await_ms")
+					val, ok = getOS(ctx.Snapshot, "disk.write_await_ms")
 				}
 				if !ok {
 					return nil

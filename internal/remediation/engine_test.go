@@ -9,10 +9,9 @@ func TestEvaluateMetric_MatchingRule(t *testing.T) {
 	t.Parallel()
 	engine := NewEngine()
 	snapshot := MetricSnapshot{
-		"pg.connections.active":          85,
-		"pg.connections.max_connections": 100,
+		"pg.connections.utilization_pct": 85,
 	}
-	recs := engine.EvaluateMetric(context.Background(), "inst1", "pg.connections.active", 85, nil, "warning", snapshot)
+	recs := engine.EvaluateMetric(context.Background(), "inst1", "pg.connections.utilization_pct", 85, nil, "warning", snapshot)
 	if len(recs) == 0 {
 		t.Fatal("expected at least one recommendation for 85% connection usage")
 	}
@@ -37,10 +36,9 @@ func TestEvaluateMetric_NoMatch(t *testing.T) {
 	t.Parallel()
 	engine := NewEngine()
 	snapshot := MetricSnapshot{
-		"pg.connections.active":          10,
-		"pg.connections.max_connections": 100,
+		"pg.connections.utilization_pct": 10,
 	}
-	recs := engine.EvaluateMetric(context.Background(), "inst1", "pg.connections.active", 10, nil, "warning", snapshot)
+	recs := engine.EvaluateMetric(context.Background(), "inst1", "pg.connections.utilization_pct", 10, nil, "warning", snapshot)
 	for _, r := range recs {
 		if r.RuleID == "rem_conn_high" || r.RuleID == "rem_conn_exhausted" {
 			t.Errorf("unexpected connection rule fired: %s", r.RuleID)
@@ -51,12 +49,11 @@ func TestEvaluateMetric_NoMatch(t *testing.T) {
 func TestEvaluateMetric_MultipleRules(t *testing.T) {
 	t.Parallel()
 	engine := NewEngine()
-	// 99% connections should fire both rem_conn_exhausted (>=99%) but not rem_conn_high (80-99 exclusive)
+	// 99% connections should fire rem_conn_exhausted (>=99%) but not rem_conn_high (80-99 exclusive)
 	snapshot := MetricSnapshot{
-		"pg.connections.active":          99,
-		"pg.connections.max_connections": 100,
+		"pg.connections.utilization_pct": 99,
 	}
-	recs := engine.EvaluateMetric(context.Background(), "inst1", "pg.connections.active", 99, nil, "critical", snapshot)
+	recs := engine.EvaluateMetric(context.Background(), "inst1", "pg.connections.utilization_pct", 99, nil, "critical", snapshot)
 	foundExhausted := false
 	for _, r := range recs {
 		if r.RuleID == "rem_conn_exhausted" {
@@ -73,8 +70,7 @@ func TestDiagnose_AllRules(t *testing.T) {
 	engine := NewEngine()
 	// Snapshot with multiple issues
 	snapshot := MetricSnapshot{
-		"pg.connections.active":          85,
-		"pg.connections.max_connections": 100,
+		"pg.connections.utilization_pct": 85,
 		"pg.cache.hit_ratio":            80,
 		"os.cpu.user_pct":               70,
 		"os.cpu.system_pct":             20,
