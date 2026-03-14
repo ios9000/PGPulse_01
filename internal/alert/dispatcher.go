@@ -91,6 +91,11 @@ func (d *Dispatcher) processEvent(event AlertEvent) {
 		return
 	}
 
+	// Run remediation BEFORE notifications so recommendations are available in templates.
+	if !event.IsResolution {
+		event.Recommendations = d.runRemediation(event)
+	}
+
 	channels := d.resolveChannels(event)
 	if len(channels) == 0 {
 		d.logger.Warn("no notification channels resolved",
@@ -109,7 +114,6 @@ func (d *Dispatcher) processEvent(event AlertEvent) {
 
 	if !event.IsResolution {
 		d.recordCooldown(event)
-		d.runRemediation(event)
 	}
 }
 
@@ -171,9 +175,9 @@ func (d *Dispatcher) sendWithRetry(n Notifier, event AlertEvent) {
 		"instance", event.InstanceID, "severity", event.Severity)
 }
 
-func (d *Dispatcher) runRemediation(event AlertEvent) {
+func (d *Dispatcher) runRemediation(event AlertEvent) []RemediationResult {
 	if d.remediation == nil {
-		return
+		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -182,6 +186,7 @@ func (d *Dispatcher) runRemediation(event AlertEvent) {
 		d.logger.Info("remediation recommendations generated",
 			"rule", event.RuleID, "instance", event.InstanceID, "count", len(results))
 	}
+	return results
 }
 
 func cooldownKey(ruleID, instanceID, severity string) string {

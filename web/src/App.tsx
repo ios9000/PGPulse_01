@@ -8,6 +8,7 @@ import { FleetOverview } from '@/pages/FleetOverview'
 import { ServerDetail } from '@/pages/ServerDetail'
 import { DatabaseDetail } from '@/pages/DatabaseDetail'
 import { AlertsDashboard } from '@/pages/AlertsDashboard'
+import { Advisor } from '@/pages/Advisor'
 import { AlertRules } from '@/pages/AlertRules'
 import { Administration } from '@/pages/Administration'
 import { UsersPage } from '@/pages/admin/UsersPage'
@@ -41,6 +42,7 @@ export function App() {
           <Route path="servers/:serverId/explain" element={<QueryPlanViewer />} />
           <Route path="settings/diff" element={<SettingsDiff />} />
           <Route path="alerts" element={<AlertsDashboard />} />
+          <Route path="advisor" element={<Advisor />} />
           <Route path="alerts/rules" element={<AlertRules />} />
           <Route path="admin" element={<Administration />} />
           <Route path="admin/users" element={<PermissionGate permission="user_management"><UsersPage /></PermissionGate>} />

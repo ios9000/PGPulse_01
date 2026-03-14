@@ -99,6 +99,7 @@ type Rule struct {
 
 // AlertEvent represents a state transition that requires action (notification).
 type AlertEvent struct {
+	ID           int64             `json:"id"`
 	RuleID       string            `json:"rule_id"`
 	RuleName     string            `json:"rule_name"`
 	InstanceID   string            `json:"instance_id"`
@@ -111,7 +112,8 @@ type AlertEvent struct {
 	Channels     []string          `json:"channels,omitempty"`
 	FiredAt      time.Time         `json:"fired_at"`
 	ResolvedAt   *time.Time        `json:"resolved_at,omitempty"`
-	IsResolution bool              `json:"is_resolution"`
+	IsResolution    bool              `json:"is_resolution"`
+	Recommendations []RemediationResult `json:"recommendations,omitempty"`
 }
 
 // stateEntry tracks per (rule_id, instance_id) evaluation state.

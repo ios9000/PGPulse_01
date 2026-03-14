@@ -3,7 +3,9 @@ import { useParams, Link } from 'react-router-dom'
 import { useInstances } from '@/hooks/useInstances'
 import { useCurrentMetrics, useMetricsHistory } from '@/hooks/useMetrics'
 import { useForecastChart } from '@/hooks/useForecastChart'
+import { useDiagnose } from '@/hooks/useRecommendations'
 import { HeaderCard } from '@/components/server/HeaderCard'
+import { DiagnosePanel } from '@/components/server/DiagnosePanel'
 import { KeyMetricsRow } from '@/components/server/KeyMetricsRow'
 import { ReplicationSection } from '@/components/server/ReplicationSection'
 import { LogicalReplicationSection } from '@/components/server/LogicalReplicationSection'
@@ -58,6 +60,8 @@ export function ServerDetail() {
   const cacheForecast = useForecastChart(serverId ?? '', 'pg.cache.hit_ratio')
   const txnForecast = useForecastChart(serverId ?? '', 'pg.transactions.commit_ratio_pct')
   const replLagForecast = useForecastChart(serverId ?? '', 'pg.replication.lag.replay_bytes')
+
+  const { diagnose, data: diagnoseData, isPending: diagnosePending, reset: resetDiagnose } = useDiagnose(serverId)
 
   const instance = instances?.find((i) => i.id === serverId)
 
@@ -136,7 +140,14 @@ export function ServerDetail() {
         host={instance?.host ?? ''}
         port={instance?.port ?? 0}
         currentMetrics={currentMetrics}
+        instanceId={serverId}
+        onDiagnose={() => diagnose()}
+        diagnosePending={diagnosePending}
       />
+
+      {diagnoseData && (
+        <DiagnosePanel data={diagnoseData} onClose={resetDiagnose} />
+      )}
 
       <div className="flex items-center gap-3">
         <Link

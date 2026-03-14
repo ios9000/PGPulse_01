@@ -1,3 +1,4 @@
+import { Lightbulb } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatPGVersion, formatUptime } from '@/lib/formatters'
 import type { CurrentMetricsResult } from '@/types/models'
@@ -7,9 +8,12 @@ interface HeaderCardProps {
   host: string
   port: number
   currentMetrics: CurrentMetricsResult | undefined
+  instanceId?: string
+  onDiagnose?: () => void
+  diagnosePending?: boolean
 }
 
-export function HeaderCard({ instanceName, host, port, currentMetrics }: HeaderCardProps) {
+export function HeaderCard({ instanceName, host, port, currentMetrics, onDiagnose, diagnosePending }: HeaderCardProps) {
   const m = currentMetrics?.metrics ?? {}
 
   const versionNum = m['pg.server.version_num']?.value
@@ -46,6 +50,17 @@ export function HeaderCard({ instanceName, host, port, currentMetrics }: HeaderC
           <span className="text-sm text-pgp-text-muted">
             Uptime: {formatUptime(uptimeSeconds)}
           </span>
+        )}
+
+        {onDiagnose && (
+          <button
+            onClick={onDiagnose}
+            disabled={diagnosePending}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-pgp-border bg-pgp-bg-secondary px-3 py-1.5 text-sm text-pgp-text-secondary hover:bg-pgp-bg-hover hover:text-pgp-text-primary disabled:opacity-50"
+          >
+            <Lightbulb className="h-4 w-4" />
+            {diagnosePending ? 'Diagnosing...' : 'Diagnose'}
+          </button>
         )}
       </div>
     </div>

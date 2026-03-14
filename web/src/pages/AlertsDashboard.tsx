@@ -63,6 +63,7 @@ export function AlertsDashboard() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-pgp-border">
+                    <th className="w-8 px-4 py-3" />
                     <th className="px-4 py-3 text-xs font-medium uppercase text-pgp-text-muted">
                       Severity
                     </th>

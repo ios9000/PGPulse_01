@@ -244,7 +244,7 @@ func scanEvent(rows pgx.Rows) (AlertEvent, error) {
 	var labelsJSON []byte
 
 	err := rows.Scan(
-		&ev.RuleID, &ev.InstanceID, &ev.Severity, &ev.Metric,
+		&ev.ID, &ev.RuleID, &ev.InstanceID, &ev.Severity, &ev.Metric,
 		&ev.Value, &ev.Threshold, &ev.Operator, &labelsJSON,
 		&ev.FiredAt, &ev.ResolvedAt,
 	)
@@ -262,7 +262,7 @@ func scanEvent(rows pgx.Rows) (AlertEvent, error) {
 	return ev, nil
 }
 
-const eventColumns = `rule_id, instance_id, severity, metric, value, threshold,
+const eventColumns = `id, rule_id, instance_id, severity, metric, value, threshold,
 	operator, labels, fired_at, resolved_at`
 
 // Record inserts a new alert event into history.
@@ -272,14 +272,15 @@ func (s *PGAlertHistoryStore) Record(ctx context.Context, event *AlertEvent) err
 		return fmt.Errorf("marshal event labels: %w", err)
 	}
 
-	_, err = s.pool.Exec(ctx,
+	err = s.pool.QueryRow(ctx,
 		`INSERT INTO alert_history (rule_id, instance_id, severity, metric, value,
 			threshold, operator, labels, fired_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		 RETURNING id`,
 		event.RuleID, event.InstanceID, event.Severity, event.Metric,
 		event.Value, event.Threshold, event.Operator, labelsJSON,
 		event.FiredAt,
-	)
+	).Scan(&event.ID)
 	if err != nil {
 		return fmt.Errorf("record alert event: %w", err)
 	}
