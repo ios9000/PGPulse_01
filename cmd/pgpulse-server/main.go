@@ -23,6 +23,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/orchestrator"
 	"github.com/ios9000/PGPulse_01/internal/plans"
+	"github.com/ios9000/PGPulse_01/internal/remediation"
 	"github.com/ios9000/PGPulse_01/internal/settings"
 	"github.com/ios9000/PGPulse_01/internal/storage"
 )
@@ -266,6 +267,16 @@ func main() {
 
 		// M8_02: Wire plan + settings stores into API server (done via setters after creation).
 
+		// REM_01a: Remediation engine setup.
+		remEngine := remediation.NewEngine()
+		remMetricSource := remediation.NewStoreMetricSource(store)
+		remStore := remediation.NewPGStore(pgPool)
+		remAdapter := remediation.NewAlertAdapter(remEngine, remMetricSource)
+		if realDispatcher != nil {
+			realDispatcher.SetRemediationProvider(remAdapter)
+		}
+		logger.Info("remediation engine initialized", "rules", len(remEngine.Rules()))
+
 		// Wire auth when enabled — requires a storage DSN (validated in config).
 		if cfg.Auth.Enabled {
 			userStore := auth.NewPGUserStore(pgPool)
@@ -304,6 +315,7 @@ func main() {
 				false, 0, auth.AuthEnabled)
 			apiServer.SetPlanStore(planStore)
 			apiServer.SetSnapshotStore(snapshotStore)
+			apiServer.SetRemediation(remEngine, remStore, remMetricSource)
 			if mlDetector != nil {
 				apiServer.SetMLDetector(mlDetector, cfg.ML)
 			}
@@ -317,6 +329,7 @@ func main() {
 			false, 0, authMode)
 		apiServer.SetPlanStore(planStore)
 		apiServer.SetSnapshotStore(snapshotStore)
+		apiServer.SetRemediation(remEngine, remStore, remMetricSource)
 		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
 	} else if len(cfg.Instances) > 0 {
 		// Live mode — in-memory storage with configured instances.

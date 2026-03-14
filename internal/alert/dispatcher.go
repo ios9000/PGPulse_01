@@ -23,6 +23,8 @@ type Dispatcher struct {
 
 	mu        sync.Mutex
 	cooldowns map[string]time.Time
+
+	remediation RemediationProvider // nil = disabled
 }
 
 // NewDispatcher creates a dispatcher that delivers events via registered notifiers.
@@ -42,6 +44,11 @@ func NewDispatcher(
 		done:            make(chan struct{}),
 		cooldowns:       make(map[string]time.Time),
 	}
+}
+
+// SetRemediationProvider wires the remediation engine into the dispatcher.
+func (d *Dispatcher) SetRemediationProvider(p RemediationProvider) {
+	d.remediation = p
 }
 
 // Start begins the background event processing loop.
@@ -102,6 +109,7 @@ func (d *Dispatcher) processEvent(event AlertEvent) {
 
 	if !event.IsResolution {
 		d.recordCooldown(event)
+		d.runRemediation(event)
 	}
 }
 
@@ -161,6 +169,19 @@ func (d *Dispatcher) sendWithRetry(n Notifier, event AlertEvent) {
 	d.logger.Error("alert notification exhausted retries",
 		"channel", n.Name(), "rule", event.RuleID,
 		"instance", event.InstanceID, "severity", event.Severity)
+}
+
+func (d *Dispatcher) runRemediation(event AlertEvent) {
+	if d.remediation == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	results := d.remediation.EvaluateForAlert(ctx, event.InstanceID, event.Metric, event.Value, event.Labels, string(event.Severity))
+	if len(results) > 0 {
+		d.logger.Info("remediation recommendations generated",
+			"rule", event.RuleID, "instance", event.InstanceID, "count", len(results))
+	}
 }
 
 func cooldownKey(ruleID, instanceID, severity string) string {
