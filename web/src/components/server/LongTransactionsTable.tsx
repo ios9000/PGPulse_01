@@ -22,7 +22,6 @@ export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps
   }, [queryClient, instanceId])
 
   const columns: Column<TxnRow>[] = useMemo(() => [
-    { key: 'pid', label: 'PID', mono: true, width: '80px' },
     { key: 'username', label: 'User' },
     { key: 'database', label: 'Database' },
     { key: 'state', label: 'State' },
@@ -42,7 +41,7 @@ export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps
       label: 'Query',
       render: (row: TxnRow) => (
         <span
-          className="block max-w-[150px] truncate font-mono text-xs"
+          className="block max-w-[120px] truncate font-mono text-xs"
           title={row.query}
         >
           {row.query}
@@ -52,7 +51,7 @@ export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps
     {
       key: '_actions',
       label: '',
-      width: '120px',
+      width: '100px',
       render: (row: TxnRow) => (
         <SessionActions
           instanceId={instanceId}
