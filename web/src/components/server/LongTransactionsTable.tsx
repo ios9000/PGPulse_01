@@ -42,7 +42,7 @@ export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps
       label: 'Query',
       render: (row: TxnRow) => (
         <span
-          className="block max-w-xs truncate font-mono text-xs"
+          className="block max-w-[150px] truncate font-mono text-xs"
           title={row.query}
         >
           {row.query}
