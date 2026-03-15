@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useLongTransactions } from '@/hooks/useActivity'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { Spinner } from '@/components/ui/Spinner'
-import { SessionActions } from '@/components/SessionActions'
+import { SessionKillButtons } from '@/components/SessionKillButtons'
 import { formatDuration } from '@/lib/formatters'
 import type { LongTransaction } from '@/types/models'
 
@@ -22,6 +22,7 @@ export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps
   }, [queryClient, instanceId])
 
   const columns: Column<TxnRow>[] = useMemo(() => [
+    { key: 'pid', label: 'PID', mono: true, width: '60px' },
     { key: 'username', label: 'User' },
     { key: 'database', label: 'Database' },
     { key: 'state', label: 'State' },
@@ -51,13 +52,13 @@ export function LongTransactionsTable({ instanceId }: LongTransactionsTableProps
     {
       key: '_actions',
       label: '',
-      width: '100px',
+      width: '70px',
       render: (row: TxnRow) => (
-        <SessionActions
+        <SessionKillButtons
           instanceId={instanceId}
           pid={row.pid}
           applicationName={row.application_name ?? ''}
-          onRefresh={handleRefresh}
+          onSuccess={handleRefresh}
         />
       ),
     },
