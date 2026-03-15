@@ -17,9 +17,21 @@ export function SessionActions({ instanceId, pid, applicationName, onRefresh }: 
   const { can } = useAuth()
   const [action, setAction] = useState<ActionType | null>(null)
   const [loading, setLoading] = useState(false)
+  const [overrideSelfGuard, setOverrideSelfGuard] = useState(false)
 
   if (!can('instance_management')) return null
-  if (applicationName.startsWith('pgpulse_')) return null
+
+  const isSelf = applicationName.startsWith('pgpulse_')
+  if (isSelf && !overrideSelfGuard) {
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); setOverrideSelfGuard(true) }}
+        className="text-xs text-pgp-text-muted hover:text-pgp-text-secondary"
+      >
+        Show actions
+      </button>
+    )
+  }
 
   const handleConfirm = async () => {
     if (!action) return
