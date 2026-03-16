@@ -11,8 +11,11 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ios9000/PGPulse_01/internal/alert"
 	"github.com/ios9000/PGPulse_01/internal/alert/notifier"
@@ -25,6 +28,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/plans"
 	"github.com/ios9000/PGPulse_01/internal/remediation"
 	"github.com/ios9000/PGPulse_01/internal/settings"
+	"github.com/ios9000/PGPulse_01/internal/statements"
 	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
@@ -292,6 +296,17 @@ func main() {
 			)
 		}
 
+		// M11_01: Statement snapshots store + capturer.
+		var pgssStore statements.SnapshotStore = &statements.NullSnapshotStore{}
+		var pgssCapturer *statements.SnapshotCapturer
+		if cfg.StatementSnapshots.Enabled {
+			pgssStore = statements.NewPGSnapshotStore(pgPool)
+			logger.Info("statement snapshots enabled",
+				"interval", cfg.StatementSnapshots.Interval,
+				"retention_days", cfg.StatementSnapshots.RetentionDays,
+			)
+		}
+
 		// Wire auth when enabled — requires a storage DSN (validated in config).
 		if cfg.Auth.Enabled {
 			userStore := auth.NewPGUserStore(pgPool)
@@ -331,10 +346,11 @@ func main() {
 			apiServer.SetPlanStore(planStore)
 			apiServer.SetSnapshotStore(snapshotStore)
 			apiServer.SetRemediation(remEngine, remStore, remMetricSource)
+			apiServer.SetPGSSStore(pgssStore, cfg.StatementSnapshots)
 			if mlDetector != nil {
 				apiServer.SetMLDetector(mlDetector, cfg.ML)
 			}
-			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
+			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore)
 			return
 		}
 
@@ -345,7 +361,8 @@ func main() {
 		apiServer.SetPlanStore(planStore)
 		apiServer.SetSnapshotStore(snapshotStore)
 		apiServer.SetRemediation(remEngine, remStore, remMetricSource)
-		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher)
+		apiServer.SetPGSSStore(pgssStore, cfg.StatementSnapshots)
+		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore)
 	} else if len(cfg.Instances) > 0 {
 		// Live mode — in-memory storage with configured instances.
 		liveMode = true
@@ -362,7 +379,7 @@ func main() {
 			nil, alert.NewNullAlertHistoryStore(), nil, nil, nil,
 			liveMode, *flagHistory, authMode)
 		startServer(ctx, stop, cfg, apiServer, store, logger,
-			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil)
+			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil)
 	} else {
 		store = orchestrator.NewLogStore(logger)
 		logger.Info("no storage DSN configured, using log-only mode")
@@ -370,7 +387,7 @@ func main() {
 		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil, nil,
 			false, 0, authMode)
 		startServer(ctx, stop, cfg, apiServer, store, logger,
-			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil)
+			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil)
 	}
 }
 
@@ -425,10 +442,30 @@ func extractHostPort(dsn string) (string, int) {
 func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config,
 	apiServer *api.APIServer, store collector.MetricStore, logger *slog.Logger,
 	evaluator orchestrator.AlertEvaluator, dispatcher orchestrator.AlertDispatcher,
-	realDispatcher *alert.Dispatcher) {
+	realDispatcher *alert.Dispatcher,
+	pgssStore statements.SnapshotStore, pgssCapturer *statements.SnapshotCapturer,
+	instStore storage.InstanceStore) {
 
 	orch := orchestrator.New(cfg, store, logger, evaluator, dispatcher)
 	apiServer.SetConnProvider(orch)
+
+	// M11_01: Wire PGSS capturer with orchestrator as ConnProvider, then start.
+	if cfg.StatementSnapshots.Enabled && pgssStore != nil {
+		if pgssCapturer == nil {
+			connProv := newPGSSConnProvider(cfg, instStore)
+			lister := &pgssInstanceLister{cfg: cfg, instanceStore: instStore}
+			pgssCapturer = statements.NewSnapshotCapturer(
+				pgssStore,
+				connProv,
+				lister,
+				cfg.StatementSnapshots.Interval,
+				cfg.StatementSnapshots.RetentionDays,
+				cfg.StatementSnapshots.CaptureOnStartup,
+				logger,
+			)
+		}
+		apiServer.SetPGSSCapturer(pgssCapturer)
+	}
 
 	httpServer := &http.Server{
 		Addr:         cfg.Server.Listen,
@@ -447,6 +484,13 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 	if err := orch.Start(ctx); err != nil {
 		logger.Warn("orchestrator not started, HTTP server will continue serving",
 			"err", err)
+	}
+
+	// M11_01: Start PGSS capturer after orchestrator (needs connection pools).
+	if pgssCapturer != nil {
+		pgssCapturer.Start(ctx)
+		defer pgssCapturer.Stop()
+		logger.Info("pgss snapshot capturer started")
 	}
 
 	logger.Info("PGPulse server running",
@@ -534,4 +578,110 @@ type noOpAlertEvaluator struct{}
 
 func (n *noOpAlertEvaluator) Evaluate(_ context.Context, _ string, _ float64, _ map[string]string) error {
 	return nil
+}
+
+// pgssConnProvider adapts config + instance store to the statements.ConnProvider interface.
+// It creates and caches pgxpool.Pool instances for each monitored PostgreSQL instance.
+type pgssConnProvider struct {
+	cfg           config.Config
+	instanceStore storage.InstanceStore
+	mu            sync.Mutex
+	pools         map[string]*pgxpool.Pool
+}
+
+func newPGSSConnProvider(cfg config.Config, instanceStore storage.InstanceStore) *pgssConnProvider {
+	return &pgssConnProvider{
+		cfg:           cfg,
+		instanceStore: instanceStore,
+		pools:         make(map[string]*pgxpool.Pool),
+	}
+}
+
+func (p *pgssConnProvider) PoolForInstance(instanceID string) (*pgxpool.Pool, error) {
+	p.mu.Lock()
+	if pool, ok := p.pools[instanceID]; ok {
+		p.mu.Unlock()
+		return pool, nil
+	}
+	p.mu.Unlock()
+
+	// Resolve DSN from config or DB store.
+	dsn := ""
+	for _, inst := range p.cfg.Instances {
+		if inst.ID == instanceID {
+			dsn = inst.DSN
+			break
+		}
+	}
+	if dsn == "" && p.instanceStore != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		rec, err := p.instanceStore.Get(ctx, instanceID)
+		if err == nil && rec != nil {
+			dsn = rec.DSN
+		}
+	}
+	if dsn == "" {
+		return nil, fmt.Errorf("instance %q not found", instanceID)
+	}
+
+	poolCfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse DSN for %s: %w", instanceID, err)
+	}
+	poolCfg.MaxConns = 2
+	poolCfg.ConnConfig.ConnectTimeout = 5 * time.Second
+	if poolCfg.ConnConfig.RuntimeParams == nil {
+		poolCfg.ConnConfig.RuntimeParams = make(map[string]string)
+	}
+	poolCfg.ConnConfig.RuntimeParams["application_name"] = "pgpulse_pgss_capture"
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("create pool for %s: %w", instanceID, err)
+	}
+
+	p.mu.Lock()
+	// Double-check after acquiring lock.
+	if existing, ok := p.pools[instanceID]; ok {
+		p.mu.Unlock()
+		pool.Close()
+		return existing, nil
+	}
+	p.pools[instanceID] = pool
+	p.mu.Unlock()
+
+	return pool, nil
+}
+
+// pgssInstanceLister lists instance IDs from config and DB store.
+type pgssInstanceLister struct {
+	cfg           config.Config
+	instanceStore storage.InstanceStore
+}
+
+func (l *pgssInstanceLister) ListInstanceIDs(ctx context.Context) ([]string, error) {
+	ids := make([]string, 0, len(l.cfg.Instances))
+	seen := make(map[string]bool)
+
+	for _, inst := range l.cfg.Instances {
+		if inst.Enabled == nil || *inst.Enabled {
+			ids = append(ids, inst.ID)
+			seen[inst.ID] = true
+		}
+	}
+
+	// Also include DB-managed instances.
+	if l.instanceStore != nil {
+		dbInstances, err := l.instanceStore.List(ctx)
+		if err == nil {
+			for _, rec := range dbInstances {
+				if rec.Enabled && !seen[rec.ID] {
+					ids = append(ids, rec.ID)
+				}
+			}
+		}
+	}
+
+	return ids, nil
 }

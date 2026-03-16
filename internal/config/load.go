@@ -105,6 +105,17 @@ func validate(cfg *Config) error {
 		cfg.Remediation.RetentionDays = 30
 	}
 
+	// Statement snapshots defaults.
+	if cfg.StatementSnapshots.Interval == 0 {
+		cfg.StatementSnapshots.Interval = 30 * time.Minute
+	}
+	if cfg.StatementSnapshots.RetentionDays == 0 {
+		cfg.StatementSnapshots.RetentionDays = 30
+	}
+	if cfg.StatementSnapshots.TopN == 0 {
+		cfg.StatementSnapshots.TopN = 50
+	}
+
 	if len(cfg.Instances) == 0 {
 		return fmt.Errorf("at least one instance must be configured")
 	}
