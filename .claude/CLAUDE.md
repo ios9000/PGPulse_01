@@ -203,7 +203,8 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-M9 — Reports & Export (next sub-iteration TBD)
+M10_01 — Advisor Auto-Population (background eval + create alert rule)
+See: docs/iterations/M10_01_03162026_advisor-background-eval/
 
 ### What Was Just Completed
 M9_01 — Alert & Advisor Polish (metric keys + UI nav + cosmetic fixes):
