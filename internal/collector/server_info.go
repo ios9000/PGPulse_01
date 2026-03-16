@@ -93,6 +93,19 @@ func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn, ic In
 		points = append(points, c.point("server.wraparound_pct", wraparoundPct, nil))
 	}
 
+	// Multixact wraparound risk: max multixact age as percentage of 2B limit
+	tctx5, cancel5 := queryContext(ctx)
+	var multixactPct float64
+	err = conn.QueryRow(tctx5,
+		"SELECT COALESCE(max(mxid_age(datminmxid))::float8 / (2147483648)::float8 * 100, 0) FROM pg_database WHERE datallowconn",
+	).Scan(&multixactPct)
+	cancel5()
+	if err != nil {
+		slog.Warn("server_info: failed to collect multixact_pct", "error", err)
+	} else {
+		points = append(points, c.point("server.multixact_pct", multixactPct, nil))
+	}
+
 	// Hostname — read via pg_read_file (graceful failure).
 	hostname, err := readServerFile(ctx, conn, "/etc/hostname")
 	if err == nil {

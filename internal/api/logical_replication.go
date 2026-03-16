@@ -184,7 +184,7 @@ func (s *APIServer) queryDBLogicalReplication(
 	const pendingSQL = `
 		SELECT s.subname,
 		       r.srrelid::regclass::text AS table_name,
-		       r.srsubstate,
+		       r.srsubstate::text,
 		       COALESCE(r.srsublsn::text, '') AS sync_lsn
 		FROM pg_subscription_rel r
 		JOIN pg_subscription s ON s.oid = r.srsubid
