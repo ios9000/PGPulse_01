@@ -8,31 +8,43 @@ import { AdvisorRow } from '@/components/advisor/AdvisorRow'
 import { useRecommendations } from '@/hooks/useRecommendations'
 import { useInstances } from '@/hooks/useInstances'
 
+function formatRelativeTime(isoString: string): string {
+  const now = Date.now()
+  const then = new Date(isoString).getTime()
+  const diffSec = Math.floor((now - then) / 1000)
+  if (diffSec < 60) return 'just now'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`
+  const diffHrs = Math.floor(diffMin / 60)
+  if (diffHrs < 24) return `${diffHrs} hour${diffHrs === 1 ? '' : 's'} ago`
+  const diffDays = Math.floor(diffHrs / 24)
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`
+}
+
 export function Advisor() {
   const [priority, setPriority] = useState('')
   const [category, setCategory] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState('active')
   const [instanceId, setInstanceId] = useState('')
 
   const { data: recs, isLoading } = useRecommendations({
     priority: priority || undefined,
     category: category || undefined,
+    status: status || undefined,
     instanceId: instanceId || undefined,
   })
   const { data: instances } = useInstances()
 
-  const filtered = useMemo(() => {
-    if (!recs) return []
-    let list = recs
-    if (status === 'pending') {
-      list = list.filter((r) => !r.acknowledged_at)
-    } else if (status === 'acknowledged') {
-      list = list.filter((r) => !!r.acknowledged_at)
-    }
-    return list
-  }, [recs, status])
-
+  const filtered = recs ?? []
   const count = filtered.length
+
+  const lastEvaluated = useMemo(() => {
+    if (!recs || recs.length === 0) return null
+    return recs.reduce((latest, r) => {
+      if (!r.evaluated_at) return latest
+      return !latest || r.evaluated_at > latest ? r.evaluated_at : latest
+    }, null as string | null)
+  }, [recs])
 
   return (
     <div>
@@ -40,11 +52,18 @@ export function Advisor() {
         title="Advisor"
         subtitle="Actionable recommendations based on metric analysis"
         actions={
-          count > 0 ? (
-            <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2.5 py-1 text-sm font-medium text-amber-400">
-              {count}
-            </span>
-          ) : null
+          <div className="flex items-center gap-3">
+            {lastEvaluated && (
+              <span className="text-xs text-pgp-text-muted">
+                Last evaluated: {formatRelativeTime(lastEvaluated)}
+              </span>
+            )}
+            {count > 0 && (
+              <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2.5 py-1 text-sm font-medium text-amber-400">
+                {count}
+              </span>
+            )}
+          </div>
         }
       />
 

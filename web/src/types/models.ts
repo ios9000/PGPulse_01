@@ -582,6 +582,8 @@ export interface SubscriptionStats {
 export type RecommendationPriority = 'info' | 'suggestion' | 'action_required'
 export type RecommendationCategory = 'performance' | 'capacity' | 'configuration' | 'replication' | 'maintenance'
 
+export type RecommendationStatus = 'active' | 'resolved' | 'acknowledged'
+
 export interface Recommendation {
   id: number
   rule_id: string
@@ -591,10 +593,13 @@ export interface Recommendation {
   metric_value: number
   priority: RecommendationPriority
   category: RecommendationCategory
+  status: RecommendationStatus
   title: string
   description: string
   doc_url?: string
   created_at: string
+  evaluated_at: string
+  resolved_at: string | null
   acknowledged_at?: string
   acknowledged_by?: string
 }

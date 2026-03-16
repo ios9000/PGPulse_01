@@ -73,7 +73,10 @@ type Recommendation struct {
 	Title          string     `json:"title"`
 	Description    string     `json:"description"`
 	DocURL         string     `json:"doc_url,omitempty"`
+	Status         string     `json:"status"`
 	CreatedAt      time.Time  `json:"created_at"`
+	EvaluatedAt    time.Time  `json:"evaluated_at"`
+	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`
 	AcknowledgedAt *time.Time `json:"acknowledged_at,omitempty"`
 	AcknowledgedBy string     `json:"acknowledged_by,omitempty"`
 }

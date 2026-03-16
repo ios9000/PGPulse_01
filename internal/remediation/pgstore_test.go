@@ -39,7 +39,10 @@ func testPool(t *testing.T) *pgxpool.Pool {
 			title TEXT NOT NULL DEFAULT '',
 			description TEXT NOT NULL DEFAULT '',
 			doc_url TEXT NOT NULL DEFAULT '',
+			status VARCHAR(20) NOT NULL DEFAULT 'active',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			evaluated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			resolved_at TIMESTAMPTZ,
 			acknowledged_at TIMESTAMPTZ,
 			acknowledged_by TEXT NOT NULL DEFAULT ''
 		)`)

@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Permission } from '@/lib/permissions'
 import { useAuth } from '@/hooks/useAuth'
 import { useInstances } from '@/hooks/useInstances'
+import { useActiveRecommendationCount } from '@/hooks/useRecommendations'
 
 interface NavItem {
   label: string
@@ -32,6 +33,8 @@ export function Sidebar() {
   const location = useLocation()
   const { can } = useAuth()
   const { data: instances } = useInstances()
+  const { data: activeRecs } = useActiveRecommendationCount()
+  const activeRecCount = activeRecs?.length ?? 0
 
   const isActive = (path: string) => location.pathname.startsWith(path)
   const alertsExpanded = isActive('/alerts')
@@ -51,6 +54,7 @@ export function Sidebar() {
 
   const renderNavLink = (item: NavItem) => {
     const active = isActive(item.path)
+    const showBadge = item.path === '/advisor' && activeRecCount > 0
     return (
       <li key={item.path}>
         <Link
@@ -63,7 +67,12 @@ export function Sidebar() {
           title={collapsed ? item.label : undefined}
         >
           <item.icon className="h-5 w-5 shrink-0" />
-          {!collapsed && <span>{item.label}</span>}
+          {!collapsed && <span className="flex-1">{item.label}</span>}
+          {showBadge && (
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+              {activeRecCount > 99 ? '99+' : activeRecCount}
+            </span>
+          )}
         </Link>
       </li>
     )

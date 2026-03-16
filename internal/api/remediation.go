@@ -132,6 +132,7 @@ func parseListOpts(r *http.Request) remediation.ListOpts {
 	opts := remediation.ListOpts{
 		Priority: r.URL.Query().Get("priority"),
 		Category: r.URL.Query().Get("category"),
+		Status:   r.URL.Query().Get("status"),
 	}
 
 	if ack := r.URL.Query().Get("acknowledged"); ack != "" {
