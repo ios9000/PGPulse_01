@@ -344,7 +344,7 @@ func collectBloat(ctx context.Context, q Queryer, dbName string) ([]MetricPoint,
 		var wastedBytes int64
 		var tbloat float64
 		var iname sql.NullString
-		var wastedIBytes sql.NullInt64
+		var wastedIBytes sql.NullFloat64
 		var ibloat sql.NullFloat64
 		if err := rows.Scan(&schema, &table, &wastedBytes, &tbloat, &iname, &wastedIBytes, &ibloat); err != nil {
 			return nil, fmt.Errorf("bloat scan: %w", err)
@@ -357,7 +357,7 @@ func collectBloat(ctx context.Context, q Queryer, dbName string) ([]MetricPoint,
 		if iname.Valid {
 			idxLabels := map[string]string{"schema": schema, "table": table, "index": iname.String}
 			points = append(points,
-				dbPoint("db.bloat.index_wasted_bytes", float64(wastedIBytes.Int64), dbName, idxLabels),
+				dbPoint("db.bloat.index_wasted_bytes", wastedIBytes.Float64, dbName, idxLabels),
 				dbPoint("db.bloat.index_ratio", ibloat.Float64, dbName, idxLabels),
 			)
 		}
@@ -718,7 +718,7 @@ func collectLogicalReplication(ctx context.Context, q Queryer, dbName string) ([
 	const lrSQL = `
 		SELECT s.subname,
 		       r.srrelid::regclass::text AS table_name,
-		       r.srsubstate,
+		       r.srsubstate::text,
 		       COALESCE(r.srsublsn::text, '') AS sync_lsn
 		FROM pg_subscription_rel r
 		JOIN pg_subscription s ON s.oid = r.srsubid
