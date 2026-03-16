@@ -203,8 +203,8 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-M11_01 — PGSS Snapshots + Diff Engine + Query Insights API
-See: docs/iterations/M11_01_03162026_pgss-snapshots/
+M11_02 — Query Insights UI + Workload Report + HTML Export
+See: docs/iterations/M11_02_03162026_query-insights-ui/
 
 ### What Was Just Completed
 M9_01 — Alert & Advisor Polish (metric keys + UI nav + cosmetic fixes):
