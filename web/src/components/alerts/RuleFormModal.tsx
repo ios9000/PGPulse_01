@@ -3,9 +3,19 @@ import { X } from 'lucide-react'
 import { useSaveAlertRule, useTestNotification } from '@/hooks/useAlertRules'
 import type { AlertRule } from '@/types/models'
 
+export interface RuleFormDefaults {
+  name?: string
+  description?: string
+  metric?: string
+  operator?: AlertRule['operator']
+  threshold?: number
+  severity?: AlertRule['severity']
+}
+
 interface RuleFormModalProps {
   onClose: () => void
   rule?: AlertRule
+  defaults?: RuleFormDefaults
   availableChannels: string[]
 }
 
@@ -19,16 +29,17 @@ function slugify(name: string): string {
     .replace(/^_|_$/g, '')
 }
 
-export function RuleFormModal({ onClose, rule, availableChannels }: RuleFormModalProps) {
+export function RuleFormModal({ onClose, rule, defaults, availableChannels }: RuleFormModalProps) {
   const isEdit = !!rule
   const isBuiltin = rule?.source === 'builtin'
+  const d = defaults
 
-  const [name, setName] = useState(rule?.name ?? '')
-  const [description, setDescription] = useState(rule?.description ?? '')
-  const [metric, setMetric] = useState(rule?.metric ?? '')
-  const [operator, setOperator] = useState<AlertRule['operator']>(rule?.operator ?? '>')
-  const [threshold, setThreshold] = useState(String(rule?.threshold ?? ''))
-  const [severity, setSeverity] = useState<AlertRule['severity']>(rule?.severity ?? 'warning')
+  const [name, setName] = useState(rule?.name ?? d?.name ?? '')
+  const [description, setDescription] = useState(rule?.description ?? d?.description ?? '')
+  const [metric, setMetric] = useState(rule?.metric ?? d?.metric ?? '')
+  const [operator, setOperator] = useState<AlertRule['operator']>(rule?.operator ?? d?.operator ?? '>')
+  const [threshold, setThreshold] = useState(String(rule?.threshold ?? d?.threshold ?? ''))
+  const [severity, setSeverity] = useState<AlertRule['severity']>(rule?.severity ?? d?.severity ?? 'warning')
   const [consecutiveCount, setConsecutiveCount] = useState(String(rule?.consecutive_count ?? 3))
   const [cooldownMinutes, setCooldownMinutes] = useState(String(rule?.cooldown_minutes ?? 5))
   const [channels, setChannels] = useState<string[]>(rule?.channels ?? [])

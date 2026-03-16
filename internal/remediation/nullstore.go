@@ -37,3 +37,7 @@ func (n *NullStore) Acknowledge(_ context.Context, _ int64, _ string) error {
 func (n *NullStore) CleanOld(_ context.Context, _ time.Duration) error {
 	return nil
 }
+
+func (n *NullStore) ResolveStale(_ context.Context, _ string, _ []string) error {
+	return nil
+}

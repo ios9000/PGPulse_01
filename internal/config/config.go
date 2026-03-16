@@ -11,8 +11,16 @@ type Config struct {
 	PlanCapture      PlanCaptureConfig      `koanf:"plan_capture"`
 	SettingsSnapshot SettingsSnapshotConfig `koanf:"settings_snapshot"`
 	ML               MLConfig               `koanf:"ml"`
+	Remediation      RemediationConfig      `koanf:"remediation"`
 	OSMetrics        OSMetricsConfig        `koanf:"os_metrics"`
 	Instances        []InstanceConfig       `koanf:"instances"`
+}
+
+// RemediationConfig holds background advisor evaluation settings.
+type RemediationConfig struct {
+	Enabled            bool          `koanf:"enabled"`
+	BackgroundInterval time.Duration `koanf:"background_interval"`
+	RetentionDays      int           `koanf:"retention_days"`
 }
 
 // OSMetricsConfig holds global OS metrics collection settings.

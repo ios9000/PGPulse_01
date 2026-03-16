@@ -27,15 +27,19 @@ func (s *PGStore) Write(ctx context.Context, recs []Recommendation) ([]Recommend
 		var rec Recommendation
 		err := s.pool.QueryRow(ctx,
 			`INSERT INTO remediation_recommendations
-				(rule_id, instance_id, alert_event_id, metric_key, metric_value, priority, category, title, description, doc_url)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-			 RETURNING id, rule_id, instance_id, alert_event_id, metric_key, metric_value, priority, category, title, description, doc_url, created_at, acknowledged_at, acknowledged_by`,
+				(rule_id, instance_id, alert_event_id, metric_key, metric_value,
+				 priority, category, title, description, doc_url, status, evaluated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active', NOW())
+			 RETURNING id, rule_id, instance_id, alert_event_id, metric_key, metric_value,
+			           priority, category, title, description, doc_url, status,
+			           created_at, evaluated_at, resolved_at, acknowledged_at, acknowledged_by`,
 			r.RuleID, r.InstanceID, r.AlertEventID, r.MetricKey, r.MetricValue,
 			string(r.Priority), string(r.Category), r.Title, r.Description, r.DocURL,
 		).Scan(
 			&rec.ID, &rec.RuleID, &rec.InstanceID, &rec.AlertEventID,
 			&rec.MetricKey, &rec.MetricValue, &rec.Priority, &rec.Category,
-			&rec.Title, &rec.Description, &rec.DocURL, &rec.CreatedAt,
+			&rec.Title, &rec.Description, &rec.DocURL, &rec.Status,
+			&rec.CreatedAt, &rec.EvaluatedAt, &rec.ResolvedAt,
 			&rec.AcknowledgedAt, &rec.AcknowledgedBy,
 		)
 		if err != nil {
@@ -44,6 +48,35 @@ func (s *PGStore) Write(ctx context.Context, recs []Recommendation) ([]Recommend
 		saved = append(saved, rec)
 	}
 	return saved, nil
+}
+
+// WriteOrUpdate inserts new recommendations or updates existing active ones.
+// Uses the partial unique index idx_remediation_active_unique on (rule_id, instance_id)
+// WHERE status = 'active'. If an active recommendation exists, it updates evaluated_at
+// and the current metric value. New recommendations are inserted as active.
+func (s *PGStore) WriteOrUpdate(ctx context.Context, recs []Recommendation) (int, error) {
+	if len(recs) == 0 {
+		return 0, nil
+	}
+	written := 0
+	for _, r := range recs {
+		tag, err := s.pool.Exec(ctx,
+			`INSERT INTO remediation_recommendations
+				(rule_id, instance_id, metric_key, metric_value,
+				 priority, category, title, description, doc_url, status, evaluated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', NOW())
+			 ON CONFLICT (rule_id, instance_id) WHERE status = 'active'
+			 DO UPDATE SET evaluated_at = NOW(), metric_value = EXCLUDED.metric_value,
+			              title = EXCLUDED.title, description = EXCLUDED.description`,
+			r.RuleID, r.InstanceID, r.MetricKey, r.MetricValue,
+			string(r.Priority), string(r.Category), r.Title, r.Description, r.DocURL,
+		)
+		if err != nil {
+			return written, fmt.Errorf("write/update recommendation %s: %w", r.RuleID, err)
+		}
+		written += int(tag.RowsAffected())
+	}
+	return written, nil
 }
 
 func (s *PGStore) ListByInstance(ctx context.Context, instanceID string, opts ListOpts) ([]Recommendation, int, error) {
@@ -57,7 +90,7 @@ func (s *PGStore) ListAll(ctx context.Context, opts ListOpts) ([]Recommendation,
 
 func (s *PGStore) listWithOpts(ctx context.Context, opts ListOpts) ([]Recommendation, int, error) {
 	where := "WHERE 1=1"
-	args := make([]any, 0, 6)
+	args := make([]any, 0, 8)
 	argIdx := 1
 
 	if opts.InstanceID != "" {
@@ -73,6 +106,11 @@ func (s *PGStore) listWithOpts(ctx context.Context, opts ListOpts) ([]Recommenda
 	if opts.Category != "" {
 		where += fmt.Sprintf(" AND category = $%d", argIdx)
 		args = append(args, opts.Category)
+		argIdx++
+	}
+	if opts.Status != "" {
+		where += fmt.Sprintf(" AND status = $%d", argIdx)
+		args = append(args, opts.Status)
 		argIdx++
 	}
 	if opts.Acknowledged != nil {
@@ -100,8 +138,8 @@ func (s *PGStore) listWithOpts(ctx context.Context, opts ListOpts) ([]Recommenda
 
 	querySQL := fmt.Sprintf(
 		`SELECT id, rule_id, instance_id, alert_event_id, metric_key, metric_value,
-		        priority, category, title, description, doc_url,
-		        created_at, acknowledged_at, acknowledged_by
+		        priority, category, title, description, doc_url, status,
+		        created_at, evaluated_at, resolved_at, acknowledged_at, acknowledged_by
 		 FROM remediation_recommendations %s
 		 ORDER BY created_at DESC
 		 LIMIT $%d OFFSET $%d`, where, argIdx, argIdx+1)
@@ -119,7 +157,8 @@ func (s *PGStore) listWithOpts(ctx context.Context, opts ListOpts) ([]Recommenda
 		if err := rows.Scan(
 			&r.ID, &r.RuleID, &r.InstanceID, &r.AlertEventID,
 			&r.MetricKey, &r.MetricValue, &r.Priority, &r.Category,
-			&r.Title, &r.Description, &r.DocURL, &r.CreatedAt,
+			&r.Title, &r.Description, &r.DocURL, &r.Status,
+			&r.CreatedAt, &r.EvaluatedAt, &r.ResolvedAt,
 			&r.AcknowledgedAt, &r.AcknowledgedBy,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan recommendation: %w", err)
@@ -132,8 +171,8 @@ func (s *PGStore) listWithOpts(ctx context.Context, opts ListOpts) ([]Recommenda
 func (s *PGStore) ListByAlertEvent(ctx context.Context, alertEventID int64) ([]Recommendation, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, rule_id, instance_id, alert_event_id, metric_key, metric_value,
-		        priority, category, title, description, doc_url,
-		        created_at, acknowledged_at, acknowledged_by
+		        priority, category, title, description, doc_url, status,
+		        created_at, evaluated_at, resolved_at, acknowledged_at, acknowledged_by
 		 FROM remediation_recommendations
 		 WHERE alert_event_id = $1
 		 ORDER BY created_at DESC`, alertEventID)
@@ -148,7 +187,8 @@ func (s *PGStore) ListByAlertEvent(ctx context.Context, alertEventID int64) ([]R
 		if err := rows.Scan(
 			&r.ID, &r.RuleID, &r.InstanceID, &r.AlertEventID,
 			&r.MetricKey, &r.MetricValue, &r.Priority, &r.Category,
-			&r.Title, &r.Description, &r.DocURL, &r.CreatedAt,
+			&r.Title, &r.Description, &r.DocURL, &r.Status,
+			&r.CreatedAt, &r.EvaluatedAt, &r.ResolvedAt,
 			&r.AcknowledgedAt, &r.AcknowledgedBy,
 		); err != nil {
 			return nil, fmt.Errorf("scan recommendation: %w", err)
@@ -176,9 +216,25 @@ func (s *PGStore) CleanOld(ctx context.Context, olderThan time.Duration) error {
 	_, err := s.pool.Exec(ctx,
 		`DELETE FROM remediation_recommendations
 		 WHERE created_at < NOW() - $1::interval
-		   AND acknowledged_at IS NOT NULL`, olderThan.String())
+		   AND (acknowledged_at IS NOT NULL OR status = 'resolved')`, olderThan.String())
 	if err != nil {
 		return fmt.Errorf("clean old recommendations: %w", err)
+	}
+	return nil
+}
+
+// ResolveStale marks active recommendations as resolved when they no longer
+// appear in the current evaluation cycle for an instance.
+func (s *PGStore) ResolveStale(ctx context.Context, instanceID string, currentRuleIDs []string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE remediation_recommendations
+		 SET status = 'resolved', resolved_at = NOW()
+		 WHERE instance_id = $1
+		   AND status = 'active'
+		   AND rule_id != ALL($2::text[])`,
+		instanceID, currentRuleIDs)
+	if err != nil {
+		return fmt.Errorf("resolve stale recommendations for %s: %w", instanceID, err)
 	}
 	return nil
 }

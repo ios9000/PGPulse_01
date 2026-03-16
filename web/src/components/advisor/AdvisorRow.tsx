@@ -1,10 +1,23 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, Check, Bell } from 'lucide-react'
 import { PriorityBadge } from '@/components/advisor/PriorityBadge'
+import { RuleFormModal } from '@/components/alerts/RuleFormModal'
 import { formatTimestamp } from '@/lib/formatters'
 import { useAcknowledge } from '@/hooks/useRecommendations'
+import { useAuth } from '@/hooks/useAuth'
 import { toast } from '@/stores/toastStore'
-import type { Recommendation } from '@/types/models'
+import type { Recommendation, RecommendationPriority, AlertRule } from '@/types/models'
+
+function priorityToSeverity(priority: RecommendationPriority): AlertRule['severity'] {
+  switch (priority) {
+    case 'action_required':
+      return 'critical'
+    case 'suggestion':
+      return 'warning'
+    case 'info':
+      return 'info'
+  }
+}
 
 interface AdvisorRowProps {
   rec: Recommendation
@@ -12,7 +25,9 @@ interface AdvisorRowProps {
 
 export function AdvisorRow({ rec }: AdvisorRowProps) {
   const [expanded, setExpanded] = useState(false)
+  const [showRuleModal, setShowRuleModal] = useState(false)
   const ack = useAcknowledge()
+  const { can } = useAuth()
 
   const handleAcknowledge = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -63,7 +78,7 @@ export function AdvisorRow({ rec }: AdvisorRowProps) {
           <td colSpan={7} className="px-8 py-4">
             <div className="space-y-2 text-sm">
               <p className="text-pgp-text-primary">{rec.description}</p>
-              <div className="flex flex-wrap gap-4 text-xs text-pgp-text-muted">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-pgp-text-muted">
                 <span>Metric: {rec.metric_key} = {rec.metric_value.toFixed(2)}</span>
                 <span>Rule: {rec.rule_id}</span>
                 {rec.doc_url && (
@@ -77,10 +92,39 @@ export function AdvisorRow({ rec }: AdvisorRowProps) {
                     Documentation
                   </a>
                 )}
+                {can('alert_management') && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowRuleModal(true)
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-pgp-border bg-pgp-bg-primary px-2 py-1 text-xs text-pgp-text-secondary hover:bg-pgp-bg-hover hover:text-pgp-text-primary"
+                  >
+                    <Bell className="h-3 w-3" />
+                    Create Alert Rule
+                  </button>
+                )}
               </div>
             </div>
           </td>
         </tr>
+      )}
+      {showRuleModal && (
+        <RuleFormModal
+          onClose={() => {
+            setShowRuleModal(false)
+            toast.success('Alert rule created from recommendation')
+          }}
+          defaults={{
+            name: `Auto: ${rec.title}`,
+            description: rec.description,
+            metric: rec.metric_key,
+            operator: '>',
+            threshold: rec.metric_value,
+            severity: priorityToSeverity(rec.priority),
+          }}
+          availableChannels={[]}
+        />
       )}
     </>
   )

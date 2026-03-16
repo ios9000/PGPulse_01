@@ -29,9 +29,10 @@ const CATEGORY_OPTIONS = [
 ]
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'active', label: 'Active' },
+  { value: 'resolved', label: 'Resolved' },
   { value: 'acknowledged', label: 'Acknowledged' },
+  { value: '', label: 'All' },
 ]
 
 function SelectFilter({

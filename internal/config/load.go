@@ -97,6 +97,14 @@ func validate(cfg *Config) error {
 		cfg.ML.Forecast.AlertMinConsecutive = 3
 	}
 
+	// Remediation defaults.
+	if cfg.Remediation.BackgroundInterval == 0 {
+		cfg.Remediation.BackgroundInterval = 5 * time.Minute
+	}
+	if cfg.Remediation.RetentionDays == 0 {
+		cfg.Remediation.RetentionDays = 30
+	}
+
 	if len(cfg.Instances) == 0 {
 		return fmt.Errorf("at least one instance must be configured")
 	}

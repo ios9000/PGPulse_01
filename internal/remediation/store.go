@@ -10,6 +10,7 @@ type ListOpts struct {
 	InstanceID   string
 	Priority     string
 	Category     string
+	Status       string
 	Acknowledged *bool
 	AlertEventID *int64
 	Limit        int
@@ -24,4 +25,5 @@ type RecommendationStore interface {
 	ListByAlertEvent(ctx context.Context, alertEventID int64) ([]Recommendation, error)
 	Acknowledge(ctx context.Context, id int64, username string) error
 	CleanOld(ctx context.Context, olderThan time.Duration) error
+	ResolveStale(ctx context.Context, instanceID string, currentRuleIDs []string) error
 }

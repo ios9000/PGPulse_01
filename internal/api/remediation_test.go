@@ -60,6 +60,10 @@ func (m *mockRemediationStore) CleanOld(_ context.Context, _ time.Duration) erro
 	return nil
 }
 
+func (m *mockRemediationStore) ResolveStale(_ context.Context, _ string, _ []string) error {
+	return nil
+}
+
 type mockMetricSource struct {
 	snapshot remediation.MetricSnapshot
 	err      error

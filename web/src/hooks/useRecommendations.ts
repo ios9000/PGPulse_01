@@ -5,6 +5,7 @@ import type { Recommendation, DiagnoseResponse, RemediationRule } from '@/types/
 interface UseRecommendationsParams {
   priority?: string
   category?: string
+  status?: string
   acknowledged?: boolean
   instanceId?: string
   limit?: number
@@ -17,6 +18,7 @@ export function useRecommendations(params: UseRecommendationsParams = {}) {
       const qs = new URLSearchParams()
       if (params.priority) qs.set('priority', params.priority)
       if (params.category) qs.set('category', params.category)
+      if (params.status) qs.set('status', params.status)
       if (params.acknowledged !== undefined) qs.set('acknowledged', String(params.acknowledged))
       if (params.instanceId) qs.set('instance_id', params.instanceId)
       if (params.limit) qs.set('limit', String(params.limit))
@@ -85,6 +87,10 @@ export function useAcknowledge() {
       queryClient.invalidateQueries({ queryKey: ['recommendations'] })
     },
   })
+}
+
+export function useActiveRecommendationCount() {
+  return useRecommendations({ status: 'active' })
 }
 
 export function useRemediationRules() {

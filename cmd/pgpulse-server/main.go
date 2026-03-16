@@ -277,6 +277,21 @@ func main() {
 		}
 		logger.Info("remediation engine initialized", "rules", len(remEngine.Rules()))
 
+		// M10_01: Background advisor evaluation worker.
+		if cfg.Remediation.Enabled {
+			remLister := ml.NewDBInstanceLister(pgPool)
+			bgEval := remediation.NewBackgroundEvaluator(
+				remEngine, remStore, remMetricSource, remLister,
+				cfg.Remediation.BackgroundInterval, cfg.Remediation.RetentionDays, logger,
+			)
+			bgEval.Start(ctx)
+			defer bgEval.Stop()
+			logger.Info("remediation background evaluator started",
+				"interval", cfg.Remediation.BackgroundInterval,
+				"retention_days", cfg.Remediation.RetentionDays,
+			)
+		}
+
 		// Wire auth when enabled — requires a storage DSN (validated in config).
 		if cfg.Auth.Enabled {
 			userStore := auth.NewPGUserStore(pgPool)
