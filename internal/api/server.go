@@ -17,6 +17,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/plans"
 	"github.com/ios9000/PGPulse_01/internal/remediation"
 	"github.com/ios9000/PGPulse_01/internal/settings"
+	"github.com/ios9000/PGPulse_01/internal/statements"
 	"github.com/ios9000/PGPulse_01/internal/storage"
 )
 
@@ -54,6 +55,9 @@ type APIServer struct {
 	remediationEngine *remediation.Engine            // nil until SetRemediation called
 	remediationStore  remediation.RecommendationStore // nil until SetRemediation called
 	metricSource      remediation.MetricSource        // nil until SetRemediation called
+	pgssStore         statements.SnapshotStore        // nil when statement snapshots disabled
+	pgssCapturer      *statements.SnapshotCapturer    // nil when statement snapshots disabled
+	stmtSnapshotsCfg  config.StatementSnapshotsConfig
 	liveMode          bool
 	memoryRetention   time.Duration
 	authMode          auth.AuthMode
@@ -127,6 +131,17 @@ func (s *APIServer) SetRemediation(engine *remediation.Engine, store remediation
 	s.metricSource = source
 }
 
+// SetPGSSStore sets the PGSS snapshot store for statement snapshot endpoints.
+func (s *APIServer) SetPGSSStore(store statements.SnapshotStore, cfg config.StatementSnapshotsConfig) {
+	s.pgssStore = store
+	s.stmtSnapshotsCfg = cfg
+}
+
+// SetPGSSCapturer sets the PGSS snapshot capturer for manual capture endpoint.
+func (s *APIServer) SetPGSSCapturer(c *statements.SnapshotCapturer) {
+	s.pgssCapturer = c
+}
+
 // Routes builds the chi router with all middleware and endpoints.
 func (s *APIServer) Routes() http.Handler {
 	r := chi.NewRouter()
@@ -186,11 +201,20 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/settings/latest", s.handleSettingsLatest)
 				r.Get("/instances/{id}/settings/pending-restart", s.handleSettingsPendingRestart)
 
+				// PGSS snapshot routes (M11_01).
+				r.Get("/instances/{id}/snapshots/diff", s.handleSnapshotDiff)
+				r.Get("/instances/{id}/snapshots/latest-diff", s.handleLatestDiff)
+				r.Get("/instances/{id}/snapshots", s.handleListSnapshots)
+				r.Get("/instances/{id}/snapshots/{snapId}", s.handleGetSnapshot)
+				r.Get("/instances/{id}/query-insights/{queryid}", s.handleQueryInsights)
+				r.Get("/instances/{id}/workload-report", s.handleWorkloadReport)
+
 				// Plan/settings mutation — require instance_management permission.
 				r.Group(func(r chi.Router) {
 					r.Use(auth.RequirePermission(auth.PermInstanceManagement, writeErrorRaw))
 					r.Post("/instances/{id}/plans/capture", s.handleManualCapture)
 					r.Post("/instances/{id}/settings/snapshot", s.handleSettingsManualSnapshot)
+					r.Post("/instances/{id}/snapshots/capture", s.handleManualSnapshotCapture)
 					r.Post("/instances/{id}/sessions/{pid}/cancel", s.handleSessionCancel)
 					r.Post("/instances/{id}/sessions/{pid}/terminate", s.handleSessionTerminate)
 					r.Post("/instances/{id}/explain", s.handleExplain)
@@ -297,6 +321,15 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/settings/latest", s.handleSettingsLatest)
 				r.Get("/instances/{id}/settings/pending-restart", s.handleSettingsPendingRestart)
 				r.Post("/instances/{id}/settings/snapshot", s.handleSettingsManualSnapshot)
+
+				// PGSS snapshot routes (M11_01).
+				r.Get("/instances/{id}/snapshots/diff", s.handleSnapshotDiff)
+				r.Get("/instances/{id}/snapshots/latest-diff", s.handleLatestDiff)
+				r.Get("/instances/{id}/snapshots", s.handleListSnapshots)
+				r.Get("/instances/{id}/snapshots/{snapId}", s.handleGetSnapshot)
+				r.Get("/instances/{id}/query-insights/{queryid}", s.handleQueryInsights)
+				r.Get("/instances/{id}/workload-report", s.handleWorkloadReport)
+				r.Post("/instances/{id}/snapshots/capture", s.handleManualSnapshotCapture)
 
 				// Session kill routes (M8_03).
 				r.Post("/instances/{id}/sessions/{pid}/cancel", s.handleSessionCancel)

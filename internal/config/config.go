@@ -4,16 +4,26 @@ import "time"
 
 // Config is the top-level PGPulse configuration.
 type Config struct {
-	Server           ServerConfig           `koanf:"server"`
-	Storage          StorageConfig          `koanf:"storage"`
-	Auth             AuthConfig             `koanf:"auth"`
-	Alerting         AlertingConfig         `koanf:"alerting"`
-	PlanCapture      PlanCaptureConfig      `koanf:"plan_capture"`
-	SettingsSnapshot SettingsSnapshotConfig `koanf:"settings_snapshot"`
-	ML               MLConfig               `koanf:"ml"`
-	Remediation      RemediationConfig      `koanf:"remediation"`
-	OSMetrics        OSMetricsConfig        `koanf:"os_metrics"`
-	Instances        []InstanceConfig       `koanf:"instances"`
+	Server             ServerConfig             `koanf:"server"`
+	Storage            StorageConfig            `koanf:"storage"`
+	Auth               AuthConfig               `koanf:"auth"`
+	Alerting           AlertingConfig           `koanf:"alerting"`
+	PlanCapture        PlanCaptureConfig        `koanf:"plan_capture"`
+	SettingsSnapshot   SettingsSnapshotConfig   `koanf:"settings_snapshot"`
+	StatementSnapshots StatementSnapshotsConfig `koanf:"statement_snapshots"`
+	ML                 MLConfig                 `koanf:"ml"`
+	Remediation        RemediationConfig        `koanf:"remediation"`
+	OSMetrics          OSMetricsConfig          `koanf:"os_metrics"`
+	Instances          []InstanceConfig         `koanf:"instances"`
+}
+
+// StatementSnapshotsConfig holds PGSS snapshot capture settings (M11_01).
+type StatementSnapshotsConfig struct {
+	Enabled          bool          `koanf:"enabled"`
+	Interval         time.Duration `koanf:"interval"`
+	RetentionDays    int           `koanf:"retention_days"`
+	CaptureOnStartup bool         `koanf:"capture_on_startup"`
+	TopN             int           `koanf:"top_n"`
 }
 
 // RemediationConfig holds background advisor evaluation settings.
