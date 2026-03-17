@@ -47,7 +47,7 @@ export function Advisor() {
   }, [recs])
 
   return (
-    <div>
+    <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Advisor"
         subtitle="Actionable recommendations based on metric analysis"

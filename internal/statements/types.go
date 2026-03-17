@@ -51,7 +51,8 @@ type DiffResult struct {
 	FromSnapshot       Snapshot      `json:"from_snapshot"`
 	ToSnapshot         Snapshot      `json:"to_snapshot"`
 	StatsResetWarning  bool          `json:"stats_reset_warning"`
-	Duration           time.Duration `json:"duration"`
+	Duration           time.Duration `json:"-"`
+	DurationStr        string        `json:"duration"`
 	TotalCallsDelta    int64         `json:"total_calls_delta"`
 	TotalExecTimeDelta float64       `json:"total_exec_time_delta_ms"`
 	Entries            []DiffEntry   `json:"entries"`

@@ -1,6 +1,7 @@
 package statements
 
 import (
+	"fmt"
 	"sort"
 	"time"
 )
@@ -16,10 +17,12 @@ type entryKey struct {
 // Entries present in "to" but not "from" are new queries.
 // Entries present in "from" but not "to" are evicted queries.
 func ComputeDiff(from, to Snapshot, fromEntries, toEntries []SnapshotEntry, opts DiffOptions) *DiffResult {
+	dur := to.CapturedAt.Sub(from.CapturedAt)
 	result := &DiffResult{
 		FromSnapshot: from,
 		ToSnapshot:   to,
-		Duration:     to.CapturedAt.Sub(from.CapturedAt),
+		Duration:     dur,
+		DurationStr:  formatDuration(dur),
 	}
 
 	// Detect stats reset.
@@ -194,6 +197,41 @@ func safeDivFloat(num, denom float64) float64 {
 		return 0
 	}
 	return num / denom
+}
+
+// formatDuration formats a time.Duration as a human-readable string
+// like "4h 24m" or "2d 3h 15m", omitting sub-minute precision.
+func formatDuration(d time.Duration) string {
+	if d < 0 {
+		d = -d
+	}
+	totalMinutes := int(d.Minutes())
+	if totalMinutes == 0 {
+		return "< 1m"
+	}
+
+	days := totalMinutes / (60 * 24)
+	hours := (totalMinutes / 60) % 24
+	minutes := totalMinutes % 60
+
+	var s string
+	if days > 0 {
+		s += fmt.Sprintf("%dd ", days)
+	}
+	if hours > 0 {
+		s += fmt.Sprintf("%dh ", hours)
+	}
+	if minutes > 0 {
+		s += fmt.Sprintf("%dm", minutes)
+	}
+	if s == "" {
+		return "< 1m"
+	}
+	// Trim trailing space.
+	if s[len(s)-1] == ' ' {
+		s = s[:len(s)-1]
+	}
+	return s
 }
 
 func sortEntries(entries []DiffEntry, sortBy string) {
