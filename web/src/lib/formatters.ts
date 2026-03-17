@@ -55,6 +55,32 @@ export function formatTimestamp(isoString: string): string {
   return `${month} ${day}, ${h}:${m}:${s}`
 }
 
+/**
+ * Parse a Go duration string like "4h24m36.79747s" into a human-friendly form.
+ * Examples: "4h24m36.79747s" -> "4h 25m", "30m0s" -> "30m", "5m30s" -> "5m 30s", "45.123s" -> "45s"
+ * Always drops sub-second precision.
+ */
+export function formatDurationHuman(goStr: string): string {
+  const match = goStr.match(/(?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?/)
+  if (!match) return goStr
+  const h = match[1] ? parseInt(match[1]) : 0
+  const m = match[2] ? parseInt(match[2]) : 0
+  const s = match[3] ? Math.round(parseFloat(match[3])) : 0
+
+  const parts: string[] = []
+  if (h > 0) {
+    const roundedM = s >= 30 ? m + 1 : m
+    parts.push(`${h}h`)
+    if (roundedM > 0) parts.push(`${roundedM}m`)
+  } else if (m > 0) {
+    parts.push(`${m}m`)
+    if (s > 0) parts.push(`${s}s`)
+  } else {
+    parts.push(`${s}s`)
+  }
+  return parts.join(' ')
+}
+
 export function thresholdColor(
   value: number,
   warningThreshold: number,

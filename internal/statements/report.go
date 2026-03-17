@@ -15,7 +15,7 @@ func GenerateReport(diff *DiffResult, topN int) *WorkloadReport {
 	report := &WorkloadReport{
 		FromTime:          diff.FromSnapshot.CapturedAt,
 		ToTime:            diff.ToSnapshot.CapturedAt,
-		Duration:          diff.Duration.String(),
+		Duration:          diff.DurationStr,
 		StatsResetWarning: diff.StatsResetWarning,
 	}
 

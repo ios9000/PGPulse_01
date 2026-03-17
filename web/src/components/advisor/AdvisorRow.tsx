@@ -23,6 +23,12 @@ interface AdvisorRowProps {
   rec: Recommendation
 }
 
+function priorityBorderClass(priority: RecommendationPriority): string {
+  if (priority === 'action_required') return 'border-l-4 border-l-red-500'
+  if (priority === 'suggestion') return 'border-l-4 border-l-amber-500'
+  return 'border-l-4 border-l-blue-500'
+}
+
 export function AdvisorRow({ rec }: AdvisorRowProps) {
   const [expanded, setExpanded] = useState(false)
   const [showRuleModal, setShowRuleModal] = useState(false)
@@ -41,7 +47,7 @@ export function AdvisorRow({ rec }: AdvisorRowProps) {
     <>
       <tr
         onClick={() => setExpanded(!expanded)}
-        className="cursor-pointer border-b border-pgp-border transition-colors hover:bg-pgp-bg-hover"
+        className={`cursor-pointer border-b border-pgp-border transition-colors hover:bg-pgp-bg-hover ${priorityBorderClass(rec.priority)}`}
       >
         <td className="px-4 py-3">
           {expanded ? (
