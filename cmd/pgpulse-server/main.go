@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -30,6 +31,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/settings"
 	"github.com/ios9000/PGPulse_01/internal/statements"
 	"github.com/ios9000/PGPulse_01/internal/storage"
+	"github.com/ios9000/PGPulse_01/web"
 )
 
 func main() {
@@ -467,9 +469,21 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 		apiServer.SetPGSSCapturer(pgssCapturer)
 	}
 
+	chiRouter := apiServer.Routes()
+
+	// Desktop mode: serve via Wails native window instead of HTTP server.
+	if GetDesktopMode() == "desktop" {
+		distFS, _ := fs.Sub(web.DistFS, "dist")
+		if err := RunDesktop(chiRouter, distFS); err != nil {
+			logger.Error("desktop mode failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	httpServer := &http.Server{
 		Addr:         cfg.Server.Listen,
-		Handler:      apiServer.Routes(),
+		Handler:      chiRouter,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
