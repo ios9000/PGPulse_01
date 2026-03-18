@@ -66,6 +66,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// In desktop mode, resolve config via dialog if file is missing.
+	if GetDesktopMode() == "desktop" {
+		resolved, resolveErr := ResolveConfigDesktop(*flagConfig)
+		if resolveErr != nil {
+			logger.Error("desktop config resolution failed", "err", resolveErr)
+			os.Exit(1)
+		}
+		*flagConfig = resolved
+	}
+
 	// Load config, allowing missing file when CLI target is provided.
 	cfg, err := config.Load(*flagConfig)
 	if err != nil {
@@ -474,7 +484,11 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 	// Desktop mode: serve via Wails native window instead of HTTP server.
 	if GetDesktopMode() == "desktop" {
 		distFS, _ := fs.Sub(web.DistFS, "dist")
-		if err := RunDesktop(chiRouter, distFS); err != nil {
+		var onAlertHook func(func(alert.AlertEvent))
+		if realDispatcher != nil {
+			onAlertHook = realDispatcher.OnAlert
+		}
+		if err := RunDesktop(chiRouter, distFS, onAlertHook); err != nil {
 			logger.Error("desktop mode failed", "error", err)
 			os.Exit(1)
 		}

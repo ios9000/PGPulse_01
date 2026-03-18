@@ -25,6 +25,8 @@ type Dispatcher struct {
 	cooldowns map[string]time.Time
 
 	remediation RemediationProvider // nil = disabled
+
+	onAlertHooks []func(AlertEvent)
 }
 
 // NewDispatcher creates a dispatcher that delivers events via registered notifiers.
@@ -49,6 +51,15 @@ func NewDispatcher(
 // SetRemediationProvider wires the remediation engine into the dispatcher.
 func (d *Dispatcher) SetRemediationProvider(p RemediationProvider) {
 	d.remediation = p
+}
+
+// OnAlert registers a hook that is called asynchronously for every dispatched
+// alert event (after notifications are sent). This is used by the desktop
+// package to bridge alerts to OS toast notifications.
+func (d *Dispatcher) OnAlert(fn func(AlertEvent)) {
+	d.mu.Lock()
+	d.onAlertHooks = append(d.onAlertHooks, fn)
+	d.mu.Unlock()
 }
 
 // Start begins the background event processing loop.
@@ -114,6 +125,15 @@ func (d *Dispatcher) processEvent(event AlertEvent) {
 
 	if !event.IsResolution {
 		d.recordCooldown(event)
+	}
+
+	// Invoke registered hooks asynchronously (e.g. desktop toast notifications).
+	d.mu.Lock()
+	hooks := make([]func(AlertEvent), len(d.onAlertHooks))
+	copy(hooks, d.onAlertHooks)
+	d.mu.Unlock()
+	for _, hook := range hooks {
+		go hook(event)
 	}
 }
 
