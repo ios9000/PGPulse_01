@@ -207,6 +207,7 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/snapshots", s.handleListSnapshots)
 				r.Get("/instances/{id}/snapshots/{snapId}", s.handleGetSnapshot)
 				r.Get("/instances/{id}/query-insights/{queryid}", s.handleQueryInsights)
+				r.Get("/instances/{id}/workload-report/html", s.handleWorkloadReportHTML)
 				r.Get("/instances/{id}/workload-report", s.handleWorkloadReport)
 
 				// Plan/settings mutation — require instance_management permission.
@@ -328,6 +329,7 @@ func (s *APIServer) Routes() http.Handler {
 				r.Get("/instances/{id}/snapshots", s.handleListSnapshots)
 				r.Get("/instances/{id}/snapshots/{snapId}", s.handleGetSnapshot)
 				r.Get("/instances/{id}/query-insights/{queryid}", s.handleQueryInsights)
+				r.Get("/instances/{id}/workload-report/html", s.handleWorkloadReportHTML)
 				r.Get("/instances/{id}/workload-report", s.handleWorkloadReport)
 				r.Post("/instances/{id}/snapshots/capture", s.handleManualSnapshotCapture)
 

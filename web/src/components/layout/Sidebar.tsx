@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutGrid, Bell, Lightbulb, Settings, Database, GitCompareArrows, ChevronDown, ChevronRight } from 'lucide-react'
+import { LayoutGrid, Bell, Lightbulb, Settings, Database, GitCompareArrows, ChevronDown, ChevronRight, BarChart3, FileText } from 'lucide-react'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Permission } from '@/lib/permissions'
@@ -171,24 +171,53 @@ export function Sidebar() {
             </p>
           )}
           <ul className="space-y-1">
-            {(instances ?? []).map((server) => (
-              <li key={server.id}>
-                <Link
-                  to={`/servers/${server.id}`}
-                  className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-pgp-text-secondary transition-colors hover:bg-pgp-bg-hover hover:text-pgp-text-primary ${
-                    collapsed ? 'justify-center px-2' : ''
-                  } ${
-                    location.pathname === `/servers/${server.id}`
-                      ? 'bg-pgp-bg-hover text-pgp-text-primary'
-                      : ''
-                  }`}
-                  title={collapsed ? (server.name || server.id || `${server.host}:${server.port}`) : undefined}
-                >
-                  <StatusBadge status="ok" size="sm" />
-                  {!collapsed && <span className="truncate">{server.name || server.id || `${server.host}:${server.port}`}</span>}
-                </Link>
-              </li>
-            ))}
+            {(instances ?? []).map((server) => {
+              const serverActive = location.pathname.startsWith(`/servers/${server.id}`)
+              const serverSubItems = [
+                { label: 'Query Insights', icon: BarChart3, path: `/servers/${server.id}/query-insights` },
+                { label: 'Workload Report', icon: FileText, path: `/servers/${server.id}/workload-report` },
+              ]
+              return (
+                <li key={server.id}>
+                  <Link
+                    to={`/servers/${server.id}`}
+                    className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-pgp-text-secondary transition-colors hover:bg-pgp-bg-hover hover:text-pgp-text-primary ${
+                      collapsed ? 'justify-center px-2' : ''
+                    } ${
+                      serverActive
+                        ? 'bg-pgp-bg-hover text-pgp-text-primary'
+                        : ''
+                    }`}
+                    title={collapsed ? (server.name || server.id || `${server.host}:${server.port}`) : undefined}
+                  >
+                    <StatusBadge status="ok" size="sm" />
+                    {!collapsed && <span className="truncate">{server.name || server.id || `${server.host}:${server.port}`}</span>}
+                  </Link>
+                  {serverActive && !collapsed && (
+                    <ul className="ml-5 mt-1 space-y-0.5">
+                      {serverSubItems.map((sub) => {
+                        const subActive = location.pathname === sub.path
+                        return (
+                          <li key={sub.path}>
+                            <Link
+                              to={sub.path}
+                              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors ${
+                                subActive
+                                  ? 'bg-pgp-bg-hover text-pgp-text-primary font-medium'
+                                  : 'text-pgp-text-secondary hover:bg-pgp-bg-hover hover:text-pgp-text-primary'
+                              }`}
+                            >
+                              <sub.icon className="h-3.5 w-3.5 shrink-0" />
+                              {sub.label}
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       </nav>

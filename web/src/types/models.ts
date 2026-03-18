@@ -615,3 +615,133 @@ export interface RemediationRule {
   priority: RecommendationPriority
   category: RecommendationCategory
 }
+
+// --- PGSS Snapshot types (M11_02) ---
+
+export interface PGSSSnapshot {
+  id: number
+  instance_id: string
+  captured_at: string
+  pg_version: number
+  stats_reset?: string
+  total_statements: number
+  total_calls: number
+  total_exec_time_ms: number
+}
+
+export interface PGSSSnapshotEntry {
+  snapshot_id: number
+  queryid: number
+  userid: number
+  dbid: number
+  database_name?: string
+  user_name?: string
+  query: string
+  calls: number
+  total_exec_time_ms: number
+  total_plan_time_ms?: number
+  rows: number
+  shared_blks_hit: number
+  shared_blks_read: number
+  shared_blks_dirtied: number
+  shared_blks_written: number
+  local_blks_hit: number
+  local_blks_read: number
+  temp_blks_read: number
+  temp_blks_written: number
+  blk_read_time_ms: number
+  blk_write_time_ms: number
+  wal_records?: number
+  wal_fpi?: number
+  wal_bytes?: number
+  mean_exec_time_ms?: number
+  min_exec_time_ms?: number
+  max_exec_time_ms?: number
+  stddev_exec_time_ms?: number
+}
+
+export interface PGSSDiffResult {
+  from_snapshot: PGSSSnapshot
+  to_snapshot: PGSSSnapshot
+  stats_reset_warning: boolean
+  duration: number
+  total_calls_delta: number
+  total_exec_time_delta_ms: number
+  entries: PGSSDiffEntry[]
+  new_queries: PGSSDiffEntry[]
+  evicted_queries: PGSSDiffEntry[]
+  total_entries: number
+}
+
+export interface PGSSDiffEntry {
+  queryid: number
+  userid: number
+  dbid: number
+  query: string
+  database_name?: string
+  user_name?: string
+  calls_delta: number
+  exec_time_delta_ms: number
+  plan_time_delta_ms?: number
+  rows_delta: number
+  shared_blks_read_delta: number
+  shared_blks_hit_delta: number
+  temp_blks_read_delta: number
+  temp_blks_written_delta: number
+  blk_read_time_delta_ms: number
+  blk_write_time_delta_ms: number
+  wal_bytes_delta?: number
+  avg_exec_time_per_call_ms: number
+  io_time_pct: number
+  cpu_time_delta_ms: number
+  shared_hit_ratio_pct: number
+}
+
+export interface PGSSQueryInsight {
+  queryid: number
+  query: string
+  database_name: string
+  user_name: string
+  first_seen: string
+  points: PGSSQueryInsightPoint[]
+}
+
+export interface PGSSQueryInsightPoint {
+  captured_at: string
+  calls_delta: number
+  exec_time_delta_ms: number
+  rows_delta: number
+  avg_exec_time_ms: number
+  shared_hit_ratio_pct: number
+}
+
+export interface PGSSWorkloadReport {
+  instance_id: string
+  from_time: string
+  to_time: string
+  duration: string
+  stats_reset_warning: boolean
+  summary: PGSSReportSummary
+  top_by_exec_time: PGSSDiffEntry[]
+  top_by_calls: PGSSDiffEntry[]
+  top_by_rows: PGSSDiffEntry[]
+  top_by_io_reads: PGSSDiffEntry[]
+  top_by_avg_time: PGSSDiffEntry[]
+  new_queries: PGSSDiffEntry[]
+  evicted_queries: PGSSDiffEntry[]
+}
+
+export interface PGSSReportSummary {
+  total_queries: number
+  total_calls_delta: number
+  total_exec_time_delta_ms: number
+  total_rows_delta: number
+  unique_queries: number
+  new_queries: number
+  evicted_queries: number
+}
+
+export interface PGSSSnapshotListResponse {
+  snapshots: PGSSSnapshot[]
+  total: number
+}
