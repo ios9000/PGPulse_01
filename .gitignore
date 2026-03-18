@@ -28,3 +28,7 @@ Thumbs.db
 web/node_modules/
 web/dist/
 .claude/worktrees/
+deploy/nsis/pgpulse-desktop.exe
+deploy/nsis/pgpulse-setup.exe
+pgpulse-desktop.exe
+pgpulse-server.exe
