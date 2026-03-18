@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-14
+**Last updated:** 2026-03-17
 
 ---
 
@@ -21,6 +21,12 @@
 | REM_01b | Remediation Frontend + Backend Gaps | ✅ Done | 2026-03-14 |
 | REM_01c | Remediation Metric Key Fix (bugfix) | ✅ Done | 2026-03-14 |
 | M9_01 | Alert & Advisor Polish | ✅ Done | 2026-03-14 |
+| M_UX_01 | Alert Detail Panel + UX Polish | ✅ Done | 2026-03-15 |
+| M10_01 | Advisor Background Evaluation | ✅ Done | 2026-03-16 |
+| M11_01 | PGSS Snapshots (Backend) | ✅ Done | 2026-03-16 |
+| M11_02 | Query Insights UI + Workload Report | ✅ Done | 2026-03-16 |
+| M12_01 | Core Desktop (Wails v3) | ✅ Done | 2026-03-17 |
+| M12_02 | UX + Installer (Wails v3) | 🔲 Next | — |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
 
@@ -33,6 +39,32 @@
 | REM_01a | Rule-based remediation engine: 25 rules (17 PG + 8 OS), Engine, PGStore, NullStore, AlertAdapter, 5 API endpoints, dispatcher integration | 2026-03-13 | ✅ Done |
 | REM_01b | Remediation frontend + backend gaps: Advisor page, Diagnose button, alert enrichment, email template recommendations, AlertRow expand/collapse, handler/store tests | 2026-03-14 | ✅ Done |
 | REM_01c | Metric key fix: 13 broken rules corrected, dual OS prefix support (os.*/pg.os.*), wraparound metric added to server_info collector | 2026-03-14 | ✅ Done |
+
+---
+
+## M12 Sub-Iterations
+
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M12_01 | Core Desktop: Wails v3 scaffold, build tags, chi→Wails integration, native window (1440x900), system tray (show/hide, severity icons), --mode flag, placeholder icons | 2026-03-17 | ✅ Done |
+| M12_02 | UX + Installer: connection dialog, OS toast notifications, NSIS installer | — | 🔲 Next |
+
+---
+
+## M11 Sub-Iterations
+
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M11_01 | PGSS Snapshots backend: SnapshotCapturer, ComputeDiff, pgss_snapshots tables, 7 API endpoints | 2026-03-16 | ✅ Done |
+| M11_02 | Query Insights UI + Workload Report: 10 React components, HTML export, snapshot selector | 2026-03-16 | ✅ Done |
+
+---
+
+## M10_01 Sub-Iterations
+
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M10_01 | Advisor background evaluation: BackgroundEvaluator worker, PGStore for recommendations, retention cleanup | 2026-03-16 | ✅ Done |
 
 ---
 

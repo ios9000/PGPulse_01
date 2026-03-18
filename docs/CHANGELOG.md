@@ -1,3 +1,26 @@
+## [M12_01] — 2026-03-17 — Core Desktop (Wails v3)
+
+### Added
+- **Wails v3 desktop shell** — native Windows window via `go build -tags desktop`
+- **`internal/desktop/` package** — `DesktopApp` (app.go), `SystemTray` (tray.go), icon embedding (icon.go)
+- **`--mode` flag** — `--mode=desktop` activates Wails native window; `--mode=server` (default) runs headless HTTP server
+- **System tray** — green/yellow/red severity icons, left-click show/hide toggle, right-click context menu (Show / Status / Quit)
+- **Window close → hide** — close button minimizes to tray instead of quitting
+- **Build-tag gating** — ALL Wails code behind `//go:build desktop`; standard build unchanged, zero Wails symbols
+- **Chi router as AssetOptions.Handler** — zero frontend changes; React app works identically through Wails in-memory IPC
+- **Placeholder icons** — generated via `cmd/icongen/main.go` (64x64 colored circles + 32x32 ICO)
+- **Wails v3 alpha.74** dependency pinned in go.mod
+
+### Changed
+- Go version bumped from 1.24 to 1.25 (required by Wails v3 alpha.74)
+
+### Notes
+- 2-agent execution (Desktop/Backend + QA/Build), ~20 min total
+- 16 files changed, +565 lines
+- All checks pass: standard build, desktop build, symbol verification, tests, lint, frontend
+
+---
+
 ## [M9_01] — 2026-03-14 — Alert & Advisor Polish
 
 ### Fixed

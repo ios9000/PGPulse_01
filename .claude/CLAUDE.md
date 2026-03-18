@@ -30,7 +30,7 @@ PostgreSQL Health & Activity Monitor — Go rewrite of legacy PGAM PHP tool.
 Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
 
 ## Stack
-- Language: Go 1.24.0
+- Language: Go 1.25.0
 - PG Driver: jackc/pgx v5 (5.8.0)
 - HTTP: go-chi/chi v5 (5.2.5)
 - JWT: golang-jwt/jwt v5 (5.2.2)
@@ -42,6 +42,7 @@ Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
 - Linter: golangci-lint v2.10.1 (v2 config format)
 - Frontend: React + TypeScript + Tailwind CSS + Apache ECharts (embedded via go:embed, M5)
 - ML: gonum.org/v1/gonum (M8)
+- Desktop: Wails v3 alpha.74 (build-tag gated `//go:build desktop`, M12)
 
 ## Agent Teams Configuration
 This project uses Claude Code Agent Teams (in-process mode on Windows/Git Bash).
@@ -81,8 +82,9 @@ shared task list.
 - Merge order: version/interfaces → collector → storage → API → auth → QA tests
 
 ## Project Structure
-- cmd/ — binary entrypoints (server + agent)
-- internal/ — all business logic (collector, storage, api, auth, alert, config, orchestrator, version)
+- cmd/ — binary entrypoints (server + agent + icongen tool)
+- internal/ — all business logic (collector, storage, api, auth, alert, config, orchestrator, version, desktop)
+- internal/desktop/ — Wails v3 desktop shell (build-tag gated, M12)
 - web/ — embedded frontend (React/TS/Tailwind/ECharts, complete as of M5, go:embed)
 - migrations/ — SQL migrations embedded in internal/storage/migrations/
 - deploy/ — Docker, Helm, systemd
@@ -203,19 +205,21 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-M11_02 — Query Insights UI + Workload Report + HTML Export
-See: docs/iterations/M11_02_03162026_query-insights-ui/
+M12_02 — UX + Installer (Wails v3)
+See: docs/iterations/M12_02_03172026_ux-installer
 
 ### What Was Just Completed
-M9_01 — Alert & Advisor Polish (metric keys + UI nav + cosmetic fixes):
-- Fixed 12 alert rule metric key mismatches to match canonical collector keys
-- Added AlertsTabBar component (Active | History | Rules tabs)
-- Made sidebar Alerts item expandable with Dashboard/Rules sub-items
-- Fixed parseHostPort/extractHostPort to handle keyword/value DSN format
-- Added MetricKey/MetricValue to RuleResult, populated in Diagnose mode
-- Updated DiagnosePanel to display formatted metric values
-Build: clean. See: docs/iterations/M9_01_03142026_alert-rules-fix/
+M12_01 — Core Desktop (Wails v3):
+- Wails v3 alpha.74 dependency (build-tag gated: `//go:build desktop`)
+- `internal/desktop/` package: app.go, tray.go, icon.go, stub.go
+- `--mode=desktop|server` flag via `cmd/pgpulse-server/desktop.go` + `desktop_stub.go`
+- Chi router as `AssetOptions.Handler` — zero frontend changes
+- System tray with show/hide toggle, status menu, severity-colored icons
+- Window close → hide to tray; 1440x900, min 1024x700
+- Standard build unchanged — no Wails symbols in binary
+- 16 files changed, 565 lines added
+Build: clean. See: docs/iterations/M12_01_03172026_core-desktop/
 
 ### What's Next
-M9_02+ — Reports & Export.
-See: docs/iterations/HANDOFF_M8_to_M9.md
+M12_02 — Connection dialog (C-01→C-05), OS notifications (N-01→N-06), NSIS installer (I-01→I-07).
+See: docs/iterations/M12_01_03172026_core-desktop/HANDOFF_M12_01_to_M12_02.md
