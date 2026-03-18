@@ -63,3 +63,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--pgp-text-muted);
 }
+
+/* Print styles for workload report */
+@media print {
+  nav, .sidebar, .topbar, header, .no-print, .print\:hidden { display: none !important; }
+  main, .content { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  .report-section { page-break-before: auto; page-break-inside: avoid; }
+  body { background: white !important; color: black !important; }
+}

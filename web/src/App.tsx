@@ -15,6 +15,8 @@ import { UsersPage } from '@/pages/admin/UsersPage'
 import { Login } from '@/pages/Login'
 import { QueryPlanViewer } from '@/pages/QueryPlanViewer'
 import { SettingsDiff } from '@/pages/SettingsDiff'
+import { QueryInsights } from '@/pages/QueryInsights'
+import { WorkloadReport } from '@/pages/WorkloadReport'
 import { NotFound } from '@/pages/NotFound'
 import { useAuthStore } from '@/stores/authStore'
 import { pgpulseTheme } from '@/lib/echartsTheme'
@@ -40,6 +42,8 @@ export function App() {
           <Route path="servers/:serverId" element={<ServerDetail />} />
           <Route path="servers/:serverId/databases/:dbName" element={<DatabaseDetail />} />
           <Route path="servers/:serverId/explain" element={<QueryPlanViewer />} />
+          <Route path="servers/:serverId/query-insights" element={<QueryInsights />} />
+          <Route path="servers/:serverId/workload-report" element={<WorkloadReport />} />
           <Route path="settings/diff" element={<SettingsDiff />} />
           <Route path="alerts" element={<AlertsDashboard />} />
           <Route path="advisor" element={<Advisor />} />
