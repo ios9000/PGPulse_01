@@ -1,0 +1,24 @@
+# PGPulse Configuration
+# Edit this file to configure your PostgreSQL monitoring
+
+server:
+  listen: ":8989"
+  log_level: "info"
+
+# Uncomment and configure to monitor a PostgreSQL instance:
+# instances:
+#   - id: "my-server"
+#     name: "My PostgreSQL Server"
+#     dsn: "postgres://pgpulse_monitor:password@localhost:5432/postgres?sslmode=disable"
+
+# Uncomment to enable persistent storage:
+# storage:
+#   dsn: "postgres://pgpulse:password@localhost:5432/pgpulse?sslmode=disable"
+
+# Authentication (requires storage)
+# auth:
+#   enabled: true
+#   jwt_secret: "change-me-to-a-random-string"
+#   initial_admin:
+#     username: "admin"
+#     password: "change-me"
