@@ -116,6 +116,38 @@ func validate(cfg *Config) error {
 		cfg.StatementSnapshots.TopN = 50
 	}
 
+	// RCA defaults.
+	if cfg.RCA.LookbackWindow == 0 {
+		cfg.RCA.LookbackWindow = 30 * time.Minute
+	}
+	if cfg.RCA.AutoTriggerSeverity == "" {
+		cfg.RCA.AutoTriggerSeverity = "critical"
+	}
+	if cfg.RCA.MaxIncidentsPerHour == 0 {
+		cfg.RCA.MaxIncidentsPerHour = 10
+	}
+	if cfg.RCA.RetentionDays == 0 {
+		cfg.RCA.RetentionDays = 90
+	}
+	if cfg.RCA.MaxTraversalDepth == 0 {
+		cfg.RCA.MaxTraversalDepth = 5
+	}
+	if cfg.RCA.MaxCandidateChains == 0 {
+		cfg.RCA.MaxCandidateChains = 5
+	}
+	if cfg.RCA.MaxMetricsPerRun == 0 {
+		cfg.RCA.MaxMetricsPerRun = 50
+	}
+	if cfg.RCA.MinEdgeScore == 0 {
+		cfg.RCA.MinEdgeScore = 0.25
+	}
+	if cfg.RCA.MinChainScore == 0 {
+		cfg.RCA.MinChainScore = 0.40
+	}
+	if cfg.RCA.DeferredForwardTail == 0 {
+		cfg.RCA.DeferredForwardTail = 5 * time.Minute
+	}
+
 	if len(cfg.Instances) == 0 {
 		return fmt.Errorf("at least one instance must be configured")
 	}

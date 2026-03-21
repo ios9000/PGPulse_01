@@ -27,6 +27,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/orchestrator"
 	"github.com/ios9000/PGPulse_01/internal/plans"
+	"github.com/ios9000/PGPulse_01/internal/rca"
 	"github.com/ios9000/PGPulse_01/internal/remediation"
 	"github.com/ios9000/PGPulse_01/internal/settings"
 	"github.com/ios9000/PGPulse_01/internal/statements"
@@ -308,6 +309,55 @@ func main() {
 			)
 		}
 
+		// M14_01: RCA correlation engine setup.
+		var rcaEngine *rca.Engine
+		var rcaStore rca.IncidentStore = rca.NewNullIncidentStore()
+		if cfg.RCA.Enabled {
+			rcaStore = rca.NewPGIncidentStore(pgPool)
+
+			// Build anomaly source: prefer ML, fall back to threshold.
+			var anomalySource rca.AnomalySource
+			anomalySource = rca.NewThresholdAnomalySource(store)
+			if cfg.ML.Enabled && mlDetector != nil {
+				anomalySource = rca.NewMLAnomalySource(mlDetector, store)
+			}
+
+			rcaCfg := rca.RCAConfig{
+				Enabled:                 cfg.RCA.Enabled,
+				LookbackWindow:          cfg.RCA.LookbackWindow,
+				AutoTriggerSeverity:     cfg.RCA.AutoTriggerSeverity,
+				MaxIncidentsPerHour:     cfg.RCA.MaxIncidentsPerHour,
+				RetentionDays:           cfg.RCA.RetentionDays,
+				MaxTraversalDepth:       cfg.RCA.MaxTraversalDepth,
+				MaxCandidateChains:      cfg.RCA.MaxCandidateChains,
+				MaxMetricsPerRun:        cfg.RCA.MaxMetricsPerRun,
+				MinEdgeScore:            cfg.RCA.MinEdgeScore,
+				MinChainScore:           cfg.RCA.MinChainScore,
+				DeferredForwardTail:     cfg.RCA.DeferredForwardTail,
+				QualityBannerEnabled:    cfg.RCA.QualityBannerEnabled,
+				RemediationHooksEnabled: cfg.RCA.RemediationHooksEnabled,
+			}
+
+			rcaEngine = rca.NewEngine(rca.EngineOptions{
+				Graph:       rca.NewDefaultGraph(),
+				Anomaly:     anomalySource,
+				Store:       rcaStore,
+				MetricStore: store,
+				Config:      rcaCfg,
+			})
+
+			// Auto-trigger on critical alerts.
+			if realDispatcher != nil {
+				rcaTrigger := rca.NewAutoTrigger(rcaEngine, rcaCfg)
+				rcaTrigger.RegisterHook(realDispatcher)
+			}
+
+			logger.Info("RCA engine initialized",
+				"chains", len(rca.AllChainIDs),
+				"auto_trigger", cfg.RCA.AutoTriggerSeverity,
+			)
+		}
+
 		// M11_01: Statement snapshots store + capturer.
 		var pgssStore statements.SnapshotStore = &statements.NullSnapshotStore{}
 		var pgssCapturer *statements.SnapshotCapturer
@@ -359,6 +409,7 @@ func main() {
 			apiServer.SetSnapshotStore(snapshotStore)
 			apiServer.SetRemediation(remEngine, remStore, remMetricSource)
 			apiServer.SetPGSSStore(pgssStore, cfg.StatementSnapshots)
+			apiServer.SetRCA(rcaEngine, rcaStore)
 			if mlDetector != nil {
 				apiServer.SetMLDetector(mlDetector, cfg.ML)
 			}
@@ -374,6 +425,7 @@ func main() {
 		apiServer.SetSnapshotStore(snapshotStore)
 		apiServer.SetRemediation(remEngine, remStore, remMetricSource)
 		apiServer.SetPGSSStore(pgssStore, cfg.StatementSnapshots)
+		apiServer.SetRCA(rcaEngine, rcaStore)
 		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore)
 	} else if len(cfg.Instances) > 0 {
 		// Live mode — in-memory storage with configured instances.

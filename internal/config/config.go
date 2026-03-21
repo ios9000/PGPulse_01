@@ -13,8 +13,26 @@ type Config struct {
 	StatementSnapshots StatementSnapshotsConfig `koanf:"statement_snapshots"`
 	ML                 MLConfig                 `koanf:"ml"`
 	Remediation        RemediationConfig        `koanf:"remediation"`
+	RCA                RCAConfig                `koanf:"rca"`
 	OSMetrics          OSMetricsConfig          `koanf:"os_metrics"`
 	Instances          []InstanceConfig         `koanf:"instances"`
+}
+
+// RCAConfig holds root cause analysis engine settings (M14).
+type RCAConfig struct {
+	Enabled                 bool          `koanf:"enabled"`
+	LookbackWindow          time.Duration `koanf:"lookback_window"`
+	AutoTriggerSeverity     string        `koanf:"auto_trigger_severity"`
+	MaxIncidentsPerHour     int           `koanf:"max_incidents_per_hour"`
+	RetentionDays           int           `koanf:"retention_days"`
+	MaxTraversalDepth       int           `koanf:"max_traversal_depth"`
+	MaxCandidateChains      int           `koanf:"max_candidate_chains"`
+	MaxMetricsPerRun        int           `koanf:"max_metrics_per_run"`
+	MinEdgeScore            float64       `koanf:"min_edge_score"`
+	MinChainScore           float64       `koanf:"min_chain_score"`
+	DeferredForwardTail     time.Duration `koanf:"deferred_forward_tail"`
+	QualityBannerEnabled    bool          `koanf:"quality_banner_enabled"`
+	RemediationHooksEnabled bool          `koanf:"remediation_hooks_enabled"`
 }
 
 // StatementSnapshotsConfig holds PGSS snapshot capture settings (M11_01).

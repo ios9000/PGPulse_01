@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -95,6 +96,77 @@ func (m *MemoryStore) Close() error {
 		close(m.done)
 	}
 	return nil
+}
+
+// GetMetricStats computes statistics for the given metrics from in-memory data.
+func (m *MemoryStore) GetMetricStats(_ context.Context, instanceID string, keys []string, from, to time.Time) (map[string]MetricStats, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	keySet := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		keySet[k] = true
+	}
+
+	// Collect values per metric.
+	buckets := make(map[string][]float64)
+	for storageKey, points := range m.data {
+		parts := strings.SplitN(storageKey, "\x00", 3)
+		if len(parts) < 2 {
+			continue
+		}
+		if instanceID != "" && parts[0] != instanceID {
+			continue
+		}
+		if !keySet[parts[1]] {
+			continue
+		}
+		for _, p := range points {
+			if !from.IsZero() && p.Timestamp.Before(from) {
+				continue
+			}
+			if !to.IsZero() && p.Timestamp.After(to) {
+				continue
+			}
+			buckets[parts[1]] = append(buckets[parts[1]], p.Value)
+		}
+	}
+
+	result := make(map[string]MetricStats)
+	for metric, values := range buckets {
+		if len(values) == 0 {
+			continue
+		}
+		var sum float64
+		mn := values[0]
+		mx := values[0]
+		for _, v := range values {
+			sum += v
+			if v < mn {
+				mn = v
+			}
+			if v > mx {
+				mx = v
+			}
+		}
+		mean := sum / float64(len(values))
+		var variance float64
+		if len(values) > 1 {
+			for _, v := range values {
+				d := v - mean
+				variance += d * d
+			}
+			variance /= float64(len(values) - 1) // sample variance
+		}
+		result[metric] = MetricStats{
+			Mean:   mean,
+			StdDev: math.Sqrt(variance),
+			Min:    mn,
+			Max:    mx,
+			Count:  len(values),
+		}
+	}
+	return result, nil
 }
 
 // storageKey builds a deterministic map key from instanceID, metric, and sorted labels.
