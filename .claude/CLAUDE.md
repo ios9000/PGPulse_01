@@ -205,8 +205,8 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-M12_02 — UX + Installer (Wails v3)
-See: docs/iterations/M12_02_03172026_ux-installer
+M14_02 — RCA UI (incidents page, timeline visualization, alert integration)
+See: docs/iterations/M14_02_03212026_rca-ui
 
 ### What Was Just Completed
 M12_01 — Core Desktop (Wails v3):

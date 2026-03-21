@@ -1,0 +1,8 @@
+server:
+  listen: ":8989"
+  log_level: debug
+
+instances:
+  - id: demo-primary
+    name: "Demo Primary"
+    dsn: "postgresql://pgpulse_monitor:pgpulse_monitor_demo@185.159.111.139:5432/postgres?sslmode=disable"

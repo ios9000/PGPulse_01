@@ -1,0 +1,186 @@
+# =============================================================================
+# PGPulse Desktop — Example Configuration
+# =============================================================================
+#
+# Copy this file to pgpulse.yml and edit for your environment.
+# Launch: pgpulse.exe --mode=desktop --config=pgpulse.yml
+#
+# Minimal setup requires only the "instances" section.
+# Add "storage" for persistent history and "alerting" for email notifications.
+#
+
+# -----------------------------------------------------------------------------
+# Server settings
+# -----------------------------------------------------------------------------
+server:
+  listen: ":8989"            # HTTP port (used in server mode; desktop uses IPC)
+  log_level: info            # debug | info | warn | error
+
+# -----------------------------------------------------------------------------
+# Storage database (REQUIRED for alerts, history, ML, and advisor)
+#
+# Without this section, PGPulse runs in live mode — metrics are held in memory
+# for the current session only. No alerts, no history, no email notifications.
+#
+# The storage database can be:
+#   - On the same server you're monitoring
+#   - A separate PostgreSQL instance
+#   - A local PostgreSQL on your Windows machine
+#
+# PGPulse creates its tables automatically on first startup.
+# -----------------------------------------------------------------------------
+storage:
+  dsn: "postgresql://pgpulse_admin:CHANGE_ME@storage-host:5432/pgpulse_storage?sslmode=disable"
+  use_timescaledb: true      # set false if TimescaleDB is not installed
+  retention_days: 30         # how many days of metric history to keep
+
+# -----------------------------------------------------------------------------
+# Authentication
+#
+# Recommended for production. When enabled, users must log in.
+# On first startup, the initial admin account is created automatically.
+# Change the password after first login.
+# -----------------------------------------------------------------------------
+auth:
+  enabled: true
+  jwt_secret: "CHANGE-ME-to-a-random-string-at-least-32-chars"
+  initial_admin:
+    username: admin
+    password: changeme       # change this after first login!
+
+# -----------------------------------------------------------------------------
+# Alerting engine + email notifications
+#
+# Requires storage.dsn to be configured (alert rules are stored in the DB).
+# Built-in rules for replication lag, connections, cache, wraparound, etc.
+# are seeded automatically on first startup.
+# -----------------------------------------------------------------------------
+alerting:
+  enabled: true
+  default_consecutive_count: 3    # fire after 3 consecutive violations (~30s)
+  default_cooldown_minutes: 15    # don't re-send same alert within 15 min
+  default_channels:
+    - email
+  dashboard_url: ""               # optional: base URL for links in emails
+                                  # e.g. "http://pgpulse-host:8989"
+
+  # SMTP email configuration
+  email:
+    host: smtp.yourcompany.com    # SMTP server
+    port: 587                     # 587 (STARTTLS), 465 (SSL), or 25 (plain)
+    username: alerts@yourcompany.com
+    password: CHANGE_ME
+    from: pgpulse@yourcompany.com
+    recipients:                   # who receives alert emails
+      - dba-team@yourcompany.com
+      - oncall@yourcompany.com
+    tls_skip_verify: false        # true only for self-signed SMTP certs
+    send_timeout_seconds: 10
+
+# -----------------------------------------------------------------------------
+# ML anomaly detection and forecasting (optional)
+#
+# Builds per-metric seasonal baselines and flags anomalies.
+# Requires storage.dsn and sufficient history (at least 24 hours).
+# -----------------------------------------------------------------------------
+# ml:
+#   enabled: true
+#   zscore_threshold_warning: 2.0
+#   zscore_threshold_critical: 3.0
+#   collection_interval: 60s
+#   forecast:
+#     horizon: 60
+#     confidence_z: 1.96
+
+# -----------------------------------------------------------------------------
+# Background advisor (optional)
+#
+# Periodically evaluates all instances against remediation rules and
+# generates recommendations (unused indexes, bloat, vacuum health, etc.).
+# Requires storage.dsn.
+# -----------------------------------------------------------------------------
+# remediation:
+#   enabled: true
+#   background_interval: 5m
+#   retention_days: 30
+
+# -----------------------------------------------------------------------------
+# pg_stat_statements snapshots (optional)
+#
+# Captures periodic snapshots for Query Insights and Workload Reports.
+# Requires storage.dsn and pg_stat_statements enabled on monitored instances.
+# -----------------------------------------------------------------------------
+# statement_snapshots:
+#   enabled: true
+#   interval: 30m
+#   retention_days: 30
+#   capture_on_startup: true
+#   top_n: 50
+
+# -----------------------------------------------------------------------------
+# Settings snapshots (optional)
+#
+# Tracks pg_settings changes over time. Shows diffs in Settings Timeline.
+# Requires storage.dsn.
+# -----------------------------------------------------------------------------
+# settings_snapshot:
+#   enabled: true
+#   scheduled_interval: 1h
+#   capture_on_startup: true
+#   retention_days: 30
+
+# -----------------------------------------------------------------------------
+# OS metrics collection method
+#
+# "sql"      — collect via pg_read_file('/proc/*') (default, Linux targets only)
+# "agent"    — collect from pgpulse-agent HTTP endpoint
+# "disabled" — skip OS metrics
+# -----------------------------------------------------------------------------
+os_metrics:
+  method: sql
+
+# -----------------------------------------------------------------------------
+# Monitored PostgreSQL instances
+#
+# Each instance needs a unique id and a DSN connection string.
+# The monitoring user should have the pg_monitor role.
+#
+# DSN format: postgresql://user:password@host:port/database?sslmode=disable
+#
+# Collection intervals (optional per instance):
+#   high:   connections, locks, wait events        (default: 10s)
+#   medium: statements, replication, checkpoints   (default: 60s)
+#   low:    database sizes, settings, server info  (default: 300s)
+# -----------------------------------------------------------------------------
+instances:
+
+  - id: primary
+    name: "Production Primary"
+    dsn: "postgresql://pgpulse_monitor:CHANGE_ME@db-primary:5432/postgres?sslmode=disable"
+    max_conns: 5               # connection pool size (default: 5)
+    intervals:
+      high: 10s
+      medium: 60s
+      low: 300s
+    # include_databases: []    # empty = monitor all databases
+    # exclude_databases:
+    #   - template0
+    #   - template1
+
+  - id: replica-1
+    name: "Read Replica 1"
+    dsn: "postgresql://pgpulse_monitor:CHANGE_ME@db-replica-1:5432/postgres?sslmode=disable"
+
+  # Add more instances as needed:
+  #
+  # - id: replica-2
+  #   name: "Read Replica 2"
+  #   dsn: "postgresql://pgpulse_monitor:CHANGE_ME@db-replica-2:5432/postgres?sslmode=disable"
+  #
+  # - id: analytics
+  #   name: "Analytics DB"
+  #   dsn: "postgresql://pgpulse_monitor:CHANGE_ME@analytics-db:5432/postgres?sslmode=disable"
+  #   intervals:
+  #     high: 30s              # less frequent for low-priority instance
+  #     medium: 120s
+  #     low: 600s
