@@ -96,6 +96,7 @@ export function AlertsDashboard() {
                     <th className="px-4 py-3 text-right text-xs font-medium uppercase text-pgp-text-muted">
                       Duration
                     </th>
+                    <th className="w-12 px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody>

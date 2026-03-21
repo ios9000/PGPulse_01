@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
-import { X, ExternalLink, AlertTriangle, AlertCircle, Info } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { X, ExternalLink, AlertTriangle, AlertCircle, Info, Search, Loader2 } from 'lucide-react'
 import { formatTimestamp } from '@/lib/formatters'
 import { getMetricDescription, getMetricPageLink } from '@/lib/metricDescriptions'
 import { PriorityBadge } from '@/components/advisor/PriorityBadge'
+import { ConfidenceBadge } from '@/components/rca/ConfidenceBadge'
+import { useInstanceRCAIncidents, useRCAAnalyze } from '@/hooks/useRCA'
 import type { AlertEvent, AlertRule } from '@/types/models'
 
 interface AlertDetailPanelProps {
@@ -46,9 +48,17 @@ function operatorLabel(op: string): string {
 
 export function AlertDetailPanel({ alert, rules, onClose }: AlertDetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
   const metricDesc = getMetricDescription(alert.metric)
   const rule = rules.find((r) => r.id === alert.rule_id)
   const pageLink = getMetricPageLink(alert.metric, alert.instance_id)
+
+  const { data: rcaData } = useInstanceRCAIncidents(alert.instance_id, { limit: 3 })
+  const analyzeMutation = useRCAAnalyze()
+
+  const matchingIncidents = (rcaData?.incidents ?? []).filter(
+    (i) => i.trigger_metric === alert.metric,
+  )
 
   // Close on click outside
   useEffect(() => {
@@ -211,6 +221,55 @@ export function AlertDetailPanel({ alert, rules, onClose }: AlertDetailPanelProp
             </div>
           </div>
         )}
+
+        {/* Root Cause Analysis */}
+        <div className="border-b border-pgp-border px-6 py-4">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-pgp-text-muted">
+            Root Cause Analysis
+          </h3>
+          {matchingIncidents.length > 0 ? (
+            <div className="space-y-2">
+              {matchingIncidents.map((incident) => (
+                <div
+                  key={incident.id}
+                  className="flex items-start justify-between gap-3 rounded-md border border-pgp-border bg-pgp-bg-secondary p-3"
+                >
+                  <div className="flex-1">
+                    <p className="text-sm text-pgp-text-primary">{incident.summary}</p>
+                  </div>
+                  <ConfidenceBadge bucket={incident.confidence_bucket} score={incident.confidence} />
+                </div>
+              ))}
+              <Link
+                to={`/servers/${alert.instance_id}/rca/incidents/${matchingIncidents[0].id}`}
+                className="inline-flex items-center gap-1 text-sm text-pgp-accent hover:text-pgp-accent/80"
+              >
+                View full analysis
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          ) : (
+            <button
+              onClick={async () => {
+                const result = await analyzeMutation.mutateAsync({
+                  instanceId: alert.instance_id,
+                  metric: alert.metric,
+                  value: alert.value,
+                })
+                navigate(`/servers/${alert.instance_id}/rca/incidents/${result.id}`)
+              }}
+              disabled={analyzeMutation.isPending}
+              className="inline-flex items-center gap-2 rounded-md border border-pgp-border px-3 py-2 text-sm text-pgp-text-secondary transition-colors hover:bg-pgp-bg-hover hover:text-pgp-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {analyzeMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              {analyzeMutation.isPending ? 'Analyzing...' : 'Investigate Root Cause'}
+            </button>
+          )}
+        </div>
 
         {/* Quick Links */}
         <div className="px-6 py-4">

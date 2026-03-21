@@ -1,5 +1,8 @@
+import { useNavigate } from 'react-router-dom'
+import { Search, Loader2 } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatTimestamp, formatDuration } from '@/lib/formatters'
+import { useRCAAnalyze } from '@/hooks/useRCA'
 import type { AlertEvent } from '@/types/models'
 
 interface AlertRowProps {
@@ -27,7 +30,19 @@ function severityBorderClass(severity: string): string {
 }
 
 export function AlertRow({ alert, onClick }: AlertRowProps) {
+  const navigate = useNavigate()
+  const analyzeMutation = useRCAAnalyze()
   const isResolved = !!alert.resolved_at
+
+  const handleInvestigate = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const result = await analyzeMutation.mutateAsync({
+      instanceId: alert.instance_id,
+      metric: alert.metric,
+      value: alert.value,
+    })
+    navigate(`/servers/${alert.instance_id}/rca/incidents/${result.id}`)
+  }
 
   return (
     <tr
@@ -63,6 +78,20 @@ export function AlertRow({ alert, onClick }: AlertRowProps) {
       </td>
       <td className="px-4 py-3 text-right text-sm text-pgp-text-muted">
         {alertDuration(alert)}
+      </td>
+      <td className="px-4 py-3 text-right">
+        <button
+          onClick={handleInvestigate}
+          disabled={analyzeMutation.isPending}
+          className="inline-flex items-center justify-center rounded-md p-1.5 text-pgp-text-muted transition-colors hover:bg-pgp-bg-hover hover:text-pgp-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          title="Investigate root cause"
+        >
+          {analyzeMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Search className="h-4 w-4" />
+          )}
+        </button>
       </td>
     </tr>
   )
