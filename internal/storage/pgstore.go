@@ -108,6 +108,51 @@ func (s *PGStore) Close() error {
 	return nil
 }
 
+// MetricStats holds aggregate statistics for a metric in a time range.
+type MetricStats struct {
+	Mean   float64
+	StdDev float64
+	Min    float64
+	Max    float64
+	Count  int
+}
+
+// GetMetricStats computes aggregate statistics for multiple metrics in a time range.
+// Used by the RCA engine for threshold-based anomaly detection baseline.
+func (s *PGStore) GetMetricStats(ctx context.Context, instanceID string, keys []string, from, to time.Time) (map[string]MetricStats, error) {
+	qCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	sql := `SELECT metric, avg(value), stddev_samp(value), min(value), max(value), count(*)
+            FROM metrics
+            WHERE instance_id = $1 AND metric = ANY($2) AND time >= $3 AND time <= $4
+            GROUP BY metric`
+
+	rows, err := s.pool.Query(qCtx, sql, instanceID, keys, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("get metric stats: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]MetricStats)
+	for rows.Next() {
+		var metric string
+		var ms MetricStats
+		var stddev *float64 // stddev_samp returns NULL for single row
+		if err := rows.Scan(&metric, &ms.Mean, &stddev, &ms.Min, &ms.Max, &ms.Count); err != nil {
+			return nil, fmt.Errorf("scan metric stats: %w", err)
+		}
+		if stddev != nil {
+			ms.StdDev = *stddev
+		}
+		result[metric] = ms
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("metric stats rows: %w", err)
+	}
+	return result, nil
+}
+
 // buildQuery constructs the SELECT SQL and positional args for a MetricQuery.
 // Kept unexported; tests are in the same package.
 func buildQuery(q collector.MetricQuery) (string, []any) {

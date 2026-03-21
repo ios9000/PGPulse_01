@@ -15,6 +15,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/config"
 	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/plans"
+	"github.com/ios9000/PGPulse_01/internal/rca"
 	"github.com/ios9000/PGPulse_01/internal/remediation"
 	"github.com/ios9000/PGPulse_01/internal/settings"
 	"github.com/ios9000/PGPulse_01/internal/statements"
@@ -58,6 +59,8 @@ type APIServer struct {
 	pgssStore         statements.SnapshotStore        // nil when statement snapshots disabled
 	pgssCapturer      *statements.SnapshotCapturer    // nil when statement snapshots disabled
 	stmtSnapshotsCfg  config.StatementSnapshotsConfig
+	rcaEngine         *rca.Engine                     // nil when RCA disabled
+	rcaStore          rca.IncidentStore               // nil when RCA disabled
 	liveMode          bool
 	memoryRetention   time.Duration
 	authMode          auth.AuthMode
@@ -140,6 +143,12 @@ func (s *APIServer) SetPGSSStore(store statements.SnapshotStore, cfg config.Stat
 // SetPGSSCapturer sets the PGSS snapshot capturer for manual capture endpoint.
 func (s *APIServer) SetPGSSCapturer(c *statements.SnapshotCapturer) {
 	s.pgssCapturer = c
+}
+
+// SetRCA sets the RCA engine and incident store for RCA endpoints.
+func (s *APIServer) SetRCA(engine *rca.Engine, store rca.IncidentStore) {
+	s.rcaEngine = engine
+	s.rcaStore = store
 }
 
 // Routes builds the chi router with all middleware and endpoints.
@@ -251,6 +260,15 @@ func (s *APIServer) Routes() http.Handler {
 					})
 				}
 
+				// RCA routes (M14).
+				if s.rcaEngine != nil {
+					r.Post("/instances/{id}/rca/analyze", s.handleRCAAnalyze)
+					r.Get("/instances/{id}/rca/incidents", s.handleRCAListIncidents)
+					r.Get("/instances/{id}/rca/incidents/{incidentId}", s.handleRCAGetIncident)
+					r.Get("/rca/incidents", s.handleRCAListAllIncidents)
+					r.Get("/rca/graph", s.handleRCAGetGraph)
+				}
+
 				// Instance management — require instance_management permission.
 				if s.instanceStore != nil {
 					r.Group(func(r chi.Router) {
@@ -359,6 +377,15 @@ func (s *APIServer) Routes() http.Handler {
 					r.Get("/recommendations", s.handleListAllRecommendations)
 					r.Get("/recommendations/rules", s.handleListRemediationRules)
 					r.Put("/recommendations/{id}/acknowledge", s.handleAcknowledgeRecommendation)
+				}
+
+				// RCA routes (M14, no auth check when auth disabled).
+				if s.rcaEngine != nil {
+					r.Post("/instances/{id}/rca/analyze", s.handleRCAAnalyze)
+					r.Get("/instances/{id}/rca/incidents", s.handleRCAListIncidents)
+					r.Get("/instances/{id}/rca/incidents/{incidentId}", s.handleRCAGetIncident)
+					r.Get("/rca/incidents", s.handleRCAListAllIncidents)
+					r.Get("/rca/graph", s.handleRCAGetGraph)
 				}
 
 				// Instance management (no auth check when auth disabled).
