@@ -17,6 +17,9 @@ import { QueryPlanViewer } from '@/pages/QueryPlanViewer'
 import { SettingsDiff } from '@/pages/SettingsDiff'
 import { QueryInsights } from '@/pages/QueryInsights'
 import { WorkloadReport } from '@/pages/WorkloadReport'
+import { RCAIncidents } from '@/pages/RCAIncidents'
+import { RCAIncidentDetail } from '@/pages/RCAIncidentDetail'
+import { RCACausalGraph } from '@/pages/RCACausalGraph'
 import { NotFound } from '@/pages/NotFound'
 import { useAuthStore } from '@/stores/authStore'
 import { pgpulseTheme } from '@/lib/echartsTheme'
@@ -44,6 +47,10 @@ export function App() {
           <Route path="servers/:serverId/explain" element={<QueryPlanViewer />} />
           <Route path="servers/:serverId/query-insights" element={<QueryInsights />} />
           <Route path="servers/:serverId/workload-report" element={<WorkloadReport />} />
+          <Route path="servers/:serverId/rca/incidents" element={<RCAIncidents />} />
+          <Route path="servers/:serverId/rca/incidents/:incidentId" element={<RCAIncidentDetail />} />
+          <Route path="rca/incidents" element={<RCAIncidents />} />
+          <Route path="rca/graph" element={<RCACausalGraph />} />
           <Route path="settings/diff" element={<SettingsDiff />} />
           <Route path="alerts" element={<AlertsDashboard />} />
           <Route path="advisor" element={<Advisor />} />
