@@ -138,7 +138,7 @@ func NewDefaultGraph() *CausalGraph {
 		"pg.replication.wal_receiver.connected",
 	}, "db", "", MechWALRecvDisconnect)
 	addNode(g, "query_regression", "Query Regression", []string{
-		"pg.statements.top.avg_time_ms",
+		"pg.statements.regression", "pg.statements.top.avg_time_ms",
 	}, "workload", "", "")
 	addNode(g, "cpu_spike", "CPU Spike", []string{
 		"os.cpu.user_pct", "os.cpu.system_pct",
@@ -147,7 +147,7 @@ func NewDefaultGraph() *CausalGraph {
 		"pg.statements.top.avg_time_ms",
 	}, "db", SymQueryLatencyHigh, "")
 	addNode(g, "new_query", "New Query (Deployment)", []string{
-		"pg.statements.count",
+		"pg.statements.new_query", "pg.statements.count",
 	}, "workload", "", "")
 	addNode(g, "resource_shift", "Resource Shift", []string{
 		"os.cpu.user_pct", "pg.statements.top.total_time_ms",

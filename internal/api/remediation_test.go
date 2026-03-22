@@ -64,6 +64,14 @@ func (m *mockRemediationStore) ResolveStale(_ context.Context, _ string, _ []str
 	return nil
 }
 
+func (m *mockRemediationStore) Upsert(_ context.Context, _ remediation.Recommendation) error {
+	return nil
+}
+
+func (m *mockRemediationStore) ListByIncident(_ context.Context, _ int64) ([]remediation.Recommendation, error) {
+	return nil, nil
+}
+
 type mockMetricSource struct {
 	snapshot remediation.MetricSnapshot
 	err      error

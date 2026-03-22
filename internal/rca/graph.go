@@ -26,26 +26,28 @@ const (
 
 // CausalNode represents a vertex in the causal graph.
 type CausalNode struct {
-	ID           string   // e.g., "wal_generation", "disk_io"
-	Name         string   // human-readable, e.g., "WAL Generation Rate"
-	MetricKeys   []string // actual metric keys from the collector catalog
-	Layer        string   // "db", "os", "workload", "config"
-	SymptomKey   string   // shared ontology key (may be empty for intermediate nodes)
-	MechanismKey string   // shared ontology key (may be empty for leaf nodes)
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	MetricKeys   []string `json:"metric_keys"`
+	Layer        string   `json:"layer"`
+	SymptomKey   string   `json:"symptom_key,omitempty"`
+	MechanismKey string   `json:"mechanism_key,omitempty"`
 }
 
 // CausalEdge represents a directed edge in the causal graph (cause -> effect).
 type CausalEdge struct {
-	FromNode        string              // upstream node ID (cause)
-	ToNode          string              // downstream node ID (effect)
-	MinLag          time.Duration       // for BoundedLag: minimum expected delay
-	MaxLag          time.Duration       // for BoundedLag: maximum expected delay
-	Temporal        TemporalSemantics   // how time relates cause to effect
-	Evidence        EvidenceRequirement // required or supporting
-	Description     string              // human-readable
-	BaseConfidence  float64             // 0.0-1.0 prior confidence of this link
-	ChainID         string              // which chain this edge belongs to
-	RemediationHook string              // adviser rule ID (may be empty)
+	FromNode        string              `json:"from_node"`
+	ToNode          string              `json:"to_node"`
+	MinLag          time.Duration       `json:"-"`
+	MaxLag          time.Duration       `json:"-"`
+	MinLagSeconds   float64             `json:"min_lag_seconds"`
+	MaxLagSeconds   float64             `json:"max_lag_seconds"`
+	Temporal        TemporalSemantics   `json:"temporal"`
+	Evidence        EvidenceRequirement `json:"evidence"`
+	Description     string              `json:"description"`
+	BaseConfidence  float64             `json:"base_confidence"`
+	ChainID         string              `json:"chain_id"`
+	RemediationHook string              `json:"remediation_hook,omitempty"`
 }
 
 // CausalGraph holds the full set of nodes and edges.

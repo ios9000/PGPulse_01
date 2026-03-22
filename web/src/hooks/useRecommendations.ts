@@ -9,6 +9,8 @@ interface UseRecommendationsParams {
   acknowledged?: boolean
   instanceId?: string
   limit?: number
+  source?: string
+  order_by?: string
 }
 
 export function useRecommendations(params: UseRecommendationsParams = {}) {
@@ -22,6 +24,8 @@ export function useRecommendations(params: UseRecommendationsParams = {}) {
       if (params.acknowledged !== undefined) qs.set('acknowledged', String(params.acknowledged))
       if (params.instanceId) qs.set('instance_id', params.instanceId)
       if (params.limit) qs.set('limit', String(params.limit))
+      if (params.source) qs.set('source', params.source)
+      if (params.order_by) qs.set('order_by', params.order_by)
       const q = qs.toString()
       const res = await apiFetch(`/recommendations${q ? `?${q}` : ''}`)
       const json = await res.json()

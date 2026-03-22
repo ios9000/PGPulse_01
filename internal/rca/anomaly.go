@@ -34,8 +34,11 @@ type AnomalyEvent struct {
 // ThresholdAnomalySource detects anomalies by comparing values against
 // statistical baselines computed from historical data.
 type ThresholdAnomalySource struct {
-	metricStore collector.MetricStore
-	stats       MetricStatsProvider // optional, for batch stats
+	metricStore     collector.MetricStore
+	stats           MetricStatsProvider // optional, for batch stats
+	baselineWindow  time.Duration       // how far back to look for baseline data
+	calmPeriod      time.Duration       // minimum duration of calm before trusting baseline
+	calmSigma       float64             // max coefficient of variation for calm baseline
 }
 
 // NewThresholdAnomalySource creates a threshold-based anomaly source.
@@ -47,9 +50,28 @@ func NewThresholdAnomalySource(metricStore collector.MetricStore) *ThresholdAnom
 		stats = sp
 	}
 	return &ThresholdAnomalySource{
-		metricStore: metricStore,
-		stats:       stats,
+		metricStore:    metricStore,
+		stats:          stats,
+		baselineWindow: 1 * time.Hour,
+		calmPeriod:     15 * time.Minute,
+		calmSigma:      1.5,
 	}
+}
+
+// NewThresholdAnomalySourceWithConfig creates a threshold-based anomaly source
+// with configurable baseline window and calm period parameters.
+func NewThresholdAnomalySourceWithConfig(metricStore collector.MetricStore, cfg RCAConfig) *ThresholdAnomalySource {
+	s := NewThresholdAnomalySource(metricStore)
+	if cfg.ThresholdBaselineWindow > 0 {
+		s.baselineWindow = cfg.ThresholdBaselineWindow
+	}
+	if cfg.ThresholdCalmPeriod > 0 {
+		s.calmPeriod = cfg.ThresholdCalmPeriod
+	}
+	if cfg.ThresholdCalmSigma > 0 {
+		s.calmSigma = cfg.ThresholdCalmSigma
+	}
+	return s
 }
 
 func (s *ThresholdAnomalySource) GetAnomalies(ctx context.Context, instanceID string,
@@ -57,8 +79,8 @@ func (s *ThresholdAnomalySource) GetAnomalies(ctx context.Context, instanceID st
 ) (map[string][]AnomalyEvent, error) {
 	result := make(map[string][]AnomalyEvent)
 
-	// Compute baseline stats from 1 hour before the analysis window.
-	baselineFrom := from.Add(-1 * time.Hour)
+	// Compute baseline stats from the configurable window before the analysis window.
+	baselineFrom := from.Add(-s.baselineWindow)
 	baselineTo := from
 
 	var baselineStats map[string]MetricStats
@@ -102,6 +124,13 @@ func (s *ThresholdAnomalySource) GetAnomalies(ctx context.Context, instanceID st
 			continue
 		}
 
+		// Check if the baseline is calm enough to trust.
+		calm := s.isBaselineCalm(stats)
+		source := "threshold"
+		if !calm {
+			source = "threshold_unreliable"
+		}
+
 		for _, p := range points {
 			if stats.StdDev == 0 {
 				continue
@@ -120,6 +149,11 @@ func (s *ThresholdAnomalySource) GetAnomalies(ctx context.Context, instanceID st
 			// Normalize strength to 0-1 range: zScore of 2 -> 0.3, zScore of 5+ -> 1.0
 			strength := math.Min(1.0, (zScore-2.0)/3.0*0.7+0.3)
 
+			// Reduce strength for unreliable baselines.
+			if !calm {
+				strength *= 0.5
+			}
+
 			result[key] = append(result[key], AnomalyEvent{
 				InstanceID:  instanceID,
 				MetricKey:   key,
@@ -129,12 +163,23 @@ func (s *ThresholdAnomalySource) GetAnomalies(ctx context.Context, instanceID st
 				ZScore:      zScore,
 				RateChange:  rateChange,
 				Strength:    strength,
-				Source:      "threshold",
+				Source:      source,
 			})
 		}
 	}
 
 	return result, nil
+}
+
+// isBaselineCalm checks whether the baseline data is stable enough for reliable
+// anomaly detection. Returns false when the coefficient of variation (StdDev/Mean)
+// exceeds the calm sigma threshold, indicating a noisy baseline.
+func (s *ThresholdAnomalySource) isBaselineCalm(stats MetricStats) bool {
+	if stats.Mean == 0 || stats.Count < 2 {
+		return false
+	}
+	cv := stats.StdDev / math.Abs(stats.Mean)
+	return cv <= s.calmSigma
 }
 
 // computeStatsFromQuery fetches raw points and computes statistics in Go.
@@ -196,6 +241,16 @@ func NewMLAnomalySource(detector *ml.Detector, store collector.MetricStore) *MLA
 	return &MLAnomalySource{
 		detector: detector,
 		fallback: NewThresholdAnomalySource(store),
+		store:    store,
+	}
+}
+
+// NewMLAnomalySourceWithConfig creates an ML-backed anomaly source with
+// configurable threshold fallback.
+func NewMLAnomalySourceWithConfig(detector *ml.Detector, store collector.MetricStore, cfg RCAConfig) *MLAnomalySource {
+	return &MLAnomalySource{
+		detector: detector,
+		fallback: NewThresholdAnomalySourceWithConfig(store, cfg),
 		store:    store,
 	}
 }

@@ -104,6 +104,12 @@ func validate(cfg *Config) error {
 	if cfg.Remediation.RetentionDays == 0 {
 		cfg.Remediation.RetentionDays = 30
 	}
+	if cfg.Remediation.RCAUrgencyDelta == 0 {
+		cfg.Remediation.RCAUrgencyDelta = 1.0
+	}
+	if cfg.Remediation.ForecastUrgencyDelta == 0 {
+		cfg.Remediation.ForecastUrgencyDelta = 0.5
+	}
 
 	// Statement snapshots defaults.
 	if cfg.StatementSnapshots.Interval == 0 {
@@ -146,6 +152,15 @@ func validate(cfg *Config) error {
 	}
 	if cfg.RCA.DeferredForwardTail == 0 {
 		cfg.RCA.DeferredForwardTail = 5 * time.Minute
+	}
+	if cfg.RCA.ThresholdBaselineWindow == 0 {
+		cfg.RCA.ThresholdBaselineWindow = 4 * time.Hour
+	}
+	if cfg.RCA.ThresholdCalmPeriod == 0 {
+		cfg.RCA.ThresholdCalmPeriod = 15 * time.Minute
+	}
+	if cfg.RCA.ThresholdCalmSigma == 0 {
+		cfg.RCA.ThresholdCalmSigma = 1.5
 	}
 
 	if len(cfg.Instances) == 0 {

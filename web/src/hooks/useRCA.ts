@@ -62,6 +62,23 @@ export function useRCAGraph() {
   })
 }
 
+export function useReviewIncident() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: { instanceId: string; incidentId: number; status: string; notes?: string }) => {
+      const res = await apiFetch(`/instances/${params.instanceId}/rca/incidents/${params.incidentId}/review`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: params.status, notes: params.notes ?? '' }),
+      })
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rca-incident'] })
+      queryClient.invalidateQueries({ queryKey: ['rca-incidents'] })
+    },
+  })
+}
+
 export function useRCAAnalyze() {
   const queryClient = useQueryClient()
   return useMutation({

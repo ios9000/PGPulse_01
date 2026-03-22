@@ -16,6 +16,8 @@ type IncidentStore interface {
 	ListByInstance(ctx context.Context, instanceID string, limit, offset int) ([]Incident, int, error)
 	// ListAll returns incidents across all instances, paginated.
 	ListAll(ctx context.Context, limit, offset int) ([]Incident, int, error)
+	// UpdateReview updates the review status and comment for an incident.
+	UpdateReview(ctx context.Context, id int64, status, comment string) error
 	// Cleanup deletes incidents older than the given duration. Returns rows deleted.
 	Cleanup(ctx context.Context, olderThan time.Duration) (int64, error)
 }

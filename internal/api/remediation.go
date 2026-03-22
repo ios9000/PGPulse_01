@@ -133,11 +133,19 @@ func parseListOpts(r *http.Request) remediation.ListOpts {
 		Priority: r.URL.Query().Get("priority"),
 		Category: r.URL.Query().Get("category"),
 		Status:   r.URL.Query().Get("status"),
+		Source:   r.URL.Query().Get("source"),
+		OrderBy:  r.URL.Query().Get("order_by"),
 	}
 
 	if ack := r.URL.Query().Get("acknowledged"); ack != "" {
 		v := ack == "true"
 		opts.Acknowledged = &v
+	}
+
+	if incStr := r.URL.Query().Get("incident_id"); incStr != "" {
+		if n, err := strconv.ParseInt(incStr, 10, 64); err == nil {
+			opts.IncidentID = &n
+		}
 	}
 
 	limit := 100

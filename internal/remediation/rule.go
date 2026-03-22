@@ -74,6 +74,10 @@ type Recommendation struct {
 	Description    string     `json:"description"`
 	DocURL         string     `json:"doc_url,omitempty"`
 	Status         string     `json:"status"`
+	Source         string     `json:"source"`
+	UrgencyScore   float64    `json:"urgency_score"`
+	IncidentIDs    []int64    `json:"incident_ids,omitempty"`
+	LastIncidentAt *time.Time `json:"last_incident_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	EvaluatedAt    time.Time  `json:"evaluated_at"`
 	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`

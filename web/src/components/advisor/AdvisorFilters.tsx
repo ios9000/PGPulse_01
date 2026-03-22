@@ -10,6 +10,8 @@ interface AdvisorFiltersProps {
   instanceId: string
   onInstanceChange: (v: string) => void
   instances: InstanceData[]
+  source?: string
+  onSourceChange?: (v: string) => void
 }
 
 const PRIORITY_OPTIONS = [
@@ -33,6 +35,14 @@ const STATUS_OPTIONS = [
   { value: 'resolved', label: 'Resolved' },
   { value: 'acknowledged', label: 'Acknowledged' },
   { value: '', label: 'All' },
+]
+
+const SOURCE_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'background', label: 'Background' },
+  { value: 'rca', label: 'RCA' },
+  { value: 'alert', label: 'Alert' },
+  { value: 'forecast', label: 'Forecast' },
 ]
 
 function SelectFilter({
@@ -74,6 +84,8 @@ export function AdvisorFilters({
   instanceId,
   onInstanceChange,
   instances,
+  source,
+  onSourceChange,
 }: AdvisorFiltersProps) {
   return (
     <div className="flex flex-wrap items-center gap-4 rounded-lg border border-pgp-border bg-pgp-bg-card p-3">
@@ -83,6 +95,12 @@ export function AdvisorFilters({
       <div className="h-6 w-px bg-pgp-border" />
       <SelectFilter label="Status" value={status} onChange={onStatusChange} options={STATUS_OPTIONS} />
       <div className="h-6 w-px bg-pgp-border" />
+      {onSourceChange && (
+        <>
+          <SelectFilter label="Source" value={source ?? ''} onChange={onSourceChange} options={SOURCE_OPTIONS} />
+          <div className="h-6 w-px bg-pgp-border" />
+        </>
+      )}
       <div className="flex items-center gap-2">
         <span className="text-xs font-medium uppercase text-pgp-text-muted">Instance</span>
         <select

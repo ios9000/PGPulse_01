@@ -18,6 +18,10 @@ func (n *NullStore) Write(_ context.Context, _ []Recommendation) ([]Recommendati
 	return nil, nil
 }
 
+func (n *NullStore) Upsert(_ context.Context, _ Recommendation) error {
+	return nil
+}
+
 func (n *NullStore) ListByInstance(_ context.Context, _ string, _ ListOpts) ([]Recommendation, int, error) {
 	return nil, 0, nil
 }
@@ -27,6 +31,10 @@ func (n *NullStore) ListAll(_ context.Context, _ ListOpts) ([]Recommendation, in
 }
 
 func (n *NullStore) ListByAlertEvent(_ context.Context, _ int64) ([]Recommendation, error) {
+	return nil, nil
+}
+
+func (n *NullStore) ListByIncident(_ context.Context, _ int64) ([]Recommendation, error) {
 	return nil, nil
 }
 

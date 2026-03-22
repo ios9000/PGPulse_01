@@ -15,31 +15,46 @@ import (
 // Engine is the core RCA correlation engine. It traverses the causal graph,
 // detects anomalies, prunes branches, ranks chains, and builds incidents.
 type Engine struct {
-	graph       *CausalGraph
-	anomaly     AnomalySource
-	store       IncidentStore
-	metricStore collector.MetricStore
-	cfg         RCAConfig
-	mu          sync.Mutex
+	graph            *CausalGraph
+	anomaly          AnomalySource
+	store            IncidentStore
+	metricStore      collector.MetricStore
+	cfg              RCAConfig
+	settingsProvider SettingsProvider
+	stmtDiffSource   *StatementDiffSource
+	remEngine        RemediationHookEvaluator
+	mu               sync.Mutex
+}
+
+// RemediationHookEvaluator is the interface for the remediation engine's
+// EvaluateHook method. Decouples rca from remediation package.
+type RemediationHookEvaluator interface {
+	EvaluateHook(ctx context.Context, hook, instanceID, metricKey string, value float64, incidentID int64, urgencyDelta float64) error
 }
 
 // EngineOptions holds constructor parameters for Engine.
 type EngineOptions struct {
-	Graph       *CausalGraph
-	Anomaly     AnomalySource
-	Store       IncidentStore
-	MetricStore collector.MetricStore
-	Config      RCAConfig
+	Graph            *CausalGraph
+	Anomaly          AnomalySource
+	Store            IncidentStore
+	MetricStore      collector.MetricStore
+	Config           RCAConfig
+	SettingsProvider SettingsProvider
+	StmtDiffSource   *StatementDiffSource
+	RemEngine        RemediationHookEvaluator
 }
 
 // NewEngine creates a new RCA correlation engine.
 func NewEngine(opts EngineOptions) *Engine {
 	return &Engine{
-		graph:       opts.Graph,
-		anomaly:     opts.Anomaly,
-		store:       opts.Store,
-		metricStore: opts.MetricStore,
-		cfg:         opts.Config,
+		graph:            opts.Graph,
+		anomaly:          opts.Anomaly,
+		store:            opts.Store,
+		metricStore:      opts.MetricStore,
+		cfg:              opts.Config,
+		settingsProvider: opts.SettingsProvider,
+		stmtDiffSource:   opts.StmtDiffSource,
+		remEngine:        opts.RemEngine,
 	}
 }
 
@@ -73,17 +88,8 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*Incident, er
 	anomalyMode := AnomalyMode(e.anomaly)
 	builder := NewIncidentBuilder(req, window, anomalyMode)
 
-	// Step 2: Scope — select candidate chains.
+	// Step 2: Scope — select candidate chains (Tier A + Tier B).
 	chainIDs := e.graph.ChainsForTrigger(req.TriggerMetric)
-
-	// Filter to Tier A only.
-	var tierAChains []string
-	for _, id := range chainIDs {
-		if TierForChain[id] == TierA {
-			tierAChains = append(tierAChains, id)
-		}
-	}
-	chainIDs = tierAChains
 
 	if len(chainIDs) > e.cfg.MaxCandidateChains {
 		chainIDs = chainIDs[:e.cfg.MaxCandidateChains]
@@ -103,6 +109,16 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*Incident, er
 	anomalyMap, err := e.anomaly.GetAnomalies(ctx, req.InstanceID, metricKeys, from, to, jitter)
 	if err != nil {
 		return nil, fmt.Errorf("rca anomaly detection: %w", err)
+	}
+
+	// Step 4b: Inject statement diff anomalies (synthetic metrics).
+	if e.stmtDiffSource != nil {
+		stmtAnomalies, stmtErr := e.stmtDiffSource.GetAnomalies(ctx, req.InstanceID, from, to)
+		if stmtErr == nil {
+			for k, v := range stmtAnomalies {
+				anomalyMap[k] = append(anomalyMap[k], v...)
+			}
+		}
 	}
 
 	// Track telemetry completeness.
@@ -128,7 +144,7 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*Incident, er
 
 	// Step 5: Traverse + Prune.
 	for _, chainID := range chainIDs {
-		chainResult := e.traverseChain(ctx, chainID, req.TriggerMetric, req.TriggerTime, window, anomalyMap)
+		chainResult := e.traverseChain(ctx, chainID, req.InstanceID, req.TriggerMetric, req.TriggerTime, window, anomalyMap)
 		if chainResult != nil && chainResult.Score >= e.cfg.MinChainScore {
 			builder.AddChain(*chainResult)
 		}
@@ -147,7 +163,12 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*Incident, er
 		}
 	}
 
-	// Step 9: Return.
+	// Step 9: Fire remediation hooks for the primary chain.
+	if e.remEngine != nil && e.cfg.RemediationHooksEnabled && incident.PrimaryChain != nil && incident.ID > 0 {
+		e.fireRemediationHooks(ctx, incident)
+	}
+
+	// Step 10: Return.
 	return incident, nil
 }
 
@@ -156,6 +177,7 @@ func (e *Engine) Analyze(ctx context.Context, req AnalyzeRequest) (*Incident, er
 func (e *Engine) traverseChain(
 	_ context.Context,
 	chainID string,
+	instanceID string,
 	triggerMetric string,
 	triggerTime time.Time,
 	window TimeWindow,
@@ -200,7 +222,7 @@ func (e *Engine) traverseChain(
 	rootCauseKey := ""
 
 	// Walk backward from the terminal node.
-	success := e.walkBackward(startNode, chainID, triggerTime, window, anomalyMap,
+	success := e.walkBackward(startNode, chainID, instanceID, triggerTime, window, anomalyMap,
 		0, &events, &totalScore, &edgeCount, &rootCauseKey)
 
 	if !success || edgeCount == 0 {
@@ -233,7 +255,7 @@ func (e *Engine) traverseChain(
 // walkBackward recursively walks incoming edges, evaluating evidence.
 // Returns false if a required edge has no evidence (branch killed).
 func (e *Engine) walkBackward(
-	nodeID, chainID string,
+	nodeID, chainID, instanceID string,
 	triggerTime time.Time,
 	window TimeWindow,
 	anomalyMap map[string][]AnomalyEvent,
@@ -273,7 +295,7 @@ func (e *Engine) walkBackward(
 	}
 
 	for _, edge := range chainEdges {
-		score, event, found := e.evaluateEdge(edge, triggerTime, window, anomalyMap)
+		score, event, found := e.evaluateEdge(edge, instanceID, triggerTime, window, anomalyMap)
 
 		if !found && edge.Evidence == EvidenceRequired {
 			return false // branch killed
@@ -286,7 +308,7 @@ func (e *Engine) walkBackward(
 		*edgeCount++
 
 		// Recurse upstream.
-		if !e.walkBackward(edge.FromNode, chainID, triggerTime, window, anomalyMap,
+		if !e.walkBackward(edge.FromNode, chainID, instanceID, triggerTime, window, anomalyMap,
 			depth+1, events, totalScore, edgeCount, rootCauseKey) {
 			return false
 		}
@@ -298,6 +320,7 @@ func (e *Engine) walkBackward(
 // evaluateEdge checks evidence for a single edge based on its temporal semantics.
 func (e *Engine) evaluateEdge(
 	edge CausalEdge,
+	instanceID string,
 	triggerTime time.Time,
 	window TimeWindow,
 	anomalyMap map[string][]AnomalyEvent,
@@ -346,23 +369,68 @@ func (e *Engine) evaluateEdge(
 		return score, &ev, true
 
 	case WhileEffective:
-		// Not implemented in M14_01 — Tier B chains only.
-		return 0, nil, false
+		// Check for configuration changes within the analysis window.
+		if e.settingsProvider == nil {
+			return 0, nil, false
+		}
+		changes, chErr := e.settingsProvider.GetChanges(
+			context.Background(),
+			instanceID,
+			window.From, window.To,
+		)
+		if chErr != nil || len(changes) == 0 {
+			if edge.Evidence == EvidenceRequired {
+				return 0, nil, false
+			}
+			return edge.BaseConfidence * 0.3, nil, true
+		}
+		// We have settings changes — build a synthetic anomaly event.
+		latestChange := changes[0]
+		for _, ch := range changes[1:] {
+			if ch.ChangedAt.After(latestChange.ChangedAt) {
+				latestChange = ch
+			}
+		}
+		ev := TimelineEvent{
+			Timestamp:   latestChange.ChangedAt,
+			NodeID:      node.ID,
+			NodeName:    node.Name,
+			MetricKey:   "pg.settings." + latestChange.Name,
+			Layer:       node.Layer,
+			Role:        "root_cause",
+			Evidence:    "required",
+			Description: fmt.Sprintf("Setting %s changed from %s to %s", latestChange.Name, latestChange.OldValue, latestChange.NewValue),
+			Strength:    0.7,
+		}
+		return edge.BaseConfidence * 0.7, &ev, true
 	}
 
 	return 0, nil, false
 }
 
-// temporalProximity rewards anomalies at the expected time lag.
+// temporalProximity rewards anomalies at the expected time lag using a
+// Gaussian-like temporal weight formula. The peak score is 1.0 when the
+// actual lag matches the expected center, decaying symmetrically.
+// An evidence multiplier of 1.2x is applied when the anomaly falls within
+// the expected [minLag, maxLag] window.
 func temporalProximity(anomalyTime, triggerTime time.Time, minLag, maxLag time.Duration) float64 {
 	actualLag := triggerTime.Sub(anomalyTime)
 	expectedCenter := (minLag + maxLag) / 2
 	deviation := math.Abs(float64(actualLag - expectedCenter))
-	maxDeviation := float64(maxLag-minLag) / 2
-	if maxDeviation == 0 {
-		return 1.0
+	halfWidth := float64(maxLag-minLag) / 2
+	if halfWidth == 0 {
+		halfWidth = float64(30 * time.Second)
 	}
-	proximity := 1.0 - (deviation / (maxDeviation * 1.5))
+
+	// Gaussian-like decay: exp(-0.5 * (deviation / sigma)^2)
+	sigma := halfWidth * 1.5
+	proximity := math.Exp(-0.5 * (deviation / sigma) * (deviation / sigma))
+
+	// Evidence multiplier: boost when actual lag is within expected range.
+	if actualLag >= minLag && actualLag <= maxLag {
+		proximity *= 1.2
+	}
+
 	if proximity < 0.2 {
 		proximity = 0.2
 	}
@@ -512,7 +580,48 @@ func nodeRootCauseKey(nodeID string) string {
 	return ""
 }
 
+// SetSettingsProvider sets the settings provider for WhileEffective edges.
+func (e *Engine) SetSettingsProvider(sp SettingsProvider) {
+	e.settingsProvider = sp
+}
+
+// SetStmtDiffSource sets the statement diff source for Tier B chains.
+func (e *Engine) SetStmtDiffSource(s *StatementDiffSource) {
+	e.stmtDiffSource = s
+}
+
 // Graph returns the engine's causal graph (for API serialization).
 func (e *Engine) Graph() *CausalGraph {
 	return e.graph
+}
+
+// fireRemediationHooks triggers remediation hook evaluation for edges in the
+// primary chain that have a RemediationHook set.
+func (e *Engine) fireRemediationHooks(ctx context.Context, incident *Incident) {
+	if incident.PrimaryChain == nil {
+		return
+	}
+	edges := e.graph.EdgesForChain(incident.PrimaryChain.ChainID)
+	for _, edge := range edges {
+		if edge.RemediationHook == "" {
+			continue
+		}
+		// Find a representative metric key and value from the timeline events.
+		metricKey := ""
+		var metricValue float64
+		for _, ev := range incident.PrimaryChain.Events {
+			if ev.NodeID == edge.FromNode {
+				metricKey = ev.MetricKey
+				metricValue = ev.Value
+				break
+			}
+		}
+		if err := e.remEngine.EvaluateHook(ctx, edge.RemediationHook,
+			incident.InstanceID, metricKey, metricValue, incident.ID, 1.0); err != nil {
+			slog.Warn("RCA: remediation hook failed",
+				"hook", edge.RemediationHook,
+				"incident", incident.ID,
+				"err", err)
+		}
+	}
 }

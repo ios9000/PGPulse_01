@@ -288,6 +288,8 @@ func main() {
 		remEngine := remediation.NewEngine()
 		remMetricSource := remediation.NewStoreMetricSource(store)
 		remStore := remediation.NewPGStore(pgPool)
+		remEngine.SetStore(remStore)
+		remEngine.SetMetricSource(remMetricSource)
 		remAdapter := remediation.NewAlertAdapter(remEngine, remMetricSource)
 		if realDispatcher != nil {
 			realDispatcher.SetRemediationProvider(remAdapter)
@@ -315,36 +317,43 @@ func main() {
 		if cfg.RCA.Enabled {
 			rcaStore = rca.NewPGIncidentStore(pgPool)
 
+			rcaCfg := rca.RCAConfig{
+				Enabled:                  cfg.RCA.Enabled,
+				LookbackWindow:           cfg.RCA.LookbackWindow,
+				AutoTriggerSeverity:      cfg.RCA.AutoTriggerSeverity,
+				MaxIncidentsPerHour:      cfg.RCA.MaxIncidentsPerHour,
+				RetentionDays:            cfg.RCA.RetentionDays,
+				MaxTraversalDepth:        cfg.RCA.MaxTraversalDepth,
+				MaxCandidateChains:       cfg.RCA.MaxCandidateChains,
+				MaxMetricsPerRun:         cfg.RCA.MaxMetricsPerRun,
+				MinEdgeScore:             cfg.RCA.MinEdgeScore,
+				MinChainScore:            cfg.RCA.MinChainScore,
+				DeferredForwardTail:      cfg.RCA.DeferredForwardTail,
+				QualityBannerEnabled:     cfg.RCA.QualityBannerEnabled,
+				RemediationHooksEnabled:  cfg.RCA.RemediationHooksEnabled,
+				ThresholdBaselineWindow:  cfg.RCA.ThresholdBaselineWindow,
+				ThresholdCalmPeriod:      cfg.RCA.ThresholdCalmPeriod,
+				ThresholdCalmSigma:       cfg.RCA.ThresholdCalmSigma,
+			}
+
 			// Build anomaly source: prefer ML, fall back to threshold.
 			var anomalySource rca.AnomalySource
-			anomalySource = rca.NewThresholdAnomalySource(store)
+			anomalySource = rca.NewThresholdAnomalySourceWithConfig(store, rcaCfg)
 			if cfg.ML.Enabled && mlDetector != nil {
-				anomalySource = rca.NewMLAnomalySource(mlDetector, store)
+				anomalySource = rca.NewMLAnomalySourceWithConfig(mlDetector, store, rcaCfg)
 			}
 
-			rcaCfg := rca.RCAConfig{
-				Enabled:                 cfg.RCA.Enabled,
-				LookbackWindow:          cfg.RCA.LookbackWindow,
-				AutoTriggerSeverity:     cfg.RCA.AutoTriggerSeverity,
-				MaxIncidentsPerHour:     cfg.RCA.MaxIncidentsPerHour,
-				RetentionDays:           cfg.RCA.RetentionDays,
-				MaxTraversalDepth:       cfg.RCA.MaxTraversalDepth,
-				MaxCandidateChains:      cfg.RCA.MaxCandidateChains,
-				MaxMetricsPerRun:        cfg.RCA.MaxMetricsPerRun,
-				MinEdgeScore:            cfg.RCA.MinEdgeScore,
-				MinChainScore:           cfg.RCA.MinChainScore,
-				DeferredForwardTail:     cfg.RCA.DeferredForwardTail,
-				QualityBannerEnabled:    cfg.RCA.QualityBannerEnabled,
-				RemediationHooksEnabled: cfg.RCA.RemediationHooksEnabled,
-			}
-
-			rcaEngine = rca.NewEngine(rca.EngineOptions{
+			// Build optional providers.
+			engineOpts := rca.EngineOptions{
 				Graph:       rca.NewDefaultGraph(),
 				Anomaly:     anomalySource,
 				Store:       rcaStore,
 				MetricStore: store,
 				Config:      rcaCfg,
-			})
+				RemEngine:   remEngine,
+			}
+
+			rcaEngine = rca.NewEngine(engineOpts)
 
 			// Auto-trigger on critical alerts.
 			if realDispatcher != nil {
@@ -367,6 +376,14 @@ func main() {
 				"interval", cfg.StatementSnapshots.Interval,
 				"retention_days", cfg.StatementSnapshots.RetentionDays,
 			)
+		}
+
+		// M14_03: Wire settings and statement providers into RCA engine.
+		if rcaEngine != nil {
+			rcaEngine.SetSettingsProvider(rca.NewSnapshotSettingsProvider(snapshotStore))
+			if cfg.StatementSnapshots.Enabled {
+				rcaEngine.SetStmtDiffSource(rca.NewStatementDiffSource(pgssStore))
+			}
 		}
 
 		// Wire auth when enabled — requires a storage DSN (validated in config).

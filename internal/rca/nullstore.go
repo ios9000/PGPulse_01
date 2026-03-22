@@ -29,6 +29,10 @@ func (s *NullIncidentStore) ListAll(_ context.Context, _, _ int) ([]Incident, in
 	return nil, 0, nil
 }
 
+func (s *NullIncidentStore) UpdateReview(_ context.Context, _ int64, _, _ string) error {
+	return nil
+}
+
 func (s *NullIncidentStore) Cleanup(_ context.Context, _ time.Duration) (int64, error) {
 	return 0, nil
 }

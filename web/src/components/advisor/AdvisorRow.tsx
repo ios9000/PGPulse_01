@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Check, Bell } from 'lucide-react'
 import { PriorityBadge } from '@/components/advisor/PriorityBadge'
+import { RCABadge } from '@/components/advisor/RCABadge'
 import { RuleFormModal } from '@/components/alerts/RuleFormModal'
 import { formatTimestamp } from '@/lib/formatters'
 import { useAcknowledge } from '@/hooks/useRecommendations'
@@ -85,6 +86,9 @@ export function AdvisorRow({ rec }: AdvisorRowProps) {
             <div className="space-y-2 text-sm">
               <p className="text-pgp-text-primary">{rec.description}</p>
               <div className="flex flex-wrap items-center gap-4 text-xs text-pgp-text-muted">
+                {rec.incident_ids?.length > 0 && (
+                  <RCABadge incidentIds={rec.incident_ids} lastIncidentAt={rec.last_incident_at} />
+                )}
                 <span>Metric: {rec.metric_key} = {rec.metric_value.toFixed(2)}</span>
                 <span>Rule: {rec.rule_id}</span>
                 {rec.doc_url && (
