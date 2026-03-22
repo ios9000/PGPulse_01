@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-17
+**Last updated:** 2026-03-22
 
 ---
 
@@ -26,6 +26,9 @@
 | M11_01 | PGSS Snapshots (Backend) | ✅ Done | 2026-03-16 |
 | M11_02 | Query Insights UI + Workload Report | ✅ Done | 2026-03-16 |
 | M12_01 | Core Desktop (Wails v3) | ✅ Done | 2026-03-17 |
+| M14_01 | RCA Engine (Backend) | ✅ Done | 2026-03-21 |
+| M14_02 | RCA UI | ✅ Done | 2026-03-21 |
+| M14_03 | RCA Expansion + Calibration | ✅ Done | 2026-03-22 |
 | M12_02 | UX + Installer (Wails v3) | 🔲 Next | — |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
@@ -39,6 +42,16 @@
 | REM_01a | Rule-based remediation engine: 25 rules (17 PG + 8 OS), Engine, PGStore, NullStore, AlertAdapter, 5 API endpoints, dispatcher integration | 2026-03-13 | ✅ Done |
 | REM_01b | Remediation frontend + backend gaps: Advisor page, Diagnose button, alert enrichment, email template recommendations, AlertRow expand/collapse, handler/store tests | 2026-03-14 | ✅ Done |
 | REM_01c | Metric key fix: 13 broken rules corrected, dual OS prefix support (os.*/pg.os.*), wraparound metric added to server_info collector | 2026-03-14 | ✅ Done |
+
+---
+
+## M14 Sub-Iterations
+
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M14_01 | RCA Engine: 20 causal chains (16 Tier A + 4 Tier B), 9-step correlation algorithm, dual anomaly source (ML + threshold), incident timeline, confidence scoring, auto-trigger on CRITICAL, 5 API endpoints, migration 016, MetricStatsProvider | 2026-03-21 | ✅ Done |
+| M14_02 | RCA UI: incidents list (fleet + per-instance), incident detail with timeline visualization, causal graph page (ECharts), confidence badges, quality banners, Investigate button on alerts, sidebar navigation | 2026-03-21 | ✅ Done |
+| M14_03 | RCA Expansion: threshold hardening (4h+calm), WhileEffective temporal semantics, statement diff integration, Tier B activation (all 20 chains), RCA→Adviser bridge (Upsert, urgency scoring, EvaluateHook), review instrumentation, confidence refinement, JSON tag cleanup, migration 017 | 2026-03-22 | ✅ Done |
 
 ---
 
@@ -180,7 +193,7 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | Deferred (need future data) | 3 | ⏸️ enabled=false |
 | **Total** | **23** | |
 
-## REST API Endpoints (57 total)
+## REST API Endpoints (63 total)
 
 | Method | Path | Added |
 |--------|------|-------|
@@ -232,6 +245,12 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | GET | /api/v1/recommendations | REM_01a |
 | GET | /api/v1/recommendations/rules | REM_01a |
 | PUT | /api/v1/recommendations/{id}/acknowledge | REM_01a |
+| POST | /api/v1/instances/{id}/rca/analyze | **M14_01** |
+| GET | /api/v1/instances/{id}/rca/incidents | **M14_01** |
+| GET | /api/v1/instances/{id}/rca/incidents/{incidentId} | **M14_01** |
+| GET | /api/v1/rca/incidents | **M14_01** |
+| GET | /api/v1/rca/graph | **M14_01** |
+| PUT | /api/v1/rca/incidents/{incidentId}/review | **M14_03** |
 
 ---
 
