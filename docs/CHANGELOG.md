@@ -1,3 +1,82 @@
+## [M14_03] — 2026-03-22 — RCA Expansion, Calibration, and Knowledge Integration
+
+### Added
+- **Threshold fallback hardening** — 4h baseline window (was 1h), 15min calm period check, unreliable source marking when baseline is volatile
+- **WhileEffective temporal semantics** — `SettingsProvider` interface + `SnapshotSettingsProvider` adapter for chain 19 (config change → behavioral shift)
+- **Statement snapshot diff integration** — `StatementDiffSource` detects query regressions (>2× avg time) and new queries (>5% workload) for chains 12/13
+- **Tier B chain activation** — all 20 causal chains now active (was 16 Tier A only)
+- **RCA→Adviser bridge** — `EvaluateHook()` on remediation engine, Unified Upsert with urgency scoring and incident linking
+- **Migration 017** — `source`, `urgency_score FLOAT8`, `incident_ids BIGINT[]`, `last_incident_at` columns on recommendations table with GIN index and urgency backfill
+- **Hook-to-rule mapping** — 15 ontology hooks mapped to remediation rule IDs (`internal/remediation/hooks.go`)
+- **Urgency scoring** — base from priority (critical=3.0, warning=2.0, info=1.0) + configurable RCA delta (+1.0 per incident), soft cap at 10.0
+- **Review instrumentation** — `PUT /rca/incidents/{id}/review` endpoint + `ReviewWidget` component (Confirmed / False Positive / Inconclusive + notes)
+- **RCABadge component** — "Linked to N incident(s)" badge on adviser recommendations
+- **Inline recommendations** — Incident Detail page shows linked remediation actions
+- **`useRecommendationsByIncident` hook** — fetches recommendations filtered by incident ID
+
+### Changed
+- **JSON tags on CausalNode/CausalEdge** — PascalCase → snake_case; lag fields now seconds (was nanoseconds)
+- **Confidence model refinement** — Gaussian temporal weight formula + evidence multiplier (z>5 → 1.1× boost, z<2 → penalty)
+- **Summary generation** — includes specific metric values, baselines, timestamps, direction verbs ("spiked to"/"dropped to")
+- **Adviser dashboard** — default sort by `urgency_score DESC` (was `created_at`); added source filter (Background/RCA/Alert)
+- **Recommendation struct** — added `Source`, `UrgencyScore`, `IncidentIDs`, `LastIncidentAt` fields
+- **RecommendationStore** — added `Upsert()` and `ListByIncident()` methods
+- **Frontend RCA types** — graph types updated to snake_case; Recommendation type extended
+
+### Notes
+- 2-agent execution (Backend + Frontend), ~17 min total
+- 48 files changed, +4,353 lines / -131 lines
+- 11 new files, 33 modified files
+- All checks pass: Go build, tests, lint, frontend build, typecheck
+
+---
+
+## [M14_02] — 2026-03-21 — RCA UI
+
+### Added
+- **RCA Incidents list page** — fleet-wide (`/rca/incidents`) and per-instance (`/servers/:id/rca/incidents`) with filters (instance, confidence, auto/manual)
+- **Incident Detail page** — header card, chain summary banner, quality banner, vertical timeline visualization, alternative chain (collapsible), remediation hooks, analysis metadata
+- **Causal graph reference page** — ECharts force-directed visualization of 20-chain knowledge graph
+- **Timeline components** — `TimelineNode` (role/layer badges, strength bar, z-score), `TimelineEdge` (dashed connector with description)
+- **ConfidenceBadge** — color-coded pill (green=high, yellow=medium, red=low) with score percentage
+- **QualityBanner** — dismissible info bar showing telemetry completeness and anomaly source mode
+- **ChainSummaryCard** — prominent callout with qualified summary text
+- **IncidentFilters** — instance/confidence/trigger-kind filter bar
+- **"Investigate" button** — on AlertRow and AlertDetailPanel, triggers on-demand RCA analysis
+- **Sidebar navigation** — RCA Incidents in fleet nav + per-server sub-items
+- **5 React Query hooks** — `useRCAIncidents`, `useInstanceRCAIncidents`, `useRCAIncident`, `useRCAGraph`, `useRCAAnalyze`
+- **TypeScript interfaces** — `RCAIncident`, `RCACausalChainResult`, `RCATimelineEvent`, `RCAQualityStatus`, graph types
+
+### Notes
+- Pure frontend iteration — zero Go files modified
+- 20 files changed, +1,184 lines
+- 15 new files, 5 modified files
+
+---
+
+## [M14_01] — 2026-03-21 — RCA Engine (Causal Graph + Reliable Correlation Engine)
+
+### Added
+- **`internal/rca/` package** — 12 production files, 6 test files (3,808 lines total)
+- **20 causal chains** — 16 Tier A (active) + 4 Tier B (stubbed), 47 shared nodes with exact metric keys from collector catalog
+- **9-step Analyze() algorithm** — window → scope → query → detect → traverse+prune → rank → build → store → return
+- **Dual anomaly source** — `MLAnomalySource` (wraps ml.Detector) + `ThresholdAnomalySource` (2σ + rate-of-change, fuzzy window)
+- **Required-evidence pruning** — branches killed when required evidence absent (D407)
+- **Temporal proximity scoring** — rewards anomalies at expected lag, penalizes edge cases
+- **Incident timeline** — `Incident`, `CausalChainResult`, `TimelineEvent`, `QualityStatus` types with qualified summary language
+- **Auto-trigger** — `AutoTrigger` registers via `OnAlert` hook, fires on CRITICAL alerts with 15-min cooldown
+- **5 API endpoints** — POST analyze, GET incidents (instance + fleet), GET incident detail, GET causal graph
+- **Migration 016** — `rca_incidents` table with JSONB timeline, 4 indexes
+- **MetricStatsProvider** — batch stats optimization on PGStore and MemoryStore
+- **30 tests** — graph, chains, engine (full chain + pruning + confidence), anomaly, stores
+
+### Notes
+- 3-agent execution (RCA Engine + API/Integration + QA), ~20 min total
+- 26 files changed, +3,808 lines
+- All checks pass: Go build, tests, lint, frontend unchanged
+
+---
+
 ## [M12_01] — 2026-03-17 — Core Desktop (Wails v3)
 
 ### Added
