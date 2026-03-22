@@ -17,9 +17,9 @@ export function CausalGraphView() {
   const { data: graph, isLoading } = useRCAGraph()
 
   const option = useMemo((): EChartsOption | null => {
-    if (!graph || Object.keys(graph.Nodes).length === 0) return null
+    if (!graph || Object.keys(graph.nodes).length === 0) return null
 
-    const nodes = Object.values(graph.Nodes).map((node) => ({
+    const nodes = Object.values(graph.nodes).map((node) => ({
       id: node.ID,
       name: node.Name,
       symbolSize: 40,
@@ -39,7 +39,7 @@ export function CausalGraphView() {
       },
     }))
 
-    const edges = graph.Edges.map((edge) => ({
+    const edges = graph.edges.map((edge) => ({
       source: edge.FromNode,
       target: edge.ToNode,
       lineStyle: {

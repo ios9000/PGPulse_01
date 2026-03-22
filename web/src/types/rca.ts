@@ -74,7 +74,7 @@ export interface RCACausalEdge {
 }
 
 export interface RCACausalGraph {
-  Nodes: Record<string, RCACausalNode>
-  Edges: RCACausalEdge[]
-  ChainIDs: string[]
+  nodes: Record<string, RCACausalNode>
+  edges: RCACausalEdge[]
+  chain_ids: string[]
 }
