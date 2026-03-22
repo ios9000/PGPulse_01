@@ -32,7 +32,10 @@ type RCAConfig struct {
 	MinChainScore           float64       `koanf:"min_chain_score"`
 	DeferredForwardTail     time.Duration `koanf:"deferred_forward_tail"`
 	QualityBannerEnabled    bool          `koanf:"quality_banner_enabled"`
-	RemediationHooksEnabled bool          `koanf:"remediation_hooks_enabled"`
+	RemediationHooksEnabled  bool          `koanf:"remediation_hooks_enabled"`
+	ThresholdBaselineWindow  time.Duration `koanf:"threshold_baseline_window"`
+	ThresholdCalmPeriod      time.Duration `koanf:"threshold_calm_period"`
+	ThresholdCalmSigma       float64       `koanf:"threshold_calm_sigma"`
 }
 
 // StatementSnapshotsConfig holds PGSS snapshot capture settings (M11_01).
@@ -46,9 +49,11 @@ type StatementSnapshotsConfig struct {
 
 // RemediationConfig holds background advisor evaluation settings.
 type RemediationConfig struct {
-	Enabled            bool          `koanf:"enabled"`
-	BackgroundInterval time.Duration `koanf:"background_interval"`
-	RetentionDays      int           `koanf:"retention_days"`
+	Enabled              bool          `koanf:"enabled"`
+	BackgroundInterval   time.Duration `koanf:"background_interval"`
+	RetentionDays        int           `koanf:"retention_days"`
+	RCAUrgencyDelta      float64       `koanf:"rca_urgency_delta"`
+	ForecastUrgencyDelta float64       `koanf:"forecast_urgency_delta"`
 }
 
 // OSMetricsConfig holds global OS metrics collection settings.

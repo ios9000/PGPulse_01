@@ -16,7 +16,10 @@ type RCAConfig struct {
 	MinChainScore           float64       `koanf:"min_chain_score"`
 	DeferredForwardTail     time.Duration `koanf:"deferred_forward_tail"`
 	QualityBannerEnabled    bool          `koanf:"quality_banner_enabled"`
-	RemediationHooksEnabled bool          `koanf:"remediation_hooks_enabled"`
+	RemediationHooksEnabled  bool          `koanf:"remediation_hooks_enabled"`
+	ThresholdBaselineWindow  time.Duration `koanf:"threshold_baseline_window"`
+	ThresholdCalmPeriod      time.Duration `koanf:"threshold_calm_period"`
+	ThresholdCalmSigma       float64       `koanf:"threshold_calm_sigma"`
 }
 
 // DefaultRCAConfig returns production-safe defaults.
@@ -34,6 +37,9 @@ func DefaultRCAConfig() RCAConfig {
 		MinChainScore:           0.40,
 		DeferredForwardTail:     5 * time.Minute,
 		QualityBannerEnabled:    true,
-		RemediationHooksEnabled: true,
+		RemediationHooksEnabled:  true,
+		ThresholdBaselineWindow:  4 * time.Hour,
+		ThresholdCalmPeriod:      15 * time.Minute,
+		ThresholdCalmSigma:       1.5,
 	}
 }

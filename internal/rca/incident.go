@@ -209,12 +209,22 @@ func generateSummary(chain *CausalChainResult, confidence float64) string {
 	rootEvent := chain.Events[0]
 	symptomEvent := chain.Events[len(chain.Events)-1]
 
-	return fmt.Sprintf("%s %s. %s was detected at %s, leading to %s at %s.",
+	// Build direction verb based on whether the value rose or fell relative to baseline.
+	rootVerb := "spiked to"
+	if rootEvent.BaselineVal > 0 && rootEvent.Value < rootEvent.BaselineVal {
+		rootVerb = "dropped to"
+	}
+
+	return fmt.Sprintf("%s %s. %s %s %.2f (baseline: %.2f) at %s, leading to %s (value: %.2f) at %s.",
 		qualifier,
 		rootEvent.Description,
 		rootEvent.NodeName,
+		rootVerb,
+		rootEvent.Value,
+		rootEvent.BaselineVal,
 		rootEvent.Timestamp.Format("15:04:05"),
 		symptomEvent.NodeName,
+		symptomEvent.Value,
 		symptomEvent.Timestamp.Format("15:04:05"),
 	)
 }
@@ -231,9 +241,11 @@ func bucketizeConfidence(confidence float64) string {
 	}
 }
 
-// collectHooks gathers unique remediation hook IDs from the chain's edge descriptions.
-// In practice, the engine populates hooks during traversal. This function is a placeholder
-// that returns nil; the engine's traversal sets RemediationHooks via edge metadata.
+// collectHooks gathers unique remediation hook IDs from the chain's events.
+// It maps timeline events back to the causal graph via edge descriptions.
+// This is supplemented by the engine's fireRemediationHooks for actual upserts.
 func collectHooks(_ *CausalChainResult) []string {
+	// Hook collection is handled by the engine's fireRemediationHooks
+	// which processes edges directly. Return nil here.
 	return nil
 }

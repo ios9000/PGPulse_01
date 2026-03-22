@@ -26,12 +26,15 @@ export function Advisor() {
   const [category, setCategory] = useState('')
   const [status, setStatus] = useState('active')
   const [instanceId, setInstanceId] = useState('')
+  const [source, setSource] = useState('')
 
   const { data: recs, isLoading } = useRecommendations({
     priority: priority || undefined,
     category: category || undefined,
     status: status || undefined,
     instanceId: instanceId || undefined,
+    source: source || undefined,
+    order_by: 'urgency_score',
   })
   const { data: instances } = useInstances()
 
@@ -78,6 +81,8 @@ export function Advisor() {
           instanceId={instanceId}
           onInstanceChange={setInstanceId}
           instances={instances ?? []}
+          source={source}
+          onSourceChange={setSource}
         />
 
         <div className="rounded-lg border border-pgp-border bg-pgp-bg-card">

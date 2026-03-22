@@ -144,13 +144,60 @@ func (s *APIServer) handleRCAListAllIncidents(w http.ResponseWriter, r *http.Req
 // handleRCAGetGraph returns the causal graph definition (nodes, edges, chain IDs).
 func (s *APIServer) handleRCAGetGraph(w http.ResponseWriter, _ *http.Request) {
 	graph := s.rcaEngine.Graph()
+
+	// Populate seconds fields from duration for JSON serialization.
+	edges := make([]rca.CausalEdge, len(graph.Edges))
+	copy(edges, graph.Edges)
+	for i := range edges {
+		edges[i].MinLagSeconds = edges[i].MinLag.Seconds()
+		edges[i].MaxLagSeconds = edges[i].MaxLag.Seconds()
+	}
+
 	writeJSON(w, http.StatusOK, Envelope{
 		Data: map[string]interface{}{
 			"nodes":     graph.Nodes,
-			"edges":     graph.Edges,
+			"edges":     edges,
 			"chain_ids": graph.ChainIDs,
 		},
 	})
+}
+
+// rcaReviewRequest is the JSON body for PUT /rca/incidents/{incidentId}/review.
+type rcaReviewRequest struct {
+	Status  string `json:"status"`
+	Comment string `json:"comment"`
+}
+
+// handleRCAReviewIncident updates the review status and comment for an incident.
+func (s *APIServer) handleRCAReviewIncident(w http.ResponseWriter, r *http.Request) {
+	incidentIDStr := chi.URLParam(r, "incidentId")
+	incidentID, err := strconv.ParseInt(incidentIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "incidentId must be an integer")
+		return
+	}
+
+	var req rcaReviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "invalid JSON body")
+		return
+	}
+	if req.Status == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "status is required")
+		return
+	}
+
+	if err := s.rcaStore.UpdateReview(r.Context(), incidentID, req.Status, req.Comment); err != nil {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "incident not found or update failed")
+		s.logger.Error("rca review failed", "id", incidentID, "error", err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, Envelope{Data: map[string]interface{}{
+		"reviewed":    true,
+		"incident_id": incidentID,
+		"status":      req.Status,
+	}})
 }
 
 // parseRCAPagination extracts limit and offset from query params with defaults.

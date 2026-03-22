@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, ChevronDown, ChevronRight, Clock, Zap } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Clock, Lightbulb, Zap } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { ConfidenceBadge } from '@/components/rca/ConfidenceBadge'
@@ -8,13 +8,17 @@ import { ChainSummaryCard } from '@/components/rca/ChainSummaryCard'
 import { QualityBanner } from '@/components/rca/QualityBanner'
 import { IncidentTimeline } from '@/components/rca/IncidentTimeline'
 import { RemediationHooks } from '@/components/rca/RemediationHooks'
+import { ReviewWidget } from '@/components/rca/ReviewWidget'
+import { PriorityBadge } from '@/components/advisor/PriorityBadge'
 import { useRCAIncident } from '@/hooks/useRCA'
+import { useRecommendationsByIncident } from '@/hooks/useRecommendationsByIncident'
 import { formatTimestamp } from '@/lib/formatters'
 
 export function RCAIncidentDetail() {
   const { serverId, incidentId } = useParams<{ serverId: string; incidentId: string }>()
   const numericId = incidentId ? parseInt(incidentId, 10) : undefined
   const { data: incident, isLoading } = useRCAIncident(serverId, numericId)
+  const { data: recommendations } = useRecommendationsByIncident(numericId)
 
   const [qualityDismissed, setQualityDismissed] = useState(false)
   const [altChainOpen, setAltChainOpen] = useState(false)
@@ -93,6 +97,14 @@ export function RCAIncidentDetail() {
           </div>
         </div>
 
+        {/* Review widget */}
+        <ReviewWidget
+          incidentId={incident.id}
+          instanceId={incident.instance_id}
+          currentStatus={incident.review_status}
+          currentComment={incident.review_comment}
+        />
+
         {/* Summary */}
         <ChainSummaryCard
           summary={incident.summary}
@@ -107,6 +119,34 @@ export function RCAIncidentDetail() {
 
         {/* Primary chain timeline */}
         <IncidentTimeline events={incident.timeline} primaryChain={incident.primary_chain} />
+
+        {/* Recommended actions */}
+        <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-pgp-text-primary">
+            <Lightbulb className="h-4 w-4" />
+            Recommended Actions
+          </h3>
+          {recommendations && recommendations.length > 0 ? (
+            <div className="space-y-3">
+              {recommendations.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="rounded-md border border-pgp-border bg-pgp-bg-secondary p-3"
+                >
+                  <div className="mb-1 flex items-center gap-2">
+                    <PriorityBadge priority={rec.priority} />
+                    <span className="text-sm font-medium text-pgp-text-primary">{rec.title}</span>
+                  </div>
+                  <p className="text-xs text-pgp-text-secondary">{rec.description}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-pgp-text-muted">
+              No automated remediation available for this root cause
+            </p>
+          )}
+        </div>
 
         {/* Alternative chain (collapsible) */}
         {incident.alternative_chain && (

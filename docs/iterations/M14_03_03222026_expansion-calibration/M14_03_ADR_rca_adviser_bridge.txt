@@ -1,0 +1,57 @@
+## Executive Summary
+
+The RCA → Adviser bridge will persist RCA-linked advice as enriched recommendation state owned entirely by the Remediation Engine. The recommendation schema will use native PostgreSQL arrays for incident linkage and a continuous urgency score for ranking. Hook evaluation will remain inside the existing remediation engine, while the storage layer enforces a single active recommendation per `(rule, instance)` pair via a partial unique index. Urgency must be initialized for all recommendation sources, softly capped, and additively incremented for RCA-linked confirmations.
+
+---
+
+## 1. D506: Schema Shape
+
+**Decision: `BIGINT[]` + `urgency_score`** (Rejecting JSONB + boolean boost)
+
+* **Rationale:** This maps perfectly to the proposed unified upsert model, global Adviser feed sorting, and incident-linked filtering. 
+* **Incident Linkage (`incident_ids`):** Native PostgreSQL arrays (`BIGINT[]`) are cleaner, faster, and more strongly typed than JSONB. They work seamlessly with containment logic (`ANY()`).
+* **Ranking Signal (`urgency_score`):** A continuous `FLOAT8` operational signal is far superior to a binary `severity_boost=true`. It allows background-only advice to have a baseline rank, RCA-linked advice to be promoted, and multiple confirming incidents to naturally elevate the same recommendation.
+* **Guardrail:** The SQL upsert query must utilize `CASE WHEN $1 = ANY(incident_ids) ... ELSE array_append(...)` to strictly prevent duplicate incident IDs in the array.
+
+## 2. D507: Interface Shape
+
+**Decision: Keep `EvaluateHook` as a method on the existing `remediation.Engine`.**
+
+* **Rationale:** RCA owns causal reasoning; the Adviser owns recommendation materialization. This preserves a single owner of recommendation state and avoids creating an unnecessary orchestration/bridge layer.
+* **Guardrail:** `EvaluateHook` must not become a dumping ground for RCA heuristics. Its signature must remain strict (accepting only the `hookID`, `instanceID`, and `incidentID`). It is strictly a remediation-side materialization path.
+
+## 3. D508: Migration and Indexing
+
+**Decision: Approve migration 017 with a Partial Unique Index and a GIN Index.**
+
+* **Partial Unique Index (`(rule_id, instance_id) WHERE status='active'`):** This is the core invariant of the entire RCA→Adviser bridge. It guarantees clean operational behavior: one active recommendation per rule per instance, ensuring that resolved recommendations do not block recurrence, and that RCA enriches rather than duplicates state.
+* **GIN Index on `incident_ids`:** This is not premature optimization. It is fully justified by the explicitly declared product flow (the Incident Detail page relies on the `GET /api/v1/recommendations?incident_id=123` query path).
+
+---
+
+## 4. Open Questions Resolution
+
+### Q1: Urgency Score Cap?
+**Decision: Yes, add a Soft Cap.**
+* **Rationale:** Even with cooldowns and rate limiting, runaway escalation is possible due to noisy recurring incidents. 
+* **Implementation:** The cap should be implemented at the database level using `LEAST()`. Example: `urgency_score = LEAST(recommendations.urgency_score + $15, 10.0)`. This acts as a saturation ceiling without breaking the ranking signal.
+
+### Q2: Should `Write()` initialize `urgency_score`?
+**Decision: Yes, strictly mandatory.**
+* **Rationale:** `urgency_score` must be a first-class field for all new recommendations, not just an RCA enrichment artifact. If `Write()` leaves it empty, the `ORDER BY urgency_score DESC` logic will break for purely background-detected issues.
+* **Implementation:** Background writes must set the base urgency mapped from the priority level before saving to the database.
+
+### Q3: Should re-created active recommendations inherit context from resolved ones?
+**Decision: Defer to later iterations.**
+* **Rationale:** Dragging recurrence lineage and previous resolution context into M14_03 introduces unnecessary complexity. The partial unique index already provides the correct operational behavior (allowing clean creation of a new recommendation if the issue recurs).
+
+---
+
+## 5. Architectural Risks & Future Mitigations
+
+1.  **Recommendation State Inflation (Rank Drift):**
+    * *Risk:* Additive urgency without decay means old rules might indefinitely dominate the feed.
+    * *Future Mitigation:* Introduce a **Time Decay** cron job in a future iteration that periodically reduces the `urgency_score` of aging recommendations if they are not confirmed by new incidents.
+2.  **Source Escalation Semantics (Lossy Provenance):**
+    * *Risk:* A single `source` field that escalates (e.g., `rca` overwrites `background`) hides mixed provenance over time.
+    * *Future Mitigation:* Keep the single field for M14_03 filtering, but reserve the option to add an `enrichment_history JSONB` append-only audit log in the future.

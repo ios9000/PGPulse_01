@@ -602,6 +602,10 @@ export interface Recommendation {
   resolved_at: string | null
   acknowledged_at?: string
   acknowledged_by?: string
+  source: 'background' | 'rca' | 'alert' | 'forecast'
+  urgency_score: number
+  incident_ids: number[]
+  last_incident_at?: string
 }
 
 export interface DiagnoseResponse {

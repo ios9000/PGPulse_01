@@ -273,6 +273,21 @@ func (s *PGIncidentStore) ListAll(ctx context.Context, limit, offset int) ([]Inc
 	return incidents, total, rows.Err()
 }
 
+func (s *PGIncidentStore) UpdateReview(ctx context.Context, id int64, status, comment string) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE rca_incidents
+		 SET review_status = $2, review_comment = $3, reviewed_at = NOW()
+		 WHERE id = $1`,
+		id, status, comment)
+	if err != nil {
+		return fmt.Errorf("rca pgstore update review: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("incident %d not found", id)
+	}
+	return nil
+}
+
 func (s *PGIncidentStore) Cleanup(ctx context.Context, olderThan time.Duration) (int64, error) {
 	cutoff := time.Now().Add(-olderThan)
 	tag, err := s.pool.Exec(ctx,

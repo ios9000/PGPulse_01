@@ -267,6 +267,11 @@ func (s *APIServer) Routes() http.Handler {
 					r.Get("/instances/{id}/rca/incidents/{incidentId}", s.handleRCAGetIncident)
 					r.Get("/rca/incidents", s.handleRCAListAllIncidents)
 					r.Get("/rca/graph", s.handleRCAGetGraph)
+
+					r.Group(func(r chi.Router) {
+						r.Use(auth.RequirePermission(auth.PermAlertManagement, writeErrorRaw))
+						r.Put("/rca/incidents/{incidentId}/review", s.handleRCAReviewIncident)
+					})
 				}
 
 				// Instance management — require instance_management permission.
@@ -386,6 +391,7 @@ func (s *APIServer) Routes() http.Handler {
 					r.Get("/instances/{id}/rca/incidents/{incidentId}", s.handleRCAGetIncident)
 					r.Get("/rca/incidents", s.handleRCAListAllIncidents)
 					r.Get("/rca/graph", s.handleRCAGetGraph)
+					r.Put("/rca/incidents/{incidentId}/review", s.handleRCAReviewIncident)
 				}
 
 				// Instance management (no auth check when auth disabled).

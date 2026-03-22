@@ -18,6 +18,8 @@ export interface RCAIncident {
   chain_version: string
   anomaly_mode: string
   created_at: string
+  review_status?: string
+  review_comment?: string
 }
 
 export interface RCACausalChainResult {
@@ -52,25 +54,25 @@ export interface RCAQualityStatus {
 }
 
 export interface RCACausalNode {
-  ID: string
-  Name: string
-  MetricKeys: string[]
-  Layer: string
-  SymptomKey: string
-  MechanismKey: string
+  id: string
+  name: string
+  metric_keys: string[]
+  layer: string
+  symptom_key: string
+  mechanism_key: string
 }
 
 export interface RCACausalEdge {
-  FromNode: string
-  ToNode: string
-  MinLag: number
-  MaxLag: number
-  Temporal: number
-  Evidence: number
-  Description: string
-  BaseConfidence: number
-  ChainID: string
-  RemediationHook: string
+  from_node: string
+  to_node: string
+  min_lag_seconds: number
+  max_lag_seconds: number
+  temporal: string
+  evidence: string
+  description: string
+  base_confidence: number
+  chain_id: string
+  remediation_hook?: string
 }
 
 export interface RCACausalGraph {
