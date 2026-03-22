@@ -205,8 +205,12 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-M14_02 — RCA UI (incidents page, timeline visualization, alert integration)
-See: docs/iterations/M14_02_03212026_rca-ui
+Milestone: M14
+Iteration: M14_03
+Last completed feature: M14_02 (RCA UI)
+Next planned work: M14_03 (Expansion, Calibration, Knowledge Integration)
+See: docs/iterations/M14_03_03222026_expansion-calibration
+
 
 ### What Was Just Completed
 M12_01 — Core Desktop (Wails v3):
