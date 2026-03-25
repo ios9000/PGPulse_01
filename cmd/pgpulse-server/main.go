@@ -26,6 +26,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/config"
 	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/orchestrator"
+	"github.com/ios9000/PGPulse_01/internal/playbook"
 	"github.com/ios9000/PGPulse_01/internal/plans"
 	"github.com/ios9000/PGPulse_01/internal/rca"
 	"github.com/ios9000/PGPulse_01/internal/remediation"
@@ -386,6 +387,28 @@ func main() {
 			}
 		}
 
+		// M14_04: Playbook subsystem setup.
+		var pbStore playbook.PlaybookStore = playbook.NewNullPlaybookStore()
+		var pbResolver *playbook.Resolver
+		if cfg.Playbooks.Enabled {
+			pbStore = playbook.NewPGStore(pgPool)
+			pbResolver = playbook.NewResolver(pbStore, logger)
+
+			// Seed built-in playbooks.
+			if err := playbook.SeedBuiltinPlaybooks(ctx, pbStore, logger); err != nil {
+				logger.Error("failed to seed playbooks", "error", err)
+				os.Exit(1)
+			}
+
+			// Feedback worker.
+			fbWorker := playbook.NewFeedbackWorker(pbStore, alertHistoryStore, cfg.Playbooks.ImplicitFeedbackWindow, logger)
+			fbWorker.Start(ctx)
+			defer fbWorker.Stop()
+			logger.Info("playbook subsystem initialized",
+				"seed_count", len(playbook.BuiltinPlaybooks()),
+			)
+		}
+
 		// Wire auth when enabled — requires a storage DSN (validated in config).
 		if cfg.Auth.Enabled {
 			userStore := auth.NewPGUserStore(pgPool)
@@ -430,7 +453,7 @@ func main() {
 			if mlDetector != nil {
 				apiServer.SetMLDetector(mlDetector, cfg.ML)
 			}
-			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore)
+			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore, pbStore, pbResolver)
 			return
 		}
 
@@ -443,7 +466,7 @@ func main() {
 		apiServer.SetRemediation(remEngine, remStore, remMetricSource)
 		apiServer.SetPGSSStore(pgssStore, cfg.StatementSnapshots)
 		apiServer.SetRCA(rcaEngine, rcaStore)
-		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore)
+		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore, pbStore, pbResolver)
 	} else if len(cfg.Instances) > 0 {
 		// Live mode — in-memory storage with configured instances.
 		liveMode = true
@@ -460,7 +483,7 @@ func main() {
 			nil, alert.NewNullAlertHistoryStore(), nil, nil, nil,
 			liveMode, *flagHistory, authMode)
 		startServer(ctx, stop, cfg, apiServer, store, logger,
-			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil)
+			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil, nil, nil)
 	} else {
 		store = orchestrator.NewLogStore(logger)
 		logger.Info("no storage DSN configured, using log-only mode")
@@ -468,7 +491,7 @@ func main() {
 		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil, nil,
 			false, 0, authMode)
 		startServer(ctx, stop, cfg, apiServer, store, logger,
-			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil)
+			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil, nil, nil)
 	}
 }
 
@@ -525,10 +548,21 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 	evaluator orchestrator.AlertEvaluator, dispatcher orchestrator.AlertDispatcher,
 	realDispatcher *alert.Dispatcher,
 	pgssStore statements.SnapshotStore, pgssCapturer *statements.SnapshotCapturer,
-	instStore storage.InstanceStore) {
+	instStore storage.InstanceStore,
+	pbStore playbook.PlaybookStore, pbResolver *playbook.Resolver) {
 
 	orch := orchestrator.New(cfg, store, logger, evaluator, dispatcher)
 	apiServer.SetConnProvider(orch)
+
+	// M14_04: Wire playbook executor with orchestrator as ConnProvider.
+	if pbStore != nil && pbResolver != nil {
+		pbCfg := playbook.PlaybookConfig{
+			ResultRowLimit: cfg.Playbooks.ResultRowLimit,
+		}
+		pbExecutor := playbook.NewExecutor(orch, pbCfg, logger)
+		apiServer.SetPlaybooks(pbStore, pbExecutor, pbResolver)
+		logger.Info("playbook executor wired to orchestrator")
+	}
 
 	// M11_01: Wire PGSS capturer with orchestrator as ConnProvider, then start.
 	if cfg.StatementSnapshots.Enabled && pgssStore != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
 	"github.com/ios9000/PGPulse_01/internal/ml"
+	"github.com/ios9000/PGPulse_01/internal/playbook"
 	"github.com/ios9000/PGPulse_01/internal/plans"
 	"github.com/ios9000/PGPulse_01/internal/rca"
 	"github.com/ios9000/PGPulse_01/internal/remediation"
@@ -61,6 +62,9 @@ type APIServer struct {
 	stmtSnapshotsCfg  config.StatementSnapshotsConfig
 	rcaEngine         *rca.Engine                     // nil when RCA disabled
 	rcaStore          rca.IncidentStore               // nil when RCA disabled
+	playbookStore     playbook.PlaybookStore          // nil when playbooks disabled
+	playbookExecutor  *playbook.Executor              // nil when playbooks disabled
+	playbookResolver  *playbook.Resolver              // nil when playbooks disabled
 	liveMode          bool
 	memoryRetention   time.Duration
 	authMode          auth.AuthMode
@@ -149,6 +153,13 @@ func (s *APIServer) SetPGSSCapturer(c *statements.SnapshotCapturer) {
 func (s *APIServer) SetRCA(engine *rca.Engine, store rca.IncidentStore) {
 	s.rcaEngine = engine
 	s.rcaStore = store
+}
+
+// SetPlaybooks sets the playbook store, executor, and resolver for playbook endpoints.
+func (s *APIServer) SetPlaybooks(store playbook.PlaybookStore, executor *playbook.Executor, resolver *playbook.Resolver) {
+	s.playbookStore = store
+	s.playbookExecutor = executor
+	s.playbookResolver = resolver
 }
 
 // Routes builds the chi router with all middleware and endpoints.
@@ -274,7 +285,55 @@ func (s *APIServer) Routes() http.Handler {
 					})
 				}
 
-				// Instance management — require instance_management permission.
+								// Playbook routes (M14_04).
+				if s.playbookStore != nil {
+					r.Get("/playbooks", s.handleListPlaybooks)
+					r.Get("/playbooks/resolve", s.handleResolvePlaybook)
+
+					r.Group(func(r chi.Router) {
+						r.Use(auth.RequirePermission(auth.PermAlertManagement, writeErrorRaw))
+						r.Post("/playbooks", s.handleCreatePlaybook)
+					})
+
+					r.Route("/playbooks/{id}", func(r chi.Router) {
+						r.Get("/", s.handleGetPlaybook)
+						r.Group(func(r chi.Router) {
+							r.Use(auth.RequirePermission(auth.PermAlertManagement, writeErrorRaw))
+							r.Put("/", s.handleUpdatePlaybook)
+							r.Post("/deprecate", s.handleDeprecatePlaybook)
+						})
+						r.Group(func(r chi.Router) {
+							r.Use(auth.RequirePermission(auth.PermUserManagement, writeErrorRaw))
+							r.Delete("/", s.handleDeletePlaybook)
+							r.Post("/promote", s.handlePromotePlaybook)
+						})
+					})
+
+					r.Post("/instances/{id}/playbooks/{playbookId}/run", s.handleStartRun)
+					r.Get("/instances/{id}/playbook-runs", s.handleListInstanceRuns)
+
+					r.Route("/playbook-runs", func(r chi.Router) {
+						r.Get("/", s.handleListAllRuns)
+						r.Route("/{runId}", func(r chi.Router) {
+							r.Get("/", s.handleGetRun)
+							r.Post("/abandon", s.handleAbandonRun)
+							r.Post("/feedback", s.handleSubmitFeedback)
+							r.Route("/steps/{stepOrder}", func(r chi.Router) {
+								r.Post("/execute", s.handleExecuteStep)
+								r.Post("/skip", s.handleSkipStep)
+								r.Post("/retry", s.handleRetryStep)
+								r.Post("/request-approval", s.handleRequestApproval)
+								r.Group(func(r chi.Router) {
+									r.Use(auth.RequirePermission(auth.PermInstanceManagement, writeErrorRaw))
+									r.Post("/confirm", s.handleConfirmStep)
+									r.Post("/approve", s.handleApproveStep)
+								})
+							})
+						})
+					})
+				}
+
+// Instance management — require instance_management permission.
 				if s.instanceStore != nil {
 					r.Group(func(r chi.Router) {
 						r.Use(auth.RequirePermission(auth.PermInstanceManagement, writeErrorRaw))
@@ -394,7 +453,39 @@ func (s *APIServer) Routes() http.Handler {
 					r.Put("/rca/incidents/{incidentId}/review", s.handleRCAReviewIncident)
 				}
 
-				// Instance management (no auth check when auth disabled).
+								// Playbook routes (M14_04, no auth check when auth disabled).
+				if s.playbookStore != nil {
+					r.Get("/playbooks", s.handleListPlaybooks)
+					r.Get("/playbooks/resolve", s.handleResolvePlaybook)
+					r.Post("/playbooks", s.handleCreatePlaybook)
+					r.Route("/playbooks/{id}", func(r chi.Router) {
+						r.Get("/", s.handleGetPlaybook)
+						r.Put("/", s.handleUpdatePlaybook)
+						r.Delete("/", s.handleDeletePlaybook)
+						r.Post("/promote", s.handlePromotePlaybook)
+						r.Post("/deprecate", s.handleDeprecatePlaybook)
+					})
+					r.Post("/instances/{id}/playbooks/{playbookId}/run", s.handleStartRun)
+					r.Get("/instances/{id}/playbook-runs", s.handleListInstanceRuns)
+					r.Route("/playbook-runs", func(r chi.Router) {
+						r.Get("/", s.handleListAllRuns)
+						r.Route("/{runId}", func(r chi.Router) {
+							r.Get("/", s.handleGetRun)
+							r.Post("/abandon", s.handleAbandonRun)
+							r.Post("/feedback", s.handleSubmitFeedback)
+							r.Route("/steps/{stepOrder}", func(r chi.Router) {
+								r.Post("/execute", s.handleExecuteStep)
+								r.Post("/skip", s.handleSkipStep)
+								r.Post("/retry", s.handleRetryStep)
+								r.Post("/request-approval", s.handleRequestApproval)
+								r.Post("/confirm", s.handleConfirmStep)
+								r.Post("/approve", s.handleApproveStep)
+							})
+						})
+					})
+				}
+
+// Instance management (no auth check when auth disabled).
 				if s.instanceStore != nil {
 					r.Post("/instances", s.handleCreateInstance)
 					r.Put("/instances/{id}", s.handleUpdateInstance)

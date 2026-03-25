@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutGrid, Bell, Lightbulb, Settings, Database, GitCompareArrows, ChevronDown, ChevronRight, BarChart3, FileText, Search } from 'lucide-react'
+import { LayoutGrid, Bell, Lightbulb, Settings, Database, GitCompareArrows, ChevronDown, ChevronRight, BarChart3, FileText, Search, BookOpen } from 'lucide-react'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Permission } from '@/lib/permissions'
@@ -19,6 +19,7 @@ const navItems: NavItem[] = [
   { label: 'Fleet Overview', icon: LayoutGrid, path: '/fleet' },
   // Alerts is handled separately as an expandable group
   { label: 'Advisor', icon: Lightbulb, path: '/advisor' },
+  { label: 'Playbooks', icon: BookOpen, path: '/playbooks' },
   { label: 'RCA Incidents', icon: Search, path: '/rca/incidents' },
   { label: 'Settings Diff', icon: GitCompareArrows, path: '/settings/diff' },
   { label: 'Administration', icon: Settings, path: '/admin' },

@@ -6,6 +6,7 @@ import { RuleFormModal } from '@/components/alerts/RuleFormModal'
 import { formatTimestamp } from '@/lib/formatters'
 import { useAcknowledge } from '@/hooks/useRecommendations'
 import { useAuth } from '@/hooks/useAuth'
+import { ResolverButton } from '@/components/playbook/ResolverButton'
 import { toast } from '@/stores/toastStore'
 import type { Recommendation, RecommendationPriority, AlertRule } from '@/types/models'
 
@@ -114,6 +115,13 @@ export function AdvisorRow({ rec }: AdvisorRowProps) {
                     Create Alert Rule
                   </button>
                 )}
+                <ResolverButton
+                  adviserRule={rec.rule_id}
+                  instanceId={rec.instance_id}
+                  triggerSource="adviser"
+                  triggerId={String(rec.id)}
+                  variant="compact"
+                />
               </div>
             </div>
           </td>

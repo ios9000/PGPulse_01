@@ -12,6 +12,7 @@ import { ReviewWidget } from '@/components/rca/ReviewWidget'
 import { PriorityBadge } from '@/components/advisor/PriorityBadge'
 import { useRCAIncident } from '@/hooks/useRCA'
 import { useRecommendationsByIncident } from '@/hooks/useRecommendationsByIncident'
+import { ResolverButton } from '@/components/playbook/ResolverButton'
 import { formatTimestamp } from '@/lib/formatters'
 
 export function RCAIncidentDetail() {
@@ -173,6 +174,22 @@ export function RCAIncidentDetail() {
                 <IncidentTimeline events={incident.alternative_chain.events} />
               </div>
             )}
+          </div>
+        )}
+
+        {/* Guided remediation playbook */}
+        {incident.primary_chain && (
+          <div className="rounded-lg border border-pgp-border bg-pgp-bg-card p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-pgp-text-primary">
+              Guided Remediation
+            </h3>
+            <ResolverButton
+              hook={incident.remediation_hooks?.[0]}
+              rootCause={incident.primary_chain.root_cause_key}
+              instanceId={serverId ?? ''}
+              triggerSource="rca"
+              triggerId={String(incident.id)}
+            />
           </div>
         )}
 
