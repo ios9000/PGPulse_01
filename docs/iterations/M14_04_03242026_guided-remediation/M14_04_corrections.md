@@ -326,6 +326,278 @@ These MUST be added to the route registration in `server.go` and to `NullPlayboo
 
 ---
 
-## Pre-Flight Grep Findings
+## Pre-Flight Grep Findings (2026-03-24)
 
-Pre-flight greps deferred to your local execution (checklist Step 5). The corrections above are based on architectural review. Grep findings may add additional corrections — append them to this document.
+All 24 checklist greps executed. Findings below.
+
+---
+
+### G1: Hook Constants — CRITICAL MISMATCH (6 of 10 seed playbooks affected)
+
+The design doc uses hypothetical hook names that **do not exist** in `internal/rca/ontology.go`. Agents MUST use the actual constants:
+
+| Seed Playbook | Design Hook (WRONG) | Actual Constant (USE THIS) | Value |
+|---|---|---|---|
+| wal-archive-failure | `HookWALConfig` | **DOES NOT EXIST** — must add to ontology.go | — |
+| replication-lag | `HookReplicationLag` | **DOES NOT EXIST** — must add to ontology.go | — |
+| connection-saturation | `HookConnectionPooling` | `HookConnectionPooling` ✅ | `"remediation.connection_pooling"` |
+| lock-contention | `HookLockTimeout` | `HookLockInvestigation` | `"remediation.lock_investigation"` |
+| long-transactions | `HookLongTransaction` | `HookKillLongTx` | `"remediation.kill_long_transaction"` |
+| checkpoint-storm | `HookCheckpointTuning` | `HookCheckpointTuning` ✅ | `"remediation.checkpoint_completion_target"` |
+| disk-full | `HookDiskCapacity` | **DOES NOT EXIST** — must add to ontology.go | — |
+| autovacuum-failing | `HookVacuumTuning` | `HookVacuumTuning` ✅ | `"remediation.vacuum_cost_settings"` |
+| wraparound-risk | `HookWraparound` | `HookWraparoundVacuum` | `"remediation.wraparound_vacuum"` |
+| heavy-query | `HookQueryOptimization` | `HookQueryOptimization` ✅ | `"remediation.query_optimization"` |
+
+**Action required:** Add 3 new hook constants to `internal/rca/ontology.go`:
+```go
+HookWALArchive         = "remediation.wal_archive"
+HookReplicationLag     = "remediation.replication_lag"
+HookDiskCapacity       = "remediation.disk_capacity"
+```
+Also add corresponding entries to `internal/remediation/hooks.go` `HookToRuleID` map (empty string values — no existing remediation rules match).
+
+---
+
+### G2: RBAC — Permission and Role Constants
+
+From `internal/auth/rbac.go`:
+
+```go
+// Permissions
+PermUserManagement     Permission = "user_management"
+PermInstanceManagement Permission = "instance_management"
+PermAlertManagement    Permission = "alert_management"
+PermViewAll            Permission = "view_all"
+PermSelfManagement     Permission = "self_management"
+
+// Roles
+RoleSuperAdmin Role = "super_admin"
+RoleRolesAdmin Role = "roles_admin"
+RoleDBA        Role = "dba"
+RoleAppAdmin   Role = "app_admin"
+```
+
+**Playbook RBAC mapping:**
+- Playbook CRUD create/edit/deprecate: `PermAlertManagement` (super_admin, dba, app_admin)
+- Playbook promote/delete: `PermUserManagement` (super_admin, roles_admin)
+- Tier 3 approve: `PermInstanceManagement` (super_admin, dba)
+- View/execute: `PermViewAll` (all roles)
+
+---
+
+### G3: ConnFor Return Type — Confirmed `*pgx.Conn`
+
+```go
+// internal/api/connprovider.go
+type InstanceConnProvider interface {
+    ConnFor(ctx context.Context, instanceID string) (*pgx.Conn, error)
+    ConnForDB(ctx context.Context, instanceID, dbName string) (*pgx.Conn, error)
+}
+```
+
+Executor uses `ConnFor()` → returns `*pgx.Conn`. Transaction API: `conn.Begin(ctx)` → returns `pgx.Tx`.
+
+---
+
+### G4: AlertHistoryStore Interface (for feedback worker)
+
+```go
+// internal/alert/store.go
+type AlertHistoryStore interface {
+    Record(ctx context.Context, event *AlertEvent) error
+    Resolve(ctx context.Context, ruleID, instanceID string, resolvedAt time.Time) error
+    ListUnresolved(ctx context.Context) ([]AlertEvent, error)
+    Query(ctx context.Context, q AlertHistoryQuery) ([]AlertEvent, error)
+    Cleanup(ctx context.Context, olderThan time.Duration) (int64, error)
+}
+```
+
+Feedback worker needs `ListUnresolved()` to check if triggering alert is still active.
+
+---
+
+### G5: Migration Numbering — Confirmed 018 Is Next
+
+Last migration: `017_recommendation_rca_bridge.sql`. Migration 018 is correct.
+
+---
+
+### G6: Config Struct Location
+
+`internal/config/config.go` — top-level `Config struct` at line 6. New `PlaybookConfig` should be added alongside existing `RCAConfig`, `RemediationConfig`, etc. (lines 22-60).
+
+---
+
+### G7: Main.go Wiring Pattern
+
+Existing subsystems use this pattern (lines 287-330):
+```go
+// 1. Create engine
+remEngine := remediation.NewEngine()
+// 2. Create store
+remStore := remediation.NewPGStore(pgPool)
+// 3. Wire store to engine
+remEngine.SetStore(remStore)
+// 4. Create adapter/integration
+remAdapter := remediation.NewAlertAdapter(remEngine, remMetricSource)
+// 5. Check config enabled
+if cfg.Remediation.Enabled { ... }
+// 6. Start background worker
+bgEval := remediation.NewBackgroundEvaluator(...)
+bgEval.Start(ctx)
+```
+
+Playbook wiring should follow the same pattern.
+
+---
+
+### G8: API Server Constructor
+
+`func New()` in `internal/api/server.go` (line 73) — accepts 13+ parameters. Additional dependencies (remediation, RCA, etc.) are wired via setter methods on `APIServer`, NOT constructor params. Follow existing patterns:
+
+Check for `Set*` methods on APIServer for subsystem integration.
+
+---
+
+### G9: Route Registration Pattern
+
+Routes in `internal/api/server.go` `Routes()` method (line 155). Uses chi nested `r.Route("/api/v1", func(r chi.Router) { ... })`. Auth-protected routes are wrapped in `r.Group(func(r chi.Router) { r.Use(s.authMiddleware) ... })`.
+
+Existing route groups:
+- `/auth/*` — login, refresh, me
+- `/instances/{id}/*` — metrics, activity, replication, etc.
+- `/alerts/*` — alert rules, history
+- `/users/*` — user management
+- `/rca/*` — RCA incidents
+
+New playbook routes should follow the same grouping pattern.
+
+---
+
+### G10: Frontend Router — `web/src/App.tsx`
+
+Routes defined inline in App.tsx (lines 39-60). Uses `<Route>` components with `element` prop. Protected routes wrapped in `<ProtectedRoute>`. All routes inside `<AppShell>`.
+
+New routes to add:
+```tsx
+<Route path="playbooks" element={<PlaybookCatalog />} />
+<Route path="playbooks/:playbookId" element={<PlaybookDetail />} />
+<Route path="playbooks/:playbookId/edit" element={<PlaybookEditor />} />
+<Route path="servers/:serverId/playbook-runs/:runId" element={<PlaybookWizard />} />
+<Route path="playbook-runs" element={<PlaybookRunHistory />} />
+```
+
+---
+
+### G11: Sidebar Navigation
+
+`web/src/components/layout/Sidebar.tsx` — nav items array at line 19. Current order:
+1. Fleet Overview (`/fleet`)
+2. [Alerts group — expandable]
+3. Advisor (`/advisor`)
+4. RCA Incidents (`/rca/incidents`)
+5. Settings Diff (`/settings/diff`)
+6. Administration (`/admin`)
+
+Playbooks should be inserted between Advisor and RCA Incidents (logical flow: alerts → advice → playbooks → RCA).
+
+---
+
+### G12: Frontend Integration Points
+
+**AlertDetailPanel** (line 269): Has "Investigate Root Cause" button using `useRCAAnalyze()`. Add "Run Playbook" button nearby.
+
+**RCAIncidentDetail** (line 123-180): Has "Recommended Actions" section with `RemediationHooks` component. Add "Guided Remediation" card with playbook resolver.
+
+**AdvisorRow** (line 74-78): Has "Acknowledge" button. Add "Remediate" button when matching playbook exists.
+
+---
+
+### G13: Background Worker Pattern
+
+From `internal/remediation/background.go`:
+```go
+func (b *BackgroundEvaluator) Start(ctx context.Context) { ... }
+func (b *BackgroundEvaluator) Stop() { ... }
+// Uses: time.NewTicker, select { case <-ticker.C: ... case <-ctx.Done(): }
+```
+
+Feedback worker should follow this exact pattern.
+
+---
+
+### G14: pgx Transaction Pattern
+
+Confirmed from `internal/statements/pgstore.go` and `internal/storage/migrate.go`:
+```go
+tx, err := pool.Begin(ctx)    // or conn.Begin(ctx)
+defer func() { _ = tx.Rollback(ctx) }()
+tx.Exec(ctx, "...")
+tx.QueryRow(ctx, "...")
+```
+
+---
+
+### G15: Seed Pattern
+
+From `internal/alert/seed.go`:
+```go
+func SeedBuiltinRules(ctx context.Context, store AlertRuleStore, logger *slog.Logger) error {
+    for _, rule := range builtinRules {
+        if err := store.UpsertBuiltin(ctx, &rule); err != nil { ... }
+    }
+}
+```
+
+Playbook seeding should use same pattern: `SeedBuiltinPlaybooks(ctx, store, logger)` with `UpsertBuiltin` to enable idempotent re-seeding.
+
+---
+
+### G16: NullStore Pattern
+
+From `internal/rca/nullstore.go`:
+```go
+type NullIncidentStore struct{}
+func NewNullIncidentStore() *NullIncidentStore { return &NullIncidentStore{} }
+func (s *NullIncidentStore) Create(_ context.Context, _ *Incident) (int64, error) { return 0, nil }
+// ... all methods return zero values, nil errors
+```
+
+---
+
+### G17: pg_stat_archiver — Not Referenced in Collectors
+
+No existing collector queries `pg_stat_archiver`. This is fine — the WAL seed playbook SQL will be the first use. `pg_stat_archiver` is available in PG 14+ (our minimum).
+
+---
+
+### G18: Frontend API Wrapper
+
+`web/src/lib/api.ts` exports `apiFetch(path, options)`. Uses `fetch()` with auto auth headers, 401 refresh, error handling. All hooks use `apiFetch` directly (no `api.get`/`api.post` helpers).
+
+Pattern: `const res = await apiFetch('/playbooks'); const json = await res.json();`
+
+---
+
+### G19: React Query Hook Pattern
+
+From `web/src/hooks/useRCA.ts`:
+```tsx
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiFetch } from '@/lib/api'
+
+export function useRCAIncidents(params) {
+  return useQuery({
+    queryKey: ['rca-incidents', params],
+    queryFn: async () => { ... apiFetch(...) ... },
+    refetchInterval: 30_000,
+  })
+}
+```
+
+---
+
+### G20: Recommendation Type
+
+`web/src/types/models.ts:587` — `Recommendation` interface with `rule_id`, `instance_id`, `metric_key`, `priority`, `category`, `status`, `title` fields. Use `rule_id` for playbook Resolver matching via `adviser_rules` binding.
