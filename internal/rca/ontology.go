@@ -122,6 +122,11 @@ const (
 	HookLockInvestigation  = "remediation.lock_investigation"
 	HookQueryOptimization  = "remediation.query_optimization"
 	HookNetworkDiagnostics = "remediation.network_diagnostics"
+
+	// M14_04: New hooks for guided remediation playbooks.
+	HookWALArchive     = "remediation.wal_archive"
+	HookReplicationLag = "remediation.replication_lag"
+	HookDiskCapacity   = "remediation.disk_capacity"
 )
 
 // Tier classification.

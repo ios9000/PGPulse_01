@@ -163,6 +163,23 @@ func validate(cfg *Config) error {
 		cfg.RCA.ThresholdCalmSigma = 1.5
 	}
 
+	// Playbook defaults.
+	if cfg.Playbooks.DefaultStatementTimeout == 0 {
+		cfg.Playbooks.DefaultStatementTimeout = 5
+	}
+	if cfg.Playbooks.DefaultLockTimeout == 0 {
+		cfg.Playbooks.DefaultLockTimeout = 5
+	}
+	if cfg.Playbooks.ResultRowLimit == 0 {
+		cfg.Playbooks.ResultRowLimit = 100
+	}
+	if cfg.Playbooks.RunRetentionDays == 0 {
+		cfg.Playbooks.RunRetentionDays = 90
+	}
+	if cfg.Playbooks.ImplicitFeedbackWindow == 0 {
+		cfg.Playbooks.ImplicitFeedbackWindow = 5 * time.Minute
+	}
+
 	if len(cfg.Instances) == 0 {
 		return fmt.Errorf("at least one instance must be configured")
 	}

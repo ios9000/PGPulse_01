@@ -20,6 +20,11 @@ import { WorkloadReport } from '@/pages/WorkloadReport'
 import { RCAIncidents } from '@/pages/RCAIncidents'
 import { RCAIncidentDetail } from '@/pages/RCAIncidentDetail'
 import { RCACausalGraph } from '@/pages/RCACausalGraph'
+import { PlaybookCatalog } from '@/pages/PlaybookCatalog'
+import { PlaybookDetail } from '@/pages/PlaybookDetail'
+import { PlaybookEditor } from '@/pages/PlaybookEditor'
+import { PlaybookWizard } from '@/pages/PlaybookWizard'
+import { PlaybookRunHistory } from '@/pages/PlaybookRunHistory'
 import { NotFound } from '@/pages/NotFound'
 import { useAuthStore } from '@/stores/authStore'
 import { pgpulseTheme } from '@/lib/echartsTheme'
@@ -49,8 +54,13 @@ export function App() {
           <Route path="servers/:serverId/workload-report" element={<WorkloadReport />} />
           <Route path="servers/:serverId/rca/incidents" element={<RCAIncidents />} />
           <Route path="servers/:serverId/rca/incidents/:incidentId" element={<RCAIncidentDetail />} />
+          <Route path="servers/:serverId/playbook-runs/:runId" element={<PlaybookWizard />} />
           <Route path="rca/incidents" element={<RCAIncidents />} />
           <Route path="rca/graph" element={<RCACausalGraph />} />
+          <Route path="playbooks" element={<PlaybookCatalog />} />
+          <Route path="playbooks/:playbookId" element={<PlaybookDetail />} />
+          <Route path="playbooks/:playbookId/edit" element={<PlaybookEditor />} />
+          <Route path="playbook-runs" element={<PlaybookRunHistory />} />
           <Route path="settings/diff" element={<SettingsDiff />} />
           <Route path="alerts" element={<AlertsDashboard />} />
           <Route path="advisor" element={<Advisor />} />

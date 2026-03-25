@@ -6,6 +6,7 @@ import { getMetricDescription, getMetricPageLink } from '@/lib/metricDescription
 import { PriorityBadge } from '@/components/advisor/PriorityBadge'
 import { ConfidenceBadge } from '@/components/rca/ConfidenceBadge'
 import { useInstanceRCAIncidents, useRCAAnalyze } from '@/hooks/useRCA'
+import { ResolverButton } from '@/components/playbook/ResolverButton'
 import type { AlertEvent, AlertRule } from '@/types/models'
 
 interface AlertDetailPanelProps {
@@ -269,6 +270,14 @@ export function AlertDetailPanel({ alert, rules, onClose }: AlertDetailPanelProp
               {analyzeMutation.isPending ? 'Analyzing...' : 'Investigate Root Cause'}
             </button>
           )}
+
+          {/* Playbook resolver */}
+          <ResolverButton
+            metric={alert.metric}
+            instanceId={alert.instance_id}
+            triggerSource="alert"
+            triggerId={String(alert.id)}
+          />
         </div>
 
         {/* Quick Links */}

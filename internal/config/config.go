@@ -14,6 +14,7 @@ type Config struct {
 	ML                 MLConfig                 `koanf:"ml"`
 	Remediation        RemediationConfig        `koanf:"remediation"`
 	RCA                RCAConfig                `koanf:"rca"`
+	Playbooks          PlaybooksConfig          `koanf:"playbooks"`
 	OSMetrics          OSMetricsConfig          `koanf:"os_metrics"`
 	Instances          []InstanceConfig         `koanf:"instances"`
 }
@@ -219,4 +220,14 @@ type MLConfig struct {
 // MLPersistenceConfig holds ML baseline persistence settings (M8_03).
 type MLPersistenceConfig struct {
 	Enabled bool `koanf:"enabled"`
+}
+
+// PlaybooksConfig holds guided remediation playbook settings (M14_04).
+type PlaybooksConfig struct {
+	Enabled                 bool          `koanf:"enabled"`
+	DefaultStatementTimeout int           `koanf:"default_statement_timeout"`
+	DefaultLockTimeout      int           `koanf:"default_lock_timeout"`
+	ResultRowLimit          int           `koanf:"result_row_limit"`
+	RunRetentionDays        int           `koanf:"run_retention_days"`
+	ImplicitFeedbackWindow  time.Duration `koanf:"implicit_feedback_window"`
 }

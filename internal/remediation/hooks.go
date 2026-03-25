@@ -20,4 +20,9 @@ var HookToRuleID = map[string]string{
 	rca.HookLockInvestigation:  "rem_locks_blocking",     // lock investigation matches blocking locks
 	rca.HookQueryOptimization:  "",                       // no direct rule for query optimization yet
 	rca.HookNetworkDiagnostics: "",                       // no direct rule for network diagnostics
+
+	// M14_04: New hooks for guided remediation playbooks.
+	rca.HookWALArchive:     "",                           // no matching remediation rule yet
+	rca.HookReplicationLag: "",                           // no matching remediation rule yet
+	rca.HookDiskCapacity:   "",                           // no matching remediation rule yet
 }
