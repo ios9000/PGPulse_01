@@ -205,10 +205,13 @@ type UserStore interface {
 - All procfs/sysfs code (internal/agent/) MUST use `//go:build linux` with `//go:build !linux` stubs — dev machine is Windows, /proc does not exist
 
 ## Current Iteration
-Iteration: M14_04
-Last completed: M14_03 (Expansion, Calibration, Knowledge Integration)
-Next: M14_04 (Guided Remediation Playbooks)
-See: docs/iterations/M14_04_03242026_guided-remediation
+**M15_01 — Maintenance Operation Forecasting (Foundation + ETA + Need Forecasting)**
+
+Docs: docs/iterations/M15_01_03272026_maintenance-forecasting/
+  - M15_01_requirements.md
+  - M15_01_design.md
+  - M15_01_team-prompt.md
+Status: IN PROGRESS
 
 
 ### What Was Just Completed
