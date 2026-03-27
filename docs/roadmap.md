@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-22
+**Last updated:** 2026-03-27
 
 ---
 
@@ -29,6 +29,7 @@
 | M14_01 | RCA Engine (Backend) | ✅ Done | 2026-03-21 |
 | M14_02 | RCA UI | ✅ Done | 2026-03-21 |
 | M14_03 | RCA Expansion + Calibration | ✅ Done | 2026-03-22 |
+| M14_04 | Guided Remediation Playbooks | ✅ Done | 2026-03-25 |
 | M12_02 | UX + Installer (Wails v3) | 🔲 Next | — |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
@@ -52,6 +53,7 @@
 | M14_01 | RCA Engine: 20 causal chains (16 Tier A + 4 Tier B), 9-step correlation algorithm, dual anomaly source (ML + threshold), incident timeline, confidence scoring, auto-trigger on CRITICAL, 5 API endpoints, migration 016, MetricStatsProvider | 2026-03-21 | ✅ Done |
 | M14_02 | RCA UI: incidents list (fleet + per-instance), incident detail with timeline visualization, causal graph page (ECharts), confidence badges, quality banners, Investigate button on alerts, sidebar navigation | 2026-03-21 | ✅ Done |
 | M14_03 | RCA Expansion: threshold hardening (4h+calm), WhileEffective temporal semantics, statement diff integration, Tier B activation (all 20 chains), RCA→Adviser bridge (Upsert, urgency scoring, EvaluateHook), review instrumentation, confidence refinement, JSON tag cleanup, migration 017 | 2026-03-22 | ✅ Done |
+| M14_04 | Guided Remediation Playbooks: 4-table schema (migration 018), playbook engine (executor, interpreter, resolver), 10 seed playbooks, feedback worker, 19 API endpoints, catalog/detail/wizard/editor/history pages, Alert→Playbook/RCA→Playbook/Adviser→Playbook integration, 4-tier safety model, transaction-scoped execution | 2026-03-25 | ✅ Done |
 
 ---
 
@@ -193,7 +195,7 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | Deferred (need future data) | 3 | ⏸️ enabled=false |
 | **Total** | **23** | |
 
-## REST API Endpoints (63 total)
+## REST API Endpoints (82 total)
 
 | Method | Path | Added |
 |--------|------|-------|
@@ -251,6 +253,25 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | GET | /api/v1/rca/incidents | **M14_01** |
 | GET | /api/v1/rca/graph | **M14_01** |
 | PUT | /api/v1/rca/incidents/{incidentId}/review | **M14_03** |
+| GET | /api/v1/playbooks | **M14_04** |
+| GET | /api/v1/playbooks/resolve | **M14_04** |
+| POST | /api/v1/playbooks | **M14_04** |
+| GET | /api/v1/playbooks/{id} | **M14_04** |
+| PUT | /api/v1/playbooks/{id} | **M14_04** |
+| DELETE | /api/v1/playbooks/{id} | **M14_04** |
+| POST | /api/v1/playbooks/{id}/promote | **M14_04** |
+| POST | /api/v1/playbooks/{id}/deprecate | **M14_04** |
+| POST | /api/v1/instances/{id}/playbooks/{playbookId}/run | **M14_04** |
+| GET | /api/v1/instances/{id}/playbook-runs | **M14_04** |
+| GET | /api/v1/playbook-runs | **M14_04** |
+| GET | /api/v1/playbook-runs/{runId} | **M14_04** |
+| POST | /api/v1/playbook-runs/{runId}/steps/{order}/execute | **M14_04** |
+| POST | /api/v1/playbook-runs/{runId}/steps/{order}/confirm | **M14_04** |
+| POST | /api/v1/playbook-runs/{runId}/steps/{order}/approve | **M14_04** |
+| POST | /api/v1/playbook-runs/{runId}/steps/{order}/skip | **M14_04** |
+| POST | /api/v1/playbook-runs/{runId}/steps/{order}/retry | **M14_04** |
+| POST | /api/v1/playbook-runs/{runId}/abandon | **M14_04** |
+| POST | /api/v1/playbook-runs/{runId}/feedback | **M14_04** |
 
 ---
 

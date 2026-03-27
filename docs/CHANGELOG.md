@@ -1,3 +1,43 @@
+## [M14_04] — 2026-03-25 — Guided Remediation Playbooks
+
+### Added
+- **Playbook engine** — database-stored playbooks with version management (draft/stable/deprecated lifecycle), 4-tier execution safety model (diagnostic, remediate, dangerous, external)
+- **Migration 018** — 4 tables: `playbooks`, `playbook_steps`, `playbook_runs`, `playbook_run_steps` with GIN index on trigger_bindings, partial index on in-progress runs
+- **Transaction-scoped executor** — `BEGIN` + `SET LOCAL` + `defer tx.Rollback()` pattern; never session-level SET (prevents connection pool poisoning)
+- **Multi-statement injection guard** — rejects SQL templates containing semicolons (prevents `SET LOCAL ... = OFF; DROP TABLE` bypass)
+- **Result interpreter** — static declarative rules with row count checks, column comparisons, template expansion (`{{column_name}}`), scope "first" for MVP
+- **Playbook Resolver** — 5-level priority ranking: hook > root_cause > metric > adviser_rule > manual. Only stable playbooks, highest version wins.
+- **10 seed playbooks** (Core 10): WAL archive failure, replication lag, connection saturation, lock contention, long transactions, checkpoint storm, disk full, autovacuum failing, wraparound risk, heavy query diagnostics
+- **3 new RCA hook constants** — `HookWALArchive`, `HookReplicationLag`, `HookDiskCapacity` in ontology.go (design doc used hypothetical names that didn't exist)
+- **Feedback worker** — background goroutine (60s ticker) detects implicit alert resolution for completed playbook runs
+- **Concurrency guard** — `LockStepForExecution` atomic CAS prevents double-click and client retry races (409 Conflict)
+- **Error state machine** — failed steps stay retryable (`can_retry: true`), run remains `in_progress`
+- **Lightweight approval flow** — `pending_approval` status, `/request-approval` endpoint for L1 operators, DBA approves from same run URL
+- **19 API endpoints** — playbook CRUD (8), run execution (8), resolver (1), feedback (1), run listing (1)
+- **Playbook Catalog page** (`/playbooks`) — grid layout with status/category/search filters
+- **Playbook Detail page** (`/playbooks/:id`) — steps list with tier badges, trigger bindings, action buttons
+- **Playbook Wizard page** (`/servers/:id/playbook-runs/:runId`) — step-by-step guided execution with inline results, verdict badges, branch indicators, progress bar, resume capability
+- **Playbook Editor page** (`/playbooks/:id/edit`) — step builder with SQL textarea, interpretation rules, branch rules, trigger bindings
+- **Run History page** (`/playbook-runs`) — fleet-wide run listing with filters
+- **11 reusable components** — TierBadge, VerdictBadge, ResultTable, RunProgressBar, BranchIndicator, PlaybookCard, PlaybookFilters, StepCard, StepBuilder, FeedbackModal, ResolverButton
+- **Alert → Playbook integration** — ResolverButton on AlertDetailPanel
+- **RCA → Playbook integration** — "Guided Remediation" card on RCAIncidentDetail
+- **Adviser → Playbook integration** — "Remediate" button on AdvisorRow
+- **Sidebar navigation** — "Playbooks" item between Advisor and RCA Incidents
+
+### Changed
+- **Config** — added `PlaybooksConfig` struct (enabled, default_statement_timeout, default_lock_timeout, result_row_limit, run_retention_days, implicit_feedback_window)
+- **main.go** — playbook subsystem wiring: store, executor, resolver, seed, feedback worker
+- **server.go** — 19 new routes registered in auth-enabled and auth-disabled blocks
+
+### Notes
+- 2-agent execution (Backend ~26min + Frontend ~16min, parallel worktrees)
+- 48 new files, 11 modified files, ~6,225 lines added
+- All checks pass: Go build, vet, tests (18 packages), golangci-lint (0 issues), frontend build, typecheck, lint
+- Security corrections C1–C9 applied from design review
+
+---
+
 ## [M14_03] — 2026-03-22 — RCA Expansion, Calibration, and Knowledge Integration
 
 ### Added
