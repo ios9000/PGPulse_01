@@ -14,6 +14,7 @@ import { LongTransactionsTable } from '@/components/server/LongTransactionsTable
 import { StatementsSection } from '@/components/server/StatementsSection'
 import { LockTreeSection } from '@/components/server/LockTreeSection'
 import { ProgressSection } from '@/components/server/ProgressSection'
+import { NeedForecastCard } from '@/components/forecast/NeedForecastCard'
 import { InstanceAlerts } from '@/components/server/InstanceAlerts'
 import { OSMetricsSection } from '@/components/server/OSMetricsSection'
 import { ClusterSection } from '@/components/server/ClusterSection'
@@ -178,6 +179,8 @@ export function ServerDetail() {
       {activeTab === 'overview' && (
         <>
           <ProgressSection instanceId={serverId} />
+
+          <NeedForecastCard instanceId={serverId} />
 
           <KeyMetricsRow currentMetrics={currentMetrics} />
 
