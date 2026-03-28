@@ -24,6 +24,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/forecast"
 	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/orchestrator"
 	"github.com/ios9000/PGPulse_01/internal/playbook"
@@ -409,6 +410,29 @@ func main() {
 			)
 		}
 
+		// M15_01: Forecast engine setup.
+		var forecastEngine *forecast.ForecastEngine
+		if cfg.MaintenanceForecast.Enabled {
+			forecastStore := forecast.NewPGForecastStore(pgPool, logger)
+
+			// C2/Option B: baselineProvider=nil — threshold projection only, defer ML to M15_02.
+			var baselineProvider forecast.BaselineProvider
+
+			// C3: Build instanceStoreAdapter wrapping storage.InstanceStore.List().
+			forecastLister := &forecastInstanceLister{instanceStore: instanceStore}
+
+			forecastEngine = forecast.NewForecastEngine(
+				store,
+				forecastStore,
+				baselineProvider,
+				forecastLister,
+				nil, // connProvider set later via startServer/orchestrator
+				cfg.MaintenanceForecast,
+				logger.With("component", "forecast"),
+			)
+			logger.Info("forecast engine created (goroutines start after orchestrator)")
+		}
+
 		// Wire auth when enabled — requires a storage DSN (validated in config).
 		if cfg.Auth.Enabled {
 			userStore := auth.NewPGUserStore(pgPool)
@@ -453,7 +477,7 @@ func main() {
 			if mlDetector != nil {
 				apiServer.SetMLDetector(mlDetector, cfg.ML)
 			}
-			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore, pbStore, pbResolver)
+			startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore, pbStore, pbResolver, forecastEngine)
 			return
 		}
 
@@ -466,7 +490,7 @@ func main() {
 		apiServer.SetRemediation(remEngine, remStore, remMetricSource)
 		apiServer.SetPGSSStore(pgssStore, cfg.StatementSnapshots)
 		apiServer.SetRCA(rcaEngine, rcaStore)
-		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore, pbStore, pbResolver)
+		startServer(ctx, stop, cfg, apiServer, store, logger, orchEvaluator, orchDispatcher, realDispatcher, pgssStore, pgssCapturer, instanceStore, pbStore, pbResolver, forecastEngine)
 	} else if len(cfg.Instances) > 0 {
 		// Live mode — in-memory storage with configured instances.
 		liveMode = true
@@ -483,7 +507,7 @@ func main() {
 			nil, alert.NewNullAlertHistoryStore(), nil, nil, nil,
 			liveMode, *flagHistory, authMode)
 		startServer(ctx, stop, cfg, apiServer, store, logger,
-			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil, nil, nil)
+			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil, nil, nil, nil)
 	} else {
 		store = orchestrator.NewLogStore(logger)
 		logger.Info("no storage DSN configured, using log-only mode")
@@ -491,7 +515,7 @@ func main() {
 		apiServer := api.New(cfg, store, pinger, nil, nil, logger, nil, nil, nil, nil, nil,
 			false, 0, authMode)
 		startServer(ctx, stop, cfg, apiServer, store, logger,
-			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil, nil, nil)
+			&orchestrator.NoOpAlertEvaluator{}, &orchestrator.NoOpAlertDispatcher{}, nil, nil, nil, nil, nil, nil, nil)
 	}
 }
 
@@ -549,10 +573,19 @@ func startServer(ctx context.Context, stop context.CancelFunc, cfg config.Config
 	realDispatcher *alert.Dispatcher,
 	pgssStore statements.SnapshotStore, pgssCapturer *statements.SnapshotCapturer,
 	instStore storage.InstanceStore,
-	pbStore playbook.PlaybookStore, pbResolver *playbook.Resolver) {
+	pbStore playbook.PlaybookStore, pbResolver *playbook.Resolver,
+	fcEngine *forecast.ForecastEngine) {
 
 	orch := orchestrator.New(cfg, store, logger, evaluator, dispatcher)
 	apiServer.SetConnProvider(orch)
+
+	// M15_01: Wire forecast engine with orchestrator as ConnProvider.
+	if fcEngine != nil {
+		fcEngine.SetConnProvider(orch)
+		fcEngine.Start(ctx)
+		apiServer.SetForecastEngine(fcEngine)
+		logger.Info("forecast engine started")
+	}
 
 	// M14_04: Wire playbook executor with orchestrator as ConnProvider.
 	if pbStore != nil && pbResolver != nil {
@@ -789,6 +822,28 @@ func (p *pgssConnProvider) PoolForInstance(instanceID string) (*pgxpool.Pool, er
 type pgssInstanceLister struct {
 	cfg           config.Config
 	instanceStore storage.InstanceStore
+}
+
+// forecastInstanceLister adapts storage.InstanceStore to forecast.InstanceLister (C3).
+type forecastInstanceLister struct {
+	instanceStore storage.InstanceStore
+}
+
+func (l *forecastInstanceLister) ActiveInstanceIDs(ctx context.Context) ([]string, error) {
+	if l.instanceStore == nil {
+		return nil, nil
+	}
+	records, err := l.instanceStore.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, rec := range records {
+		if rec.Enabled {
+			ids = append(ids, rec.ID)
+		}
+	}
+	return ids, nil
 }
 
 func (l *pgssInstanceLister) ListInstanceIDs(ctx context.Context) ([]string, error) {

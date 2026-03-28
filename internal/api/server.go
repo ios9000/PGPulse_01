@@ -13,6 +13,7 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/auth"
 	"github.com/ios9000/PGPulse_01/internal/collector"
 	"github.com/ios9000/PGPulse_01/internal/config"
+	"github.com/ios9000/PGPulse_01/internal/forecast"
 	"github.com/ios9000/PGPulse_01/internal/ml"
 	"github.com/ios9000/PGPulse_01/internal/playbook"
 	"github.com/ios9000/PGPulse_01/internal/plans"
@@ -65,6 +66,7 @@ type APIServer struct {
 	playbookStore     playbook.PlaybookStore          // nil when playbooks disabled
 	playbookExecutor  *playbook.Executor              // nil when playbooks disabled
 	playbookResolver  *playbook.Resolver              // nil when playbooks disabled
+	forecastEngine    *forecast.ForecastEngine         // nil when forecast disabled
 	liveMode          bool
 	memoryRetention   time.Duration
 	authMode          auth.AuthMode
@@ -160,6 +162,11 @@ func (s *APIServer) SetPlaybooks(store playbook.PlaybookStore, executor *playboo
 	s.playbookStore = store
 	s.playbookExecutor = executor
 	s.playbookResolver = resolver
+}
+
+// SetForecastEngine sets the maintenance forecast engine for forecast endpoints (M15_01).
+func (s *APIServer) SetForecastEngine(engine *forecast.ForecastEngine) {
+	s.forecastEngine = engine
 }
 
 // Routes builds the chi router with all middleware and endpoints.
@@ -333,6 +340,17 @@ func (s *APIServer) Routes() http.Handler {
 					})
 				}
 
+				// Forecast routes (M15_01).
+				if s.forecastEngine != nil {
+					r.Route("/instances/{id}/forecast", func(r chi.Router) {
+						r.Get("/eta", s.handleForecastETA)
+						r.Get("/eta/{pid}", s.handleForecastETAByPID)
+						r.Get("/needs", s.handleForecastNeeds)
+						r.Get("/needs/{database}/{table}", s.handleForecastNeedsForTable)
+						r.Get("/history", s.handleForecastHistory)
+					})
+				}
+
 // Instance management — require instance_management permission.
 				if s.instanceStore != nil {
 					r.Group(func(r chi.Router) {
@@ -482,6 +500,17 @@ func (s *APIServer) Routes() http.Handler {
 								r.Post("/approve", s.handleApproveStep)
 							})
 						})
+					})
+				}
+
+				// Forecast routes (M15_01, no auth check when auth disabled).
+				if s.forecastEngine != nil {
+					r.Route("/instances/{id}/forecast", func(r chi.Router) {
+						r.Get("/eta", s.handleForecastETA)
+						r.Get("/eta/{pid}", s.handleForecastETAByPID)
+						r.Get("/needs", s.handleForecastNeeds)
+						r.Get("/needs/{database}/{table}", s.handleForecastNeedsForTable)
+						r.Get("/history", s.handleForecastHistory)
 					})
 				}
 

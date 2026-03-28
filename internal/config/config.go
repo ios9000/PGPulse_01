@@ -14,9 +14,10 @@ type Config struct {
 	ML                 MLConfig                 `koanf:"ml"`
 	Remediation        RemediationConfig        `koanf:"remediation"`
 	RCA                RCAConfig                `koanf:"rca"`
-	Playbooks          PlaybooksConfig          `koanf:"playbooks"`
-	OSMetrics          OSMetricsConfig          `koanf:"os_metrics"`
-	Instances          []InstanceConfig         `koanf:"instances"`
+	Playbooks              PlaybooksConfig              `koanf:"playbooks"`
+	MaintenanceForecast    MaintenanceForecastConfig    `koanf:"maintenance_forecast"`
+	OSMetrics              OSMetricsConfig              `koanf:"os_metrics"`
+	Instances              []InstanceConfig             `koanf:"instances"`
 }
 
 // RCAConfig holds root cause analysis engine settings (M14).
@@ -220,6 +221,69 @@ type MLConfig struct {
 // MLPersistenceConfig holds ML baseline persistence settings (M8_03).
 type MLPersistenceConfig struct {
 	Enabled bool `koanf:"enabled"`
+}
+
+// MaintenanceForecastConfig holds maintenance operation forecasting settings (M15_01).
+type MaintenanceForecastConfig struct {
+	Enabled                    bool          `koanf:"enabled"`
+	ETAWindowSize              int           `koanf:"eta_window_size"`
+	ETADecayFactor             float64       `koanf:"eta_decay_factor"`
+	ETAMinSamples              int           `koanf:"eta_min_samples"`
+	EvaluationInterval         time.Duration `koanf:"evaluation_interval"`
+	MinDataPoints              int           `koanf:"min_data_points"`
+	LookbackWindow             time.Duration `koanf:"lookback_window"`
+	VacuumThresholdFallback    int           `koanf:"vacuum_threshold_fallback"`
+	VacuumScaleFactorFallback  float64       `koanf:"vacuum_scale_factor_fallback"`
+	AnalyzeThresholdFallback   int           `koanf:"analyze_threshold_fallback"`
+	AnalyzeScaleFactorFallback float64       `koanf:"analyze_scale_factor_fallback"`
+	ReindexBloatThresholdTable float64       `koanf:"reindex_bloat_threshold_table"`
+	ReindexBloatThresholdIndex float64       `koanf:"reindex_bloat_threshold_index"`
+	BasebackupInterval         time.Duration `koanf:"basebackup_interval"`
+	RetentionDays              int           `koanf:"retention_days"`
+}
+
+// ApplyDefaults sets zero-value fields to their defaults.
+func (c *MaintenanceForecastConfig) ApplyDefaults() {
+	if c.ETAWindowSize == 0 {
+		c.ETAWindowSize = 10
+	}
+	if c.ETADecayFactor == 0 {
+		c.ETADecayFactor = 0.85
+	}
+	if c.ETAMinSamples == 0 {
+		c.ETAMinSamples = 4
+	}
+	if c.EvaluationInterval == 0 {
+		c.EvaluationInterval = 5 * time.Minute
+	}
+	if c.MinDataPoints == 0 {
+		c.MinDataPoints = 3
+	}
+	if c.LookbackWindow == 0 {
+		c.LookbackWindow = 24 * time.Hour
+	}
+	if c.VacuumThresholdFallback == 0 {
+		c.VacuumThresholdFallback = 50
+	}
+	if c.VacuumScaleFactorFallback == 0 {
+		c.VacuumScaleFactorFallback = 0.2
+	}
+	if c.AnalyzeThresholdFallback == 0 {
+		c.AnalyzeThresholdFallback = 50
+	}
+	if c.AnalyzeScaleFactorFallback == 0 {
+		c.AnalyzeScaleFactorFallback = 0.1
+	}
+	if c.ReindexBloatThresholdTable == 0 {
+		c.ReindexBloatThresholdTable = 0.40
+	}
+	if c.ReindexBloatThresholdIndex == 0 {
+		c.ReindexBloatThresholdIndex = 0.30
+	}
+	// BasebackupInterval defaults to 0 (disabled) — C4: no pg.wal.bytes_rate metric.
+	if c.RetentionDays == 0 {
+		c.RetentionDays = 90
+	}
 }
 
 // PlaybooksConfig holds guided remediation playbook settings (M14_04).
