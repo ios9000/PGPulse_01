@@ -1,6 +1,6 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-27
+**Last updated:** 2026-03-28
 
 ---
 
@@ -30,7 +30,9 @@
 | M14_02 | RCA UI | ✅ Done | 2026-03-21 |
 | M14_03 | RCA Expansion + Calibration | ✅ Done | 2026-03-22 |
 | M14_04 | Guided Remediation Playbooks | ✅ Done | 2026-03-25 |
-| M12_02 | UX + Installer (Wails v3) | 🔲 Next | — |
+| M15_01 | Maintenance Forecasting (ETA + Need) | ✅ Done | 2026-03-28 |
+| M15_02 | Window Feasibility + Full UI + Integrations | 🔲 Next | — |
+| M12_02 | UX + Installer (Wails v3) | 🔲 Not Started | — |
 | M9 | Reports & Export | 🔲 Not Started | — |
 | M10 | Polish & Release | 🔲 Not Started | — |
 
@@ -54,6 +56,15 @@
 | M14_02 | RCA UI: incidents list (fleet + per-instance), incident detail with timeline visualization, causal graph page (ECharts), confidence badges, quality banners, Investigate button on alerts, sidebar navigation | 2026-03-21 | ✅ Done |
 | M14_03 | RCA Expansion: threshold hardening (4h+calm), WhileEffective temporal semantics, statement diff integration, Tier B activation (all 20 chains), RCA→Adviser bridge (Upsert, urgency scoring, EvaluateHook), review instrumentation, confidence refinement, JSON tag cleanup, migration 017 | 2026-03-22 | ✅ Done |
 | M14_04 | Guided Remediation Playbooks: 4-table schema (migration 018), playbook engine (executor, interpreter, resolver), 10 seed playbooks, feedback worker, 19 API endpoints, catalog/detail/wizard/editor/history pages, Alert→Playbook/RCA→Playbook/Adviser→Playbook integration, 4-tier safety model, transaction-scoped execution | 2026-03-25 | ✅ Done |
+
+---
+
+## M15 Sub-Iterations
+
+| Sub | Scope | Date | Status |
+|-----|-------|------|--------|
+| M15_01 | Maintenance Forecasting Foundation: OperationTracker (debounce, REINDEX gate), ETACalculator (WMA, min-samples, confidence), NeedEvaluator (vacuum/analyze/reindex/basebackup threshold projection), PGThresholdQuerier (SET LOCAL transactions), ForecastEngine coordinator, migration 019 (2 tables), 5 API endpoints, 6 frontend components, LinearRegression + WMA ML helpers, MaintenanceForecastConfig (15 fields) | 2026-03-28 | ✅ Done |
+| M15_02 | Window Feasibility, Forecast Dashboard, Adviser/Playbook/Alert integrations | — | 🔲 Next |
 
 ---
 
@@ -195,7 +206,7 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | Deferred (need future data) | 3 | ⏸️ enabled=false |
 | **Total** | **23** | |
 
-## REST API Endpoints (82 total)
+## REST API Endpoints (87 total)
 
 | Method | Path | Added |
 |--------|------|-------|
@@ -233,6 +244,11 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 | POST | /api/v1/instances/{id}/sessions/{pid}/cancel | M8_01 |
 | POST | /api/v1/instances/{id}/sessions/{pid}/terminate | M8_01 |
 | POST | /api/v1/instances/{id}/explain | M8_01 |
+| GET | /api/v1/instances/{id}/forecast/eta | **M15_01** |
+| GET | /api/v1/instances/{id}/forecast/eta/{pid} | **M15_01** |
+| GET | /api/v1/instances/{id}/forecast/needs | **M15_01** |
+| GET | /api/v1/instances/{id}/forecast/needs/{db}/{table} | **M15_01** |
+| GET | /api/v1/instances/{id}/forecast/history | **M15_01** |
 | GET | /api/v1/settings/compare | M8_01 |
 | GET | /api/v1/instances/{id}/logical-replication | **M8_08** |
 | GET | /api/v1/alerts | M4 |

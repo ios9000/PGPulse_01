@@ -1,3 +1,52 @@
+## [M15_01] — 2026-03-28 — Maintenance Operation Forecasting (ETA + Need Forecasting)
+
+### Added
+- **`internal/forecast/` package** — new domain package for maintenance operation tracking, ETA estimation, and predictive need forecasting
+- **OperationTracker** — background goroutine that detects start/end of VACUUM, ANALYZE, REINDEX CONCURRENTLY, and BASEBACKUP via progress metrics; debounce gate (MissedPolls >= 2); REINDEX identification via `pg_stat_activity.query` substring match; ring buffer for WMA samples
+- **ETACalculator** — stateless per-request WMA-based ETA computation; minimum samples gate (`eta_min_samples`, default 4); confidence classification (high/medium/estimating/stalled); stall detection when rate <= 0
+- **NeedEvaluator** — background goroutine on 5-minute ticker; queries dead_tuples, mod_since_analyze, bloat metrics; reads pg_settings + reloptions for per-table thresholds; projects threshold crossing via linear regression; classifies forecasts as overdue/imminent/predicted/not_needed/insufficient_data
+- **PGThresholdQuerier** — per-database autovacuum threshold discovery using transaction-scoped `SET LOCAL` (never session-level SET on pooled connections); parses reloptions for per-table overrides
+- **ForecastEngine** — top-level coordinator owning tracker, evaluator, ETA calculator; deferred ConnProvider wiring via `SetConnProvider()`; daily retention cleanup
+- **Migration 019** — `maintenance_operations` table (CHECK on outcome/operation) + `maintenance_forecasts` table (UNIQUE constraint for UPSERT, partial index on actionable statuses)
+- **LinearRegression** (`internal/ml/linear.go`) — OLS slope/intercept/R² computation for accumulation rate estimation
+- **WeightedMovingAverage** (`internal/ml/wma.go`) — configurable window size and exponential decay factor for ETA rate smoothing
+- **5 API endpoints** — `/forecast/eta` (all active ops), `/forecast/eta/{pid}` (single op), `/forecast/needs` (cached forecasts + summary), `/forecast/needs/{db}/{table}` (per-table), `/forecast/history` (paginated completed ops)
+- **ETABadge** — confidence-colored inline ETA display with human-readable time formatting
+- **ETAConfidenceIndicator** — visual dot indicator (green/yellow/gray-pulsing/red)
+- **NeedForecastCard** — summary card: overdue/imminent/predicted counts with "next operation" preview
+- **NeedForecastTable** — sortable table with status badges, current/threshold values, accumulation rate, method
+- **OperationHistoryTable** — paginated completed operations log with outcome coloring
+- **useMaintenanceForecast.ts** — 3 React Query hooks: `useETAForInstance` (15s poll), `useMaintenanceForecasts` (60s poll), `useOperationHistory` (on-demand)
+- **MaintenanceForecastConfig** — 15-field config struct with `ApplyDefaults()` method (C6: renamed from ForecastConfig to avoid M8 collision)
+- **`forecastInstanceLister`** adapter in main.go — wraps `storage.InstanceStore.List()` to satisfy `forecast.InstanceLister` (C3)
+
+### Changed
+- **ProgressSection.tsx** — added ETA column using ETABadge, matched by PID from useETAForInstance hook
+- **ServerDetail.tsx** — added NeedForecastCard to dashboard grid after ProgressSection
+- **server.go** — added `forecastEngine` field, `SetForecastEngine()` setter, route registration in both auth-enabled and auth-disabled groups
+- **main.go** — forecast engine wiring with deferred ConnProvider, `startServer` parameter extended
+- **config.go** — added `MaintenanceForecastConfig` struct (49 lines)
+- **load.go** — added `ApplyDefaults()` call for maintenance forecast config
+
+### Corrections Applied
+- **C1:** ConnForDB already existed — did not modify connprovider.go
+- **C2/Option B:** baselineProvider=nil — ML enhancement deferred to M15_02
+- **C3:** forecastInstanceLister adapter wraps InstanceStore.List()
+- **C4:** No pg.wal.bytes_rate metric — basebackup forecasting disabled (interval=0)
+- **C5:** Basebackup operations use empty Database/Table
+- **C6:** Renamed to MaintenanceForecastConfig (avoids M8 ForecastConfig collision)
+- **C7:** ApplyDefaults() method on MaintenanceForecastConfig
+- **C8:** Per-operation work unit mapping (heap_blks_vacuumed, sample_blks_scanned, blocks_done, backup_streamed)
+- **C9:** conn.Close(ctx) not conn.Release()
+
+### Notes
+- Single-agent execution (Backend + Frontend sequential)
+- 30 new files, 6 modified files, ~4,456 lines added (3,950 Go + 506 TypeScript)
+- 57 new tests (12 ML + 26 forecast + 10 API + 9 integration), all passing
+- All checks pass: Go build, vet, tests, golangci-lint (0 issues), frontend build, typecheck, lint
+
+---
+
 ## [M14_04] — 2026-03-25 — Guided Remediation Playbooks
 
 ### Added

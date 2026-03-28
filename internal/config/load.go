@@ -180,6 +180,9 @@ func validate(cfg *Config) error {
 		cfg.Playbooks.ImplicitFeedbackWindow = 5 * time.Minute
 	}
 
+	// Maintenance forecast defaults (M15_01).
+	cfg.MaintenanceForecast.ApplyDefaults()
+
 	if len(cfg.Instances) == 0 {
 		return fmt.Errorf("at least one instance must be configured")
 	}
