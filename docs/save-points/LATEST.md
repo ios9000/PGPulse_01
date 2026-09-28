@@ -24,14 +24,6 @@ PGPulse implements a four-layer operational stack: (1) Alerting — threshold an
 
 It supports PostgreSQL 14-18 via version-adaptive SQL gates, runs as a single binary with the frontend embedded via go:embed, provides JWT authentication with 4-role RBAC, and optionally runs as a desktop application via Wails v3 with system tray integration. Instances can be managed through the web UI (add/edit/delete, CSV bulk import) with YAML seeding on startup and orchestrator hot-reload every 60 seconds.
 
-### Origin Story
-
-Rewrite of PGAM — a legacy PHP PostgreSQL Activity Monitor (2019).
-PGAM had 76 SQL queries across 2 PHP files (analiz2.php + analiz_db.php), zero auth,
-SQL injection vulnerabilities, and relied on COPY TO PROGRAM for OS metrics (superuser required).
-PGPulse is a clean-room rewrite in Go that preserves the SQL monitoring knowledge while
-fixing every architectural and security flaw.
-
 ---
 
 ## 2. ARCHITECTURE SNAPSHOT
