@@ -21,7 +21,7 @@ server:
 #   jwt_secret: "your-secret-key-at-least-32-characters-long"
 #   initial_admin:
 #     username: admin
-#     password: changeme
+#     password: CHANGE_ME  # hashed on startup; change immediately
 
 # Alerting — disabled by default; requires storage.dsn
 # alerting:
