@@ -173,7 +173,4 @@ golangci-lint run
 
 ## License
 
-Proprietary.
-
-<!-- TODO(owner): there is no LICENSE file. This README said "Proprietary", deploy/nsis/license.txt ships the MIT text
-     with the Windows installer, and the save points say "[TBD]". Choose one and add a LICENSE file. -->
+Copyright (c) 2026 PGPulse Project. All rights reserved.

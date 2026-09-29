@@ -77,4 +77,4 @@ go build -ldflags="-s -w" -o pgpulse-server.exe ./cmd/pgpulse-server
 
 ## License
 
-MIT
+Copyright (c) 2026 PGPulse Project. All rights reserved.

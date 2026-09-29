@@ -4,7 +4,7 @@
 ;
 ; Expected file layout when running makensis:
 ;   deploy/nsis/pgpulse.nsi          (this script)
-;   deploy/nsis/license.txt          (MIT license)
+;   deploy/nsis/license.txt          (all rights reserved)
 ;   deploy/nsis/configs/pgpulse.example.yml
 ;   deploy/nsis/pgpulse-desktop.exe  (built desktop binary)
 ;
@@ -36,7 +36,7 @@ VIAddVersionKey "ProductVersion"  "${PRODUCT_VERSION}"
 VIAddVersionKey "CompanyName"     "${PRODUCT_PUBLISHER}"
 VIAddVersionKey "FileDescription" "PGPulse Installer"
 VIAddVersionKey "FileVersion"     "${PRODUCT_VERSION}"
-VIAddVersionKey "LegalCopyright"  "Copyright (c) 2026 ${PRODUCT_PUBLISHER}"
+VIAddVersionKey "LegalCopyright"  "Copyright (c) 2026 ${PRODUCT_PUBLISHER}. All rights reserved."
 
 ;---------------------------------------------------------------------------
 ; MUI2 pages
