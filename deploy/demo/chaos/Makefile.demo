@@ -4,7 +4,7 @@
 # Usage:
 #   make build-linux          # Cross-compile for Linux amd64
 #   make demo-package         # Build + package everything for deployment
-#   make deploy-demo VM=user@host   # Build + upload + provision
+#   make deploy-demo VM=user@host MONITOR_PASS=... REPL_PASS=... ADMIN_PASS=...   # Build + upload + provision
 
 DEMO_DIR   := deploy/demo
 BUILD_DIR  := build
@@ -38,7 +38,8 @@ demo-package: build-linux
 
 # One-command deploy: build, upload, provision
 deploy-demo: demo-package
+	@test -n "$(MONITOR_PASS)" -a -n "$(REPL_PASS)" -a -n "$(ADMIN_PASS)" || { echo "Set MONITOR_PASS, REPL_PASS and ADMIN_PASS"; exit 1; }
 	@echo "Deploying to $(VM)..."
 	scp $(BUILD_DIR)/pgpulse-demo.tar.gz $(VM):/tmp/
-	ssh $(VM) 'cd /tmp && tar xzf pgpulse-demo.tar.gz && sudo bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server'
+	@ssh $(VM) "cd /tmp && tar xzf pgpulse-demo.tar.gz && sudo MONITOR_PASS='$(MONITOR_PASS)' REPL_PASS='$(REPL_PASS)' ADMIN_PASS='$(ADMIN_PASS)' bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server"
 	@echo "Deploy complete. Open http://$$(echo $(VM) | cut -d@ -f2):8989"

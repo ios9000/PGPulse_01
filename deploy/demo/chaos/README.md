@@ -7,10 +7,11 @@ Download the prebuilt demo kit from the
 and provision a fresh Ubuntu 24.04 VM:
 
 ```bash
-# On the VM
+# On the VM: choose the three passwords first
+export MONITOR_PASS='...' REPL_PASS='...' ADMIN_PASS='...'
 curl -LO https://github.com/ios9000/PGPulse_01/releases/download/M15_01-demo/pgpulse-demo.tar.gz
 tar xzf pgpulse-demo.tar.gz
-sudo bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server
+sudo --preserve-env=MONITOR_PASS,REPL_PASS,ADMIN_PASS bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server
 ```
 
 ### Rebuild the kit locally
@@ -23,13 +24,14 @@ To build the kit yourself, run this from the repository root on your dev machine
 make -f deploy/demo/Makefile.demo demo-package
 
 # 2. Deploy (one command)
-make -f deploy/demo/Makefile.demo deploy-demo VM=ubuntu@your-vm-ip
+make -f deploy/demo/Makefile.demo deploy-demo VM=ubuntu@your-vm-ip MONITOR_PASS=... REPL_PASS=... ADMIN_PASS=...
 
 # Or manually:
 scp build/pgpulse-demo.tar.gz ubuntu@vm:/tmp/
 ssh ubuntu@vm
+export MONITOR_PASS='...' REPL_PASS='...' ADMIN_PASS='...'
 cd /tmp && tar xzf pgpulse-demo.tar.gz
-sudo bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server
+sudo --preserve-env=MONITOR_PASS,REPL_PASS,ADMIN_PASS bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server
 ```
 
 `demo-package` uses `build/pgpulse-demo/` as a scratch directory and deletes it when done;
@@ -50,7 +52,7 @@ Ubuntu 24 VM
 │
 ├── PGPulse Server
 │   ├── Web UI:  http://vm-ip:8989
-│   ├── Login:   admin / CHANGE_ME
+│   ├── Login:   admin / $ADMIN_PASS
 │   ├── Config:  /opt/pgpulse/configs/pgpulse.yml
 │   └── Service: systemctl {start|stop|restart} pgpulse
 │
@@ -83,17 +85,20 @@ Each script simulates one problem. Run it, watch PGPulse react, then stop it.
 ### Usage Pattern
 
 ```bash
+# The scripts log in as pgpulse_monitor, so they need MONITOR_PASS
+export MONITOR_PASS='...'
+
 # Start a scenario
-sudo /opt/pgpulse/chaos/long-transaction.sh
+sudo --preserve-env=MONITOR_PASS /opt/pgpulse/chaos/long-transaction.sh
 
 # Watch PGPulse detect it (10-60 seconds)
 # Open http://vm-ip:8989 → Server Detail → Staging (Chaos)
 
 # Stop the scenario
-sudo /opt/pgpulse/chaos/long-transaction.sh stop
+sudo --preserve-env=MONITOR_PASS /opt/pgpulse/chaos/long-transaction.sh stop
 
 # Or clean up everything at once
-sudo /opt/pgpulse/chaos/cleanup-all.sh
+sudo --preserve-env=MONITOR_PASS /opt/pgpulse/chaos/cleanup-all.sh
 ```
 
 ### Demo Flow (Suggested Order)
@@ -140,8 +145,9 @@ sudo ufw allow 8989/tcp
 
 ## Security Notes
 
-This is a **demo environment** with simple passwords. For production:
-- Change all passwords in provision.sh before running
+`provision.sh` contains no passwords: it reads them from the `MONITOR_PASS`, `REPL_PASS` and
+`ADMIN_PASS` environment variables, and the chaos scripts read `MONITOR_PASS`. Choose strong values.
+For production:
 - Use TLS for PGPulse (configure in pgpulse.yml)
 - Restrict PostgreSQL listen_addresses
 - Use certificate-based auth for replication

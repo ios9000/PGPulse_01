@@ -16,13 +16,13 @@
 #   # Copy the pgpulse-server binary to this directory first:
 #   scp pgpulse-server user@vm:/tmp/
 #
-#   # Then run:
-#   sudo bash provision.sh /tmp/pgpulse-server
+#   # Then run it with the three passwords set:
+#   sudo MONITOR_PASS=... REPL_PASS=... ADMIN_PASS=... bash provision.sh /tmp/pgpulse-server
 #
 # Or build + deploy in one shot from the dev machine:
 #   make build-linux
 #   scp build/pgpulse-server user@vm:/tmp/
-#   ssh user@vm 'sudo bash /opt/pgpulse-demo/provision.sh /tmp/pgpulse-server'
+#   ssh user@vm 'sudo MONITOR_PASS=... REPL_PASS=... ADMIN_PASS=... bash /opt/pgpulse-demo/provision.sh /tmp/pgpulse-server'
 
 set -euo pipefail
 
@@ -38,13 +38,13 @@ PGPULSE_PORT=8989
 PGPULSE_DB="pgpulse_storage"
 
 MONITOR_USER="pgpulse_monitor"
-MONITOR_PASS="CHANGE_ME"    # Change in production!
+MONITOR_PASS="${MONITOR_PASS:?Set MONITOR_PASS to the password for the ${MONITOR_USER} role}"
 
 REPL_USER="replicator"
-REPL_PASS="CHANGE_ME"            # Change in production!
+REPL_PASS="${REPL_PASS:?Set REPL_PASS to the password for the ${REPL_USER} role}"
 
 ADMIN_USER="admin"
-ADMIN_PASS="CHANGE_ME"             # PGPulse web UI login
+ADMIN_PASS="${ADMIN_PASS:?Set ADMIN_PASS to the password for the PGPulse web UI admin}"
 
 DEMO_DB="demo_app"
 

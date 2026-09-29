@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORT=5434
 DB=demo_app
 USER=pgpulse_monitor
-PASS=CHANGE_ME
+PASS="${MONITOR_PASS:?Set MONITOR_PASS to the pgpulse_monitor password given to provision.sh}"
 
 echo "═══ PGPulse Demo Cleanup ═══"
 echo ""

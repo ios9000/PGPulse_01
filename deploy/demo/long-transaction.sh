@@ -9,7 +9,7 @@ set -euo pipefail
 PORT=5434
 DB=demo_app
 USER=pgpulse_monitor
-PASS=CHANGE_ME
+PASS="${MONITOR_PASS:?Set MONITOR_PASS to the pgpulse_monitor password given to provision.sh}"
 DURATION="${1:-10}"
 
 if [[ "${DURATION}" == "stop" ]]; then

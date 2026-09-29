@@ -10,7 +10,7 @@ services:
     depends_on:
       - postgres
     environment:
-      PGPULSE_DB_PASSWORD: CHANGE_ME
+      PGPULSE_DB_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
     networks:
       - pgpulse-net
 
@@ -21,7 +21,7 @@ services:
     environment:
       POSTGRES_DB: pgpulse
       POSTGRES_USER: pgpulse
-      POSTGRES_PASSWORD: CHANGE_ME
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
