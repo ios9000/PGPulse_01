@@ -1,9 +1,10 @@
 ## [MH_01] — 2026-09-29 — chore: repository hygiene
 
 ### Changed
-- Rewrote git history with git-filter-repo to remove committed binaries and tarballs, personal Claude Code settings files, and the demo-server address and SSH login. All commit SHAs changed.
+- Rewrote git history with git-filter-repo to remove committed binaries and tarballs, personal Claude Code settings files, the demo-server address and SSH login, and the links to the legacy repository. All commit SHAs changed.
 - Moved the Linux server binary and the demo kit to the `M15_01-demo` GitHub release. Build outputs and `*.tar.gz` are ignored, and release builds use `-trimpath`.
-- Committed configs use `CHANGE_ME` for passwords and `demo.example.com` for the demo VM.
+- Configs and docs use `CHANGE_ME` for passwords. The demo scripts read `MONITOR_PASS`, `REPL_PASS` and `ADMIN_PASS` from the environment, and docker-compose reads `POSTGRES_PASSWORD`. The demo VM is `demo.example.com`.
+- License: "All rights reserved" in the README, the Windows installer and the desktop READMEs, replacing the MIT text.
 - Moved the personal `env` settings out of `.claude/settings.json`. `.claude/settings.local.json` and `*.old` are ignored.
 - Rewrote the README from the code and merged `README.txt` into it. Added `docs/README.md` as a docs index. `scripts/build-release.sh` now packs `README.md`.
 

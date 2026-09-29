@@ -2,7 +2,7 @@
 
 **Save Point:** MH_01 — Repository Hygiene (after M15_01)
 **Date:** 2026-09-29
-**Commit:** ed3c532bcc03a76a8f65495827b7ee04fada82b8
+**Commit:** 664dea406aa550a95a12a4ae221c749ecf736ed0
 **Developer:** Archer
 **AI Tool:** Claude.ai (Opus 4.6) + Claude Code 2.1.63+ (Agent Teams, bash works on Windows); MH_01 by Claude Code (Opus 5.5)
 
@@ -175,9 +175,11 @@ It supports PostgreSQL 14-18 via version-adaptive SQL gates, runs as a single bi
 | D706 | SET LOCAL transactions for threshold queries | Never session-level SET on pooled connections | Prevents connection pool poisoning | 2026-03-27 |
 | D707 | MaintenanceForecastConfig (renamed from ForecastConfig per C6) | Avoids collision with M8 ForecastConfig | Clean namespace separation | 2026-03-27 |
 | DMH1 | Build outputs are never committed | Linux binary and demo kit ship as GitHub Release assets (`M15_01-demo`), built with `-trimpath` | Small history, reproducible artifacts, no local paths in binaries | 2026-09-29 |
-| DMH2 | History rewritten with git-filter-repo | Removed binaries, personal settings files and the demo-server address from every commit | Public, CV-linked repository; every commit SHA changed | 2026-09-29 |
+| DMH2 | History rewritten with git-filter-repo | Removed binaries, personal settings files, the demo-server address and the links to the legacy repository from every commit | Public, CV-linked repository; every commit SHA changed | 2026-09-29 |
 | DMH3 | Personal Claude Code settings stay local | `settings.local.json` and `*.old` ignored; personal `env` moved out of `.claude/settings.json` | Shared settings hold only tool permissions | 2026-09-29 |
-| DMH4 | Placeholders in committed configs | `CHANGE_ME` for passwords; `demo.example.com` and `demo` for the demo VM | No real credentials or hosts in the tree | 2026-09-29 |
+| DMH4 | No passwords in the repository | Configs and docs use `CHANGE_ME`; demo scripts read `MONITOR_PASS`, `REPL_PASS` and `ADMIN_PASS` from the environment; docker-compose reads `POSTGRES_PASSWORD`; the demo VM is `demo.example.com` | No real credentials or hosts in the tree | 2026-09-29 |
+| DMH5 | License: all rights reserved | Stated in the README and the Windows installer (replaces the MIT text); no LICENSE file | Owner decision | 2026-09-29 |
+| DMH6 | The legacy repository is not linked | Links removed from the tree and from history | Owner decision | 2026-09-29 |
 
 ---
 
@@ -799,13 +801,16 @@ A clean-up of the public repository before it is linked from a CV. No applicatio
 - **History rewritten** with git-filter-repo. It removed:
   - committed binaries and tarballs (about 245 MB of blobs; a fresh clone is now about 3 MB);
   - the personal Claude Code settings files;
-  - the demo-server address and SSH login.
+  - the demo-server address and SSH login;
+  - the links to the legacy repository.
 
   Every commit SHA changed. Docs that cite older SHAs were left as written.
 
 - **Binaries moved to the GitHub release** `M15_01-demo` (pre-release). The Linux server binary and the demo kit were rebuilt from the tagged commit with `scripts/build-release.sh M15_01-demo` and `-trimpath`.
 
-- **Placeholders:** passwords are `CHANGE_ME`; the demo VM is `demo.example.com`, with login `demo`.
+- **Passwords:** configs and docs use `CHANGE_ME`. The demo scripts read `MONITOR_PASS`, `REPL_PASS` and `ADMIN_PASS` from the environment and stop if one is missing. docker-compose reads `POSTGRES_PASSWORD`. The demo VM is `demo.example.com`, with login `demo`.
+
+- **License:** "Copyright (c) 2026 PGPulse Project. All rights reserved." appears in the README, the Windows installer's license page and version information, and the desktop READMEs.
 
 - **README rewritten** from the code: features, quick start, architecture and how it was built. `README.txt` was merged in, and `docs/README.md` now indexes the docs.
 
@@ -829,7 +834,6 @@ Follow-ups found during MH_01, not done yet:
 - **Docker quick start is broken.** `deploy/docker` fails as committed: the builder image is Go 1.23 while go.mod needs 1.25, there is no frontend stage, and no config is mounted.
 - **Demo provisioning uses the wrong key.** `deploy/demo/provision.sh` writes `auth.seed_admin`, but the server reads `auth.initial_admin`. The service on a fresh demo VM exits on first start; the workaround is in the release notes.
 - **Maintenance ETA tracker gets no data.** It queries `progress.*` metric keys, but collectors store `pg.progress.*`. The need-forecast label names differ from the collectors' labels too.
-- **License:** choose one and add a LICENSE file.
 
 ---
 
@@ -932,6 +936,7 @@ Release artifacts come from `scripts/build-release.sh <version>` (linux and wind
 | 2026-03-27 | MaintenanceForecastConfig (C6 rename) | ForecastConfig | Avoids collision with existing M8 ForecastConfig struct |
 | 2026-09-29 | Rewrite history to clean the public repo | Squash into a new repository | Keeps the history and the CV link; git-filter-repo with a fixed replacement list |
 | 2026-09-29 | Binaries as GitHub Release assets | Commit binaries | Small clones; artifacts reproducible from the tag |
+| 2026-09-29 | Demo scripts take passwords from the environment | Built-in demo passwords | No credentials in the repository; each run chooses its own |
 
 ### Issues & Resolutions
 
