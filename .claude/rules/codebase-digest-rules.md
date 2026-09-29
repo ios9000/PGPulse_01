@@ -1,6 +1,6 @@
 # Codebase Digest — Generation Rules
 
-> **Location:** `.claude/rules/codebase-digest.md`
+> **Location:** `.claude/rules/codebase-digest-rules.md`
 > **Purpose:** Instructions for Claude Code to generate `docs/CODEBASE_DIGEST.md`
 > **When:** End of every iteration, after build verification passes
 

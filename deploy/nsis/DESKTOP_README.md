@@ -42,7 +42,7 @@ PGPulse Desktop is a native Windows application for monitoring PostgreSQL fleets
 2. Double-click to launch
 3. Enter a DSN in the quick-connect dialog
 
-See the [Setup Guide](SETUP_GUIDE.md) for detailed installation instructions and the [User Guide](USER_GUIDE.md) for a walkthrough of all features.
+See the [Setup Guide](DESKTOP_SETUP_GUIDE.md) for detailed installation instructions and the [User Guide](DESKTOP_USER_GUIDE.md) for a walkthrough of all features.
 
 ## Monitoring Modes
 

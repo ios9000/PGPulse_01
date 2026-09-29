@@ -28,15 +28,15 @@
 |---------|----------|
 | **Loss of Context** — New chat can't read repo or previous chats | **Iteration Handoff** documents (self-contained, uploaded per chat); **Project Knowledge** for stable docs |
 | **Loss of History** — Unclear which prompts led to which decisions | **Session-log.md** after every iteration with prompt → result → commit mapping |
-| **Project migration** — Must be able to restart from scratch in new Project or AI tool | **Save Points** — full project snapshots at each milestone (see `.claude/rules/save-point.md`) |
-| **Chat transition** — Context doesn't transfer between Claude.ai chats | **Three-tier system:** Project Knowledge (auto-loaded) + Handoff (uploaded) + Save Point (emergency). See `.claude/rules/chat-transition.md` |
+| **Project migration** — Must be able to restart from scratch in new Project or AI tool | **Save Points** — full project snapshots at each milestone (see `.claude/rules/Save_Point_System.md`) |
+| **Chat transition** — Context doesn't transfer between Claude.ai chats | **Three-tier system:** Project Knowledge (auto-loaded) + Handoff (uploaded) + Save Point (emergency). See `.claude/rules/Chat_Transition_Process.md` |
 | **Context compaction** — "Compacting our conversation…" | New chat for each iteration; keep iterations focused |
 | **Sequential bottleneck** — Single Claude Code session does one thing at a time | Agent Teams: 3 specialists work in parallel on independent workstreams |
 | **Context window exhaustion** — Single session fills 80–90% context | Each agent has own context window; results come back summarized (~40% usage) |
 | **Bash broken on Windows** — Claude Code can't run shell commands | ~~**Hybrid workflow:** agents create files, developer runs bash manually~~ **RESOLVED in v2.1.63** — agents run build/test/lint/commit directly |
 | **Manual copying** — Code and docs manually transferred between environments | Claude Code reads/writes directly; Git is the single source of truth |
 | **Legacy knowledge preservation** — 76 SQL queries from PGAM must not be lost | PGAM_FEATURE_AUDIT.md in **Project Knowledge** (always available) |
-| **Planning blind spot** — Claude.ai (Brain) can't see the codebase during planning | **Codebase Digest** — auto-generated code map (files, interfaces, metrics, endpoints, components). See `.claude/rules/codebase-digest.md` |
+| **Planning blind spot** — Claude.ai (Brain) can't see the codebase during planning | **Codebase Digest** — auto-generated code map (files, interfaces, metrics, endpoints, components). See `.claude/rules/codebase-digest-rules.md` |
 
 ---
 
@@ -51,7 +51,7 @@ Four layers protect project context across sessions, projects, and tools:
 │  endpoints, components, collectors, config schema.               │
 │  Created: per iteration (after build verification)               │
 │  Location: docs/CODEBASE_DIGEST.md                              │
-│  Rules: .claude/rules/codebase-digest.md                         │
+│  Rules: .claude/rules/codebase-digest-rules.md                   │
 │  Also uploaded to: Project Knowledge (Claude.ai)                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  SAVE POINT (Mass Effect save)                                  │
@@ -59,14 +59,14 @@ Four layers protect project context across sessions, projects, and tools:
 │  issues, environment. Restores entire project from scratch.     │
 │  Created: per milestone or monthly                              │
 │  Location: docs/save-points/SAVEPOINT_M{X}_{date}.md           │
-│  Rules: .claude/rules/save-point.md                             │
+│  Rules: .claude/rules/Save_Point_System.md                      │
 ├─────────────────────────────────────────────────────────────────┤
 │  ITERATION HANDOFF (mission briefing)                           │
 │  What changed, what's next, key interfaces, known issues.       │
 │  Self-contained — includes actual code, not just file paths.    │
 │  Created: end of every chat                                     │
 │  Location: docs/iterations/HANDOFF_M{from}_to_M{to}.md         │
-│  Rules: .claude/rules/chat-transition.md                        │
+│  Rules: .claude/rules/Chat_Transition_Process.md                │
 ├─────────────────────────────────────────────────────────────────┤
 │  SESSION-LOG (audit trail)                                      │
 │  What happened in one iteration — agents, commits, decisions.   │
@@ -318,9 +318,9 @@ C:\Users\Archer\Projects\PGPulse_01\
 │       ├── architecture.md             # Module ownership, dependencies
 │       ├── security.md                 # Security rules (no SQL injection, etc.)
 │       ├── postgresql.md               # PG-specific rules (version gates, parameterized queries)
-│       ├── chat-transition.md          # How to move context between Claude.ai chats
-│       ├── save-point.md              # How to create/restore project snapshots
-│       └── codebase-digest.md         # Template for auto-generated code map
+│       ├── Chat_Transition_Process.md  # How to move context between Claude.ai chats
+│       ├── Save_Point_System.md        # How to create/restore project snapshots
+│       └── codebase-digest-rules.md    # Template for auto-generated code map
 │
 ├── cmd/
 │   ├── pgpulse-server/                 # Main server binary
@@ -1124,7 +1124,7 @@ internal/version/ → COLLECTOR AGENT
 
 1. **Generate Codebase Digest** (Claude Code):
    > "Read the entire codebase and regenerate docs/CODEBASE_DIGEST.md
-   > following the 7-section template in .claude/rules/codebase-digest.md"
+   > following the 7-section template in .claude/rules/codebase-digest-rules.md"
 2. Return to Claude.ai, share key results:
    - Which files were created/modified
    - Test results summary
@@ -1334,7 +1334,7 @@ Agent Teams consume more tokens than single sessions. Budget accordingly.
 │     golangci-lint run                                              │
 │                                                                    │
 │  4. CLAUDE CODE (Codebase Digest):                                 │
-│     → "Regenerate docs/CODEBASE_DIGEST.md per codebase-digest.md" │
+│     → "Regenerate CODEBASE_DIGEST.md per codebase-digest-rules.md"│
 │                                                                    │
 │  5. CLAUDE.AI (Brain):                                             │
 │     • Review results → produce session-log.md                      │

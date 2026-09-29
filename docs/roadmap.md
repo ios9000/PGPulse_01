@@ -295,7 +295,7 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| STL Decomposition | `internal/ml/stl.go` | Seasonal-Trend decomposition for baseline fitting |
+| STL Decomposition | `internal/ml/baseline.go` | Seasonal-Trend decomposition for baseline fitting |
 | Anomaly Detector | `internal/ml/detector.go` | Bootstrap, baseline, Z-score anomaly evaluation |
 | Forecast Engine | `internal/ml/forecast.go` | Holt-Winters forecasting with confidence bands |
 | Alert Adapter | `internal/ml/detector_alert.go` | `*Detector` satisfies `alert.ForecastProvider` |

@@ -1,6 +1,6 @@
 # PGPulse Desktop — User Guide
 
-This guide walks through the features of PGPulse Desktop. It assumes you've completed installation and have PGPulse running with at least one monitored PostgreSQL instance (see the [Setup Guide](SETUP_GUIDE.md) if not).
+This guide walks through the features of PGPulse Desktop. It assumes you've completed installation and have PGPulse running with at least one monitored PostgreSQL instance (see the [Setup Guide](DESKTOP_SETUP_GUIDE.md) if not).
 
 ## 1. The Desktop Shell
 

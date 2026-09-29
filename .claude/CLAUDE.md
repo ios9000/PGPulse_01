@@ -15,10 +15,10 @@ If you're starting a new session on this project, read in this order:
    - `architecture.md` — module boundaries, concurrency model
    - `security.md` — SQL injection prevention, auth requirements
    - `postgresql.md` — version gates, PG-specific conventions
-   - `chat-transition.md` — how context transfers between Claude.ai chats
-   - `save-point.md` — how to create/restore project snapshots
+   - `Chat_Transition_Process.md` — how context transfers between Claude.ai chats
+   - `Save_Point_System.md` — how to create/restore project snapshots
 5. **Roadmap** → `docs/roadmap.md` — milestone status and query porting tracker
-6. **Legacy reference** → `docs/legacy/PGAM_FEATURE_AUDIT.md` — 76 SQL queries to port
+6. **Legacy reference** → `PGAM_FEATURE_AUDIT.md` — 76 SQL queries to port (kept in the Claude.ai project knowledge, not in this repository)
 
 > **DO NOT** make architecture decisions without checking the save point first.
 > Decisions were already made. Check before re-deciding.
@@ -93,7 +93,7 @@ shared task list.
 - .claude/rules/ — development process rules
 
 ## Legacy Reference
-- PGAM Feature Audit: docs/legacy/PGAM_FEATURE_AUDIT.md
+- PGAM Feature Audit: PGAM_FEATURE_AUDIT.md (Claude.ai project knowledge; not in this repository)
 - Legacy repo: not published
 - Query-to-file mapping:
   - analiz2.php queries 1–19 → internal/collector/ (server_info, connections, cache, etc.)
@@ -207,7 +207,7 @@ type UserStore interface {
 ## Current Iteration
 **M15_01 — Maintenance Operation Forecasting (Foundation + ETA + Need Forecasting)**
 
-Docs: docs/iterations/M15_01_03272026_maintenance-forecasting/
+Docs: docs/iterations/M15_01_03282026_maintenance-forecasting/
   - M15_01_requirements.md
   - M15_01_design.md
   - M15_01_team-prompt.md
@@ -228,4 +228,4 @@ Build: clean. See: docs/iterations/M12_01_03172026_core-desktop/
 
 ### What's Next
 M12_02 — Connection dialog (C-01→C-05), OS notifications (N-01→N-06), NSIS installer (I-01→I-07).
-See: docs/iterations/M12_01_03172026_core-desktop/HANDOFF_M12_01_to_M12_02.md
+See: docs/iterations/HANDOFF_M12_01_to_M12_02.md
