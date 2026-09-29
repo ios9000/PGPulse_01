@@ -12,7 +12,6 @@
 
 **Name:** PGPulse — PostgreSQL Health & Activity Monitor
 **Repo:** https://github.com/ios9000/PGPulse_01
-**Legacy repo:** not published
 **Go module:** github.com/ios9000/PGPulse_01
 **License:** [TBD] — no LICENSE file yet; README says "Proprietary", `deploy/nsis/license.txt` ships the MIT text (owner decision pending)
 

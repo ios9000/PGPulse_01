@@ -94,7 +94,6 @@ shared task list.
 
 ## Legacy Reference
 - PGAM Feature Audit: PGAM_FEATURE_AUDIT.md (Claude.ai project knowledge; not in this repository)
-- Legacy repo: not published
 - Query-to-file mapping:
   - analiz2.php queries 1–19 → internal/collector/ (server_info, connections, cache, etc.)
   - analiz2.php queries 20–41 → internal/collector/replication_*.go

@@ -456,7 +456,6 @@ shared task list.
 
 ## Legacy Reference
 - PGAM Feature Audit: docs/legacy/PGAM_FEATURE_AUDIT.md
-- Legacy repo: not published
 - Query-to-file mapping:
   - analiz2.php queries 1–19 → internal/collector/instance.go
   - analiz2.php queries 20–41 → internal/collector/replication.go
@@ -542,7 +541,6 @@ We use Claude Code Agent Teams (experimental) with:
 
 ## Repos
 - PGPulse (active): https://github.com/ios9000/PGPulse_01
-- PGAM (legacy archive): not published
 
 ## Current State
 - Milestone: [UPDATE THIS]

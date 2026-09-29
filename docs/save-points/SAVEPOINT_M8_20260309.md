@@ -11,7 +11,6 @@
 
 **Name:** PGPulse — PostgreSQL Health & Activity Monitor
 **Repo:** https://github.com/ios9000/PGPulse_01
-**Legacy repo:** not published
 **Go module:** github.com/ios9000/PGPulse_01
 **License:** TBD
 
