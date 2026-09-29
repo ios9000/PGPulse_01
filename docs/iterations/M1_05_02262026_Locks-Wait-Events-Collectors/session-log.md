@@ -16,7 +16,7 @@ Port PGAM queries Q53–Q57 (wait events, lock blocking tree, long transactions)
 | Query # | Description | Target Function | Agent |
 |---------|-------------|-----------------|-------|
 | Q53 | Wait event summary (verbose) | wait_events.go: WaitEventsCollector | Collector |
-| Q54 | Wait event summary (minimal) | Merged with Q53 (identical without internal join) | Collector |
+| Q54 | Wait event summary (minimal) | Merged with Q53 (identical without the internal description join) | Collector |
 | Q55 | Lock blocking tree | lock_tree.go: LockTreeCollector | Collector |
 | Q56 | Long active transactions | long_transactions.go: LongTransactionsCollector | Collector |
 | Q57 | Long waiting transactions | Merged with Q56 (single query, type label) | Collector |

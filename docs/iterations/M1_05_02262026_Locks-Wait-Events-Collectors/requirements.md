@@ -26,7 +26,7 @@ All three are high-frequency collectors (10s interval).
 ### Out of Scope
 
 - Full lock tree structure (per-PID details, query text, lock modes) → deferred to M2/API layer
-- internal wait-event description join → not replicated; descriptions are an API/UI concern
+- Internal wait-event description join → not replicated; descriptions are an API/UI concern
 - Per-PID transaction details (query text, client_addr) → API layer
 - Configurable long-transaction threshold → M2 (config layer); use 5s constant for now
 

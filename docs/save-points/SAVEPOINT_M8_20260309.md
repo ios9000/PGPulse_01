@@ -37,7 +37,7 @@ Cluster monitoring supports Patroni and ETCD.
 
 ### Origin Story
 
-Rewrite of PGAM — a legacy PHP PostgreSQL Activity Monitor (2019).
+Rewrite of PGAM — a legacy PHP PostgreSQL activity monitor from 2019.
 PGAM had 76 SQL queries across 2 PHP files (analiz2.php + analiz_db.php), zero auth,
 SQL injection vulnerabilities, and relied on COPY TO PROGRAM for OS metrics (superuser
 required). PGPulse is a clean-room rewrite in Go that preserves the SQL monitoring
