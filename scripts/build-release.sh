@@ -59,7 +59,7 @@ for platform in "${PLATFORMS[@]}"; do
   mkdir -p "${archive_dir}"
   cp "${binary}" "${archive_dir}/pgpulse-server${ext}"
   cp config.sample.yaml "${archive_dir}/" 2>/dev/null || true
-  cp README.txt "${archive_dir}/" 2>/dev/null || true
+  cp README.md "${archive_dir}/" 2>/dev/null || true
 
   if [ "${goos}" = "windows" ]; then
     if command -v zip &>/dev/null; then
