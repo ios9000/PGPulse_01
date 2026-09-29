@@ -37,7 +37,7 @@ for platform in "${PLATFORMS[@]}"; do
 
   echo "--- Building ${goos}/${goarch} ---"
   CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" \
-    go build -ldflags "${LDFLAGS}" -o "${output}" ./cmd/pgpulse-server
+    go build -trimpath -ldflags "${LDFLAGS}" -o "${output}" ./cmd/pgpulse-server
 
   echo "  -> ${output} ($(du -h "${output}" | cut -f1))"
 done

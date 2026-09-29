@@ -116,7 +116,8 @@ Prebuilt demo artifacts are attached to the [M15_01-demo release](https://github
 - a Linux x86-64 server binary;
 - a kit that provisions a single Ubuntu 24.04 VM with a primary, a replica, a chaos target and PGPulse. See [deploy/demo/README.md](deploy/demo/README.md).
 
-These are older demo builds. Build from source to get the current code.
+Both are built from the tagged commit with `scripts/build-release.sh M15_01-demo`; the kit bundles that same binary
+with the scripts from `deploy/demo/`.
 
 ## Architecture
 

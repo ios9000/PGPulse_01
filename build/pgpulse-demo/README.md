@@ -15,8 +15,8 @@ sudo bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server
 
 ### Rebuild the kit locally
 
-The release kit is an older build. To package the current code instead, run this from the
-repository root on your dev machine (needs Go and Node.js; run `npm ci` in `web/` once):
+To build the kit yourself, run this from the repository root on your dev machine
+(needs Go, Node.js and make; run `npm ci` in `web/` once):
 
 ```bash
 # 1. Build and package -> build/pgpulse-demo.tar.gz
