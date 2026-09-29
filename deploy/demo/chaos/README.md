@@ -2,14 +2,28 @@
 
 ## Quick Start
 
-From your Windows dev machine:
+Download the prebuilt demo kit from the
+[M15_01-demo release](https://github.com/ios9000/PGPulse_01/releases/tag/M15_01-demo)
+and provision a fresh Ubuntu 24.04 VM:
 
 ```bash
-# 1. Build and package
-make demo-package
+# On the VM
+curl -LO https://github.com/ios9000/PGPulse_01/releases/download/M15_01-demo/pgpulse-demo.tar.gz
+tar xzf pgpulse-demo.tar.gz
+sudo bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server
+```
+
+### Rebuild the kit locally
+
+The release kit is an older build. To package the current code instead, run this from the
+repository root on your dev machine (needs Go and Node.js; run `npm ci` in `web/` once):
+
+```bash
+# 1. Build and package -> build/pgpulse-demo.tar.gz
+make -f deploy/demo/Makefile.demo demo-package
 
 # 2. Deploy (one command)
-make deploy-demo VM=ubuntu@your-vm-ip
+make -f deploy/demo/Makefile.demo deploy-demo VM=ubuntu@your-vm-ip
 
 # Or manually:
 scp build/pgpulse-demo.tar.gz ubuntu@vm:/tmp/
@@ -17,6 +31,9 @@ ssh ubuntu@vm
 cd /tmp && tar xzf pgpulse-demo.tar.gz
 sudo bash pgpulse-demo/provision.sh pgpulse-demo/pgpulse-server
 ```
+
+`demo-package` uses `build/pgpulse-demo/` as a scratch directory and deletes it when done;
+restore the tracked copies with `git checkout -- build/pgpulse-demo`.
 
 ## What Gets Created
 

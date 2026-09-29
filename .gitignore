@@ -36,3 +36,8 @@ pgpulse-server.exe
 # Personal Claude Code settings and backups
 .claude/settings.local.json
 *.old
+
+# Build outputs (published as GitHub Release assets, never committed)
+build/pgpulse-server*
+build/**/pgpulse-server*
+*.tar.gz
