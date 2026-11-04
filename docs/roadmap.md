@@ -1,6 +1,8 @@
 # PGPulse — Roadmap
 
-**Last updated:** 2026-03-28
+**Last updated:** 2026-11-04
+
+**Direction (since M16):** PGPulse is a fleet incident-intelligence system with cross-tier root cause analysis. Its product form is a DBA agent system: PGPulse is the evidence layer, DBPortal is the execution layer with human approval. M16–M19 below are the milestones of that direction; the PGAM-era milestones remain for history only.
 
 ---
 
@@ -31,10 +33,71 @@
 | M14_03 | RCA Expansion + Calibration | ✅ Done | 2026-03-22 |
 | M14_04 | Guided Remediation Playbooks | ✅ Done | 2026-03-25 |
 | M15_01 | Maintenance Forecasting (ETA + Need) | ✅ Done | 2026-03-28 |
-| M15_02 | Window Feasibility + Full UI + Integrations | 🔲 Next | — |
-| M12_02 | UX + Installer (Wails v3) | 🔲 Not Started | — |
-| M9 | Reports & Export | 🔲 Not Started | — |
-| M10 | Polish & Release | 🔲 Not Started | — |
+| M15_02 | Window Feasibility + Full UI + Integrations | ⛔ Superseded by M18 | — |
+| M16 | Cut the anchor | 🔲 Next | — |
+| M17 | Cluster model + cross-tier RCA | 🔲 Not Started | — |
+| M18 | Operation forecasting | 🔲 Not Started | — |
+| M19 | Agent loop | 🔲 Not Started | — |
+
+### Retired milestones
+
+These were carried over from the original PGAM feature list and are no longer milestones:
+
+| Was | Became |
+|---|---|
+| M12_02 UX + Installer (Wails v3) | Windows desktop build is **frozen** at M12_01; no further desktop work is planned |
+| M9 Reports & Export | **Incident evidence export** in M17 — the report is the evidence for an incident, not a dashboard printout |
+| M10 Polish & Release | **Per-milestone exit criteria** — every milestone from M16 on carries its own acceptance checks; there is no separate polish phase |
+
+---
+
+## M16 — Cut the anchor
+
+Remove the PGAM lineage from the project so that nothing downstream inherits it, and put the collector and metric foundations in a state M17 can build on.
+
+| Item | Scope |
+|---|---|
+| Archive PGAM docs | `docs/legacy/` and PGAM feature-audit material move to `docs/archive/pgam/` with a README marking it historical; strategy, roadmap, README and CLAUDE.md reframed |
+| Strip lineage comments | Remove "PGAM query #N" / `analiz2.php` references from code comments and docs that are not archived |
+| Re-document collectors by tier | `docs/collectors.md`: every collector grouped by tier (PostgreSQL instance, per-database, replication, progress, statements, locks, OS, cluster), with metric keys and version gates |
+| Metric naming standardization | One naming scheme for all metric keys (resolving `os.*` vs `pg.os.*`, `os.diskstat.*` vs `os.disk.*`, cache-hit-ratio mismatch), applied with a storage migration and a compatibility read path; closes the MW_01 parking note |
+| Agent as default OS path | `os_metrics.method: agent` becomes the default; the SQL (`pg_read_file`) path stays as a fallback |
+| Security-vetting package | A self-contained package (threat model, privilege list, SQL audit, dependency review) that a security reviewer can read without the rest of the repo |
+| PG 18 in the conformance set | PostgreSQL 18 joins the test matrix (14, 15, 16, 17, 18); version gates verified |
+
+Exit criteria: no PGAM-rewrite framing anywhere outside `docs/archive/`; link check green; conformance suite green on PG 14–18.
+
+## M17 — Cluster model + cross-tier RCA
+
+The cluster, not the instance, becomes the entity PGPulse reasons about, and RCA follows an incident across tiers.
+
+| Item | Scope |
+|---|---|
+| Cluster entity | `internal/cluster` becomes the owner of the cluster entity and its timeline; instances, pools, proxies and HA state hang off it |
+| PgBouncer and HAProxy collectors | Pool and proxy tiers collected natively (PgBouncer `SHOW` commands, HAProxy stats socket/endpoint) |
+| Tier-adapter endpoint | A single endpoint through which an external tool contributes tier state to the timeline; first adapter: an external Patroni tool |
+| Attribution | `application_name` and trace-context attribution so an incident can be tied to the application that caused it |
+| Tier nodes and chains | Causal graph gains tier nodes; chains may start or end outside PostgreSQL (application → pool → proxy → HA → PostgreSQL → OS) |
+| Evidence export | An incident's timeline, ranked chains and supporting metrics exported as a self-contained bundle (what M9 "reports" became) |
+
+Exit criteria: one cross-tier incident reproduced on the demo kit is traced to a cause outside PostgreSQL and exported.
+
+## M18 — Operation forecasting
+
+| Item | Scope |
+|---|---|
+| Window feasibility on live runs | The M15_01 ETA/need forecasts and the window-feasibility model are validated against live maintenance runs, not synthetic data (supersedes M15_02) |
+| Playbook hand-off to the execution seam | A forecast or playbook produces a proposal in the shape DBPortal's execution seam accepts; PGPulse does not execute |
+
+Exit criteria: forecast error measured on at least one live vacuum, analyze and reindex run; one playbook handed to the seam end to end.
+
+## M19 — Agent loop
+
+| Item | Scope |
+|---|---|
+| propose → approve → execute → verify | The loop runs over M17 evidence and DBPortal's seam: PGPulse proposes with evidence, a human approves in DBPortal, DBPortal executes, PGPulse verifies the outcome on the cluster timeline |
+
+Exit criteria: the loop completes on the demo kit with a human approval step and a recorded verification.
 
 ---
 
@@ -64,7 +127,7 @@
 | Sub | Scope | Date | Status |
 |-----|-------|------|--------|
 | M15_01 | Maintenance Forecasting Foundation: OperationTracker (debounce, REINDEX gate), ETACalculator (WMA, min-samples, confidence), NeedEvaluator (vacuum/analyze/reindex/basebackup threshold projection), PGThresholdQuerier (SET LOCAL transactions), ForecastEngine coordinator, migration 019 (2 tables), 5 API endpoints, 6 frontend components, LinearRegression + WMA ML helpers, MaintenanceForecastConfig (15 fields) | 2026-03-28 | ✅ Done |
-| M15_02 | Window Feasibility, Forecast Dashboard, Adviser/Playbook/Alert integrations | — | 🔲 Next |
+| M15_02 | Window Feasibility, Forecast Dashboard, Adviser/Playbook/Alert integrations | — | ⛔ Superseded — window feasibility moved to M18 (validated on live runs); dashboard and integrations folded into M17/M18 exit criteria |
 
 ---
 
@@ -73,7 +136,7 @@
 | Sub | Scope | Date | Status |
 |-----|-------|------|--------|
 | M12_01 | Core Desktop: Wails v3 scaffold, build tags, chi→Wails integration, native window (1440x900), system tray (show/hide, severity icons), --mode flag, placeholder icons | 2026-03-17 | ✅ Done |
-| M12_02 | UX + Installer: connection dialog, OS toast notifications, NSIS installer | — | 🔲 Next |
+| M12_02 | UX + Installer: connection dialog, OS toast notifications, NSIS installer | — | ❄️ Frozen — desktop build stays at M12_01 |
 
 ---
 
@@ -182,7 +245,7 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 
 ---
 
-## Query Porting Progress
+## Query Porting Progress (historical — PGAM lineage, closed at M16)
 
 | Source | Total Queries | Ported | Deferred/Skipped | Remaining |
 |---|---|---|---|---|
@@ -199,7 +262,7 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 
 | Category | Count | Status |
 |---|---|---|
-| PGAM thresholds ported | 14 | ✅ Active |
+| Original threshold rules (PGAM-era) | 14 | ✅ Active |
 | New replication lag rules | 2 | ✅ Active |
 | Forecast-based rules (M8) | 3 | ✅ Active (requires ML bootstrap) |
 | Logical replication (M8_08) | 1 | ⏸️ disabled by default |
@@ -327,4 +390,4 @@ milestone, then extended with deferred UI and logical replication monitoring acr
 
 | Item | Originally Planned | Reason |
 |------|--------------------|--------|
-| Remaining ~14 PGAM queries (Q22–Q35 etc.) | M1 | Mostly environment-specific or pre-PG14 code paths |
+| ~~Remaining ~14 PGAM queries (Q22–Q35 etc.)~~ | M1 | Closed at M16 — PGAM lineage archived; nothing further is ported from it |

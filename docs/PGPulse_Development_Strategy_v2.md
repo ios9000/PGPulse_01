@@ -1,10 +1,9 @@
 # PGPulse Development Strategy v2.0
 ## Claude AI + Claude Code Agent Teams — Project-Specific Rules
 
-**Project:** PGPulse — PostgreSQL Health & Activity Monitor  
-**Rewrite from:** PGAM (legacy PHP) → Go  
+**Project:** PGPulse — fleet incident intelligence for PostgreSQL (evidence layer of a DBA agent system)  
 **Date:** 2026-02-25  
-**Version:** 2.4 — Agent Teams + Save Point System + Codebase Digest
+**Version:** 2.5 — Agent Teams + Save Point System + Codebase Digest; problem statement reframed around the fleet product (M16)
 
 ---
 
@@ -22,7 +21,31 @@
 
 ---
 
-## Problems We Are Solving
+## Problem Statement
+
+### The product problem
+
+A DBA who runs a fleet of PostgreSQL clusters does not have a "what is wrong with this one
+instance" problem — single-instance monitors already answer that. The problem is the incident
+that crosses tiers: the application opens too many connections, PgBouncer queues, HAProxy
+fails a health check, Patroni fails over, and the PostgreSQL metrics only show the last link
+of that chain. Today the evidence for such an incident is spread across tools that do not
+share a timeline, and the person on call reconstructs the chain by hand.
+
+PGPulse is being built to be the **evidence layer** for that work: it owns the cluster as the
+entity (not the instance), keeps a single timeline per cluster, collects from every tier that
+can break (PostgreSQL, PgBouncer, HAProxy, Patroni/etcd, OS, application attribution), and runs
+cross-tier root cause analysis over that timeline. Its output is evidence — ranked causal
+chains with the metrics that support them — exportable and auditable. Execution is deliberately
+out of scope: proposing and running a fix is the job of DBPortal, which executes only with human
+approval. Together they form a DBA agent system: PGPulse proposes and proves, DBPortal acts,
+a human approves. The roadmap for this is M16–M19 in `docs/roadmap.md`.
+
+### The process problem
+
+The product above is built by one developer with Claude.ai for planning and Claude Code agent
+teams for implementation. That method has its own failure modes, and the rest of this document
+is the process that controls them:
 
 | Problem | Solution |
 |---------|----------|
@@ -35,7 +58,6 @@
 | **Context window exhaustion** — Single session fills 80–90% context | Each agent has own context window; results come back summarized (~40% usage) |
 | **Bash broken on Windows** — Claude Code can't run shell commands | ~~**Hybrid workflow:** agents create files, developer runs bash manually~~ **RESOLVED in v2.1.63** — agents run build/test/lint/commit directly |
 | **Manual copying** — Code and docs manually transferred between environments | Claude Code reads/writes directly; Git is the single source of truth |
-| **Legacy knowledge preservation** — 76 SQL queries from PGAM must not be lost | PGAM_FEATURE_AUDIT.md in **Project Knowledge** (always available) |
 | **Planning blind spot** — Claude.ai (Brain) can't see the codebase during planning | **Codebase Digest** — auto-generated code map (files, interfaces, metrics, endpoints, components). See `.claude/rules/codebase-digest-rules.md` |
 
 ---
@@ -83,7 +105,7 @@ Upload these ONCE to Project Knowledge. They persist across all chats:
 | Document | Purpose |
 |---|---|
 | PGPulse_Development_Strategy_v2.md | Process rules (this file) |
-| PGAM_FEATURE_AUDIT.md | Legacy SQL reference (76 queries) |
+| PGAM_FEATURE_AUDIT.md | Historical only — PGAM lineage is archived (see `docs/archive/pgam/`) |
 | CODEBASE_DIGEST.md | Auto-generated code map (re-upload after each iteration) |
 | Chat_Transition_Process.md | How to move between chats |
 | Save_Point_System.md | How to create/restore save points |
@@ -149,8 +171,8 @@ where to find everything. It is the index, not the content.
 │  │ • Go collectors │  │ • REST API      │  │ • Unit tests    │     │
 │  │ • pgx queries   │  │ • JWT + RBAC    │  │ • Integration   │     │
 │  │ • Version gates │  │ • Alert engine  │  │   tests (PG     │     │
-│  │ • SQL porting   │  │ • Storage layer │  │   14–17)        │     │
-│  │   from PGAM     │  │ • TimescaleDB   │  │ • golangci-lint │     │
+│  │ • Tier          │  │ • Storage layer │  │   14–18)        │     │
+│  │   collectors    │  │ • TimescaleDB   │  │ • golangci-lint │     │
 │  │ • OS agent code │  │   migrations    │  │ • SQL injection  │     │
 │  │                 │  │ • Config/YAML   │  │   audit         │     │
 │  │ Owns:           │  │                 │  │ • Version gate  │     │
@@ -184,7 +206,7 @@ where to find everything. It is the index, not the content.
 | Decision Type | Where | Who |
 |---|---|---|
 | "Should we use pgx or database/sql?" | Claude.ai | You + Brain |
-| "Port PGAM queries 1–19 to instance.go" | Claude Code | Collector Agent |
+| "Add the PgBouncer pool collector to internal/collector/" | Claude Code | Collector Agent |
 | "Create GET /api/v1/instances/:id/metrics" | Claude Code | API & Security Agent |
 | "Write integration tests for PG 14–17" | Claude Code | QA & Review Agent |
 | "How to handle PG version branching?" | Claude.ai | You + Brain |
@@ -204,7 +226,7 @@ where to find everything. It is the index, not the content.
 |---|---|
 | Model | Claude Opus 4.6 |
 | Role | Orchestrator — never writes production code |
-| Reads | CLAUDE.md, design.md, PGAM_FEATURE_AUDIT.md |
+| Reads | CLAUDE.md, design.md, `docs/collectors.md` |
 | Creates | Shared task list with dependencies and blockers |
 | Coordinates | Task assignment, dependency ordering, merge sequencing |
 | Validates | All tests pass before merging agent work into main |
@@ -220,20 +242,13 @@ where to find everything. It is the index, not the content.
 |---|---|
 | Specialty | PostgreSQL metric collection — the domain core |
 | Owns | `internal/collector/*`, `internal/version/*`, `cmd/pgpulse-agent/` |
-| Key skill | Porting PGAM PHP queries to Go with pgx + version-adaptive SQL |
-| References | `docs/legacy/PGAM_FEATURE_AUDIT.md` (76 SQL queries) |
+| Key skill | Tier collectors (PostgreSQL, PgBouncer, HAProxy, Patroni/etcd, OS) in Go with pgx + version-adaptive SQL |
+| References | `docs/collectors.md` (collectors by tier, M16); historical PGAM lineage in `docs/archive/pgam/` |
 | Rules | `.claude/rules/postgresql.md`, `.claude/rules/security.md` |
 
-**Query-to-file mapping this agent follows:**
-
-| PGAM Source | Queries | Target File |
-|---|---|---|
-| analiz2.php #1–19 | Instance metrics | `internal/collector/instance.go` |
-| analiz2.php #20–41 | Replication | `internal/collector/replication.go` |
-| analiz2.php #42–47 | Progress monitoring | `internal/collector/progress.go` |
-| analiz2.php #48–52 | pg_stat_statements | `internal/collector/statements.go` |
-| analiz2.php #53–58 | Locks & wait events | `internal/collector/locks.go` |
-| analiz_db.php #1–18 | Per-DB analysis | `internal/collector/database.go` |
+**Collector layout this agent follows:** collectors are documented by tier in `docs/collectors.md`
+(PostgreSQL instance, per-database, replication, progress, statements, locks, OS, cluster, and from M17
+PgBouncer and HAProxy). The historical PGAM query-to-file mapping is archived in `docs/archive/pgam/`.
 
 **Critical rules for this agent:**
 - All SQL uses parameterized queries via pgx (`$1`, `$2` or named args)
@@ -256,7 +271,7 @@ where to find everything. It is the index, not the content.
 - JWT authentication with bcrypt passwords
 - RBAC: 4 roles (super_admin, roles_admin, dba, app_admin) with permission-based access control
 - TimescaleDB hypertable schema for metric storage
-- Server inventory CRUD (replaces PGAM's raw GET params)
+- Server inventory CRUD
 - Alert rule engine with configurable thresholds
 - Notification dispatch: Telegram, Slack, Email, Webhook
 - YAML config loading via koanf
@@ -330,12 +345,12 @@ C:\Users\Archer\Projects\PGPulse_01\
 │
 ├── internal/
 │   ├── collector/                      # ← COLLECTOR AGENT territory
-│   │   ├── instance.go                 # PGAM analiz2.php queries 1–19
-│   │   ├── replication.go              # PGAM queries 20–41
-│   │   ├── statements.go              # PGAM queries 48–52
-│   │   ├── locks.go                    # PGAM queries 53–58
-│   │   ├── database.go                 # PGAM analiz_db.php queries 1–18
-│   │   ├── progress.go                 # PGAM queries 42–47
+│   │   ├── instance.go                 # instance-level metrics
+│   │   ├── replication.go              # physical + logical replication
+│   │   ├── statements.go              # pg_stat_statements
+│   │   ├── locks.go                    # locks, wait events, long transactions
+│   │   ├── database.go                 # per-database analysis
+│   │   ├── progress.go                 # progress monitoring
 │   │   ├── cluster.go                  # Patroni + ETCD
 │   │   ├── os.go                       # OS metrics via procfs (agent binary)
 │   │   └── os_sql.go                   # OS metrics via pg_read_file('/proc/*') (no agent needed)
@@ -371,9 +386,8 @@ C:\Users\Archer\Projects\PGPulse_01\
 │   │   ├── SAVEPOINT_M0_20260225.md    # State after M0
 │   │   └── LATEST.md                   # Copy of most recent save point
 │   │
-│   ├── legacy/
-│   │   ├── PGAM_FEATURE_AUDIT.md       # Complete legacy inventory (76 queries)
-│   │   └── competitive-research.md     # Competitor analysis summary
+│   ├── archive/pgam/                   # Historical PGAM lineage (read-only; see its README)
+│   │   └── PGPulse_Competitive_Research_Synthesis.md
 │   │
 │   ├── iterations/
 │   │   ├── HANDOFF_M0_to_M1.md         # ← Chat transition document
@@ -420,8 +434,8 @@ Examples:
 # PGPulse
 
 ## Description
-PostgreSQL Health & Activity Monitor — Go rewrite of legacy PGAM PHP tool.
-Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
+Fleet incident intelligence for PostgreSQL — the evidence layer of a DBA agent system.
+Cluster timeline, tier collectors, alerting, ML anomaly detection, and cross-tier RCA.
 
 ## Stack
 - Language: Go 1.24+
@@ -454,48 +468,8 @@ shared task list.
 - Collector Agent must not modify api/ or auth/ directories
 - API Agent must not modify collector/ or version/ directories
 
-## Legacy Reference
-- PGAM Feature Audit: docs/legacy/PGAM_FEATURE_AUDIT.md
-- Query-to-file mapping:
-  - analiz2.php queries 1–19 → internal/collector/instance.go
-  - analiz2.php queries 20–41 → internal/collector/replication.go
-  - analiz2.php queries 42–47 → internal/collector/progress.go
-  - analiz2.php queries 48–52 → internal/collector/statements.go
-  - analiz2.php queries 53–58 → internal/collector/locks.go
-  - analiz_db.php queries 1–18 → internal/collector/database.go
-
-## Shared Interfaces
-Agents must agree on these interfaces (defined by Team Lead before work begins):
-
-### Collector → Storage interface
-type MetricPoint struct {
-    InstanceID string
-    Metric     string
-    Value      float64
-    Labels     map[string]string
-    Timestamp  time.Time
-}
-
-type MetricStore interface {
-    Write(ctx context.Context, points []MetricPoint) error
-    Query(ctx context.Context, query MetricQuery) ([]MetricPoint, error)
-}
-
-### Collector → Alert interface
-type AlertEvaluator interface {
-    Evaluate(ctx context.Context, metric string, value float64, labels map[string]string) error
-}
-
-## Rules
-- All SQL: parameterized queries (pgx named args) — NEVER string concatenation
-- Every collector: handle PG version ranges via internal/version gate
-- Commits: "feat: ...", "fix: ...", "docs: ...", "refactor: ..."
-- No COPY TO PROGRAM — OS metrics via Go agent or pg_read_file('/proc/*') SQL method
-- Monitoring user: pg_monitor role (+ pg_read_server_files for SQL-based OS metrics), never superuser
-- Test against PG 14, 15, 16, 17 using testcontainers-go
-
-## Current Iteration
-[UPDATED BY DEVELOPER BEFORE EACH TEAM SESSION]
+## Archive
+- Historical PGAM lineage: docs/archive/pgam/ (not a reference for new work)
 ```
 
 ---
@@ -510,7 +484,7 @@ Paste this into a new Claude.ai chat to resume the project.
 ---
 
 You are helping develop **PGPulse** — a PostgreSQL Health & Activity Monitor
-written in Go, rewritten from a legacy PHP project called PGAM.
+written in Go: the evidence layer of a DBA agent system (PGPulse = evidence, DBPortal = execution with human approval).
 
 ## What PGPulse Does
 - Monitors PostgreSQL instances (PG 14–18): connections, cache hit, replication,
@@ -525,14 +499,14 @@ written in Go, rewritten from a legacy PHP project called PGAM.
 ## Development Method: Agent Teams
 We use Claude Code Agent Teams (experimental) with:
 - **Team Lead** (Opus 4.6): orchestrates, decomposes, merges
-- **Collector Agent**: ports PGAM SQL → Go collectors with version gates
+- **Collector Agent**: tier collectors in Go with version gates
 - **API & Security Agent**: REST API, JWT, storage, alerting
 - **QA & Review Agent**: tests (testcontainers PG 14–17), linting, security audit
 - Extended agents unlock at M5 (Frontend), M6 (OS), M8 (ML)
 
 ## Key Documents to Read
 1. `docs/CODEBASE_DIGEST.md` — auto-generated code map (files, metrics, endpoints, components)
-2. `docs/legacy/PGAM_FEATURE_AUDIT.md` — legacy inventory (76 SQL queries)
+2. `docs/collectors.md` — collectors by tier (historical PGAM lineage: `docs/archive/pgam/`)
 3. `docs/architecture.md` — system design
 4. `docs/PGPulse_Development_Strategy.md` — full Agent Teams strategy
 5. `docs/roadmap.md` — milestone plan with current status
@@ -554,7 +528,9 @@ We use Claude Code Agent Teams (experimental) with:
 
 ## Agent Team Spawn Prompts
 
-These are ready-to-use prompts for Claude Code. Each milestone has a tailored team-prompt.md.
+These are the prompts that were used for M0–M5 and are kept as worked examples of the format. They
+describe the project as it was then (including PGAM query porting); do not reuse their scope, only their shape.
+Each current milestone has its own team-prompt.md under `docs/iterations/`.
 
 ### Setup (One-Time)
 
@@ -611,7 +587,7 @@ Coordinate through shared task list. Merge when both are done and
 ```
 Build the instance metrics collector for PGPulse.
 Read docs/iterations/M1_01_.../design.md for detailed requirements.
-Reference docs/legacy/PGAM_FEATURE_AUDIT.md for SQL queries to port.
+Reference the PGAM feature audit (Project Knowledge; lineage now archived in docs/archive/pgam/) for SQL queries to port.
 
 Create a team of 3 specialists:
 
@@ -1129,7 +1105,7 @@ internal/version/ → COLLECTOR AGENT
    - Any decisions the Team Lead made
 3. Ask Claude.ai:
    > "Create a session-log for this iteration: goals, agents used,
-   > PGAM queries ported, key decisions, test results, what's pending."
+   > what was delivered, key decisions, test results, what's pending."
 4. Save as `session-log.md` in the iteration folder
 5. Update `docs/roadmap.md` and `CHANGELOG.md`
 6. Final push:
@@ -1154,11 +1130,9 @@ What we wanted to implement in this iteration.
 - Duration: ~XX minutes
 - Estimated token usage: ~XXk tokens
 
-## PGAM Queries Ported
-| Query # | Description | Target Function | Agent |
-|---------|-------------|-----------------|-------|
-| #1 | version() | instance.go:collectVersion() | Collector |
-| #10 | cache hit ratio | instance.go:collectCacheHit() | Collector |
+## Delivered
+| Item | Description | Target File / Function | Agent |
+|------|-------------|------------------------|-------|
 | ... | ... | ... | ... |
 
 ## Agent Activity Summary
@@ -1211,14 +1185,19 @@ What we wanted to implement in this iteration.
 | M3 | Auth & Security | 1 week | 4–5 days | Lead + 2 | ✅ Done |
 | M4 | Alerting | 2 weeks | 1.5 weeks | Lead + 3 | ✅ Done |
 | M5 | Web UI (MVP) | 3 weeks | 2 weeks | Lead + 4 | ✅ Done |
-| M6 | Agent Mode | 2 weeks | 1.5 weeks | Lead + 3 | 🔲 |
-| M7 | Per-Database Analysis | 3 weeks | 2 weeks | Lead + 3 | 🔲 |
-| M8 | ML Phase 1 | 3 weeks | 2 weeks | Lead + 4 | 🔄 In Progress (M8_11) |
-| M9 | Reports & Export | 2 weeks | 1.5 weeks | Lead + 3 | 🔲 |
-| M10 | Polish & Release | 2 weeks | 1.5 weeks | Lead + 3 | 🔲 |
+| M6 | Agent Mode + Cluster | 2 weeks | 1.5 weeks | Lead + 3 | ✅ Done |
+| M7 | Per-Database Analysis | 3 weeks | 2 weeks | Lead + 3 | ✅ Done |
+| M8 | P1 Features + ML Phase 1 | 3 weeks | 2 weeks | Lead + 4 | ✅ Done |
+| M11–M15 | Query insights, desktop core, RCA, playbooks, maintenance forecasting | — | — | Lead + 3 | ✅ Done |
+| M16 | Cut the anchor | — | 1 week | Lead + 3 | 🔲 Next |
+| M17 | Cluster model + cross-tier RCA | — | 3 weeks | Lead + 3 | 🔲 |
+| M18 | Operation forecasting | — | 2 weeks | Lead + 3 | 🔲 |
+| M19 | Agent loop | — | 3 weeks | Lead + 3 | 🔲 |
+
+The original M9 (Reports & Export) and M10 (Polish & Release) are no longer milestones: reports became incident
+evidence export (M17), polish became per-milestone exit criteria. The milestone definitions live in `docs/roadmap.md`.
 
 **MVP (M0–M5): ~8–9 weeks** (was 12 weeks in v1)
-**Full project: ~16–18 weeks** (was 24 weeks in v1)
 
 ---
 

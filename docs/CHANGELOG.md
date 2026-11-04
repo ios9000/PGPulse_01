@@ -1,3 +1,16 @@
+## [M16_S2] — 2026-11-04 — docs: reframe around the fleet product
+
+### Changed
+- Project direction documented as a fleet incident-intelligence system with cross-tier RCA, product form a DBA agent system (PGPulse = evidence layer, DBPortal = execution with human approval). New "Direction" section in the README; problem statement in the development strategy rewritten around the fleet product; the PGAM-rewrite header line and the 76-query preservation row removed.
+- Roadmap: M15_02 marked superseded by M18; M12_02, M9 and M10 retired (Windows build frozen, reports → incident evidence export, polish → per-milestone exit criteria); M16 Cut the anchor, M17 Cluster model + cross-tier RCA, M18 Operation forecasting and M19 Agent loop defined.
+- `docs/legacy/` moved to `docs/archive/pgam/` with a README marking it historical. `.claude/CLAUDE.md`, `docs/README.md`, `docs/RESTORE_CONTEXT.md` and the strategy doc updated for the move; the "Legacy Reference" sections became "Archive".
+- Metric naming standardization un-parked: the MW_01 handoff rule "do NOT rename keys until then" replaced by a note that standardization is M16 work.
+
+### Added
+- `scripts/check-doc-links.sh` — fails on broken relative links in `docs/` and `README.md`.
+
+---
+
 ## [MH_01] — 2026-09-29 — chore: repository hygiene
 
 ### Changed

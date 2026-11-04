@@ -1,6 +1,6 @@
 # PGPulse documentation
 
-This folder records how PGPulse was planned and built, iteration by iteration. The Claude Code harness reads these paths, so files are never moved.
+This folder records how PGPulse was planned and built, iteration by iteration. The Claude Code harness reads these paths, so files are not moved except through a deliberate reframe (M16 moved `legacy/` to `archive/pgam/`); `scripts/check-doc-links.sh` verifies that relative links still resolve.
 
 ## How the process works
 
@@ -19,9 +19,9 @@ This folder records how PGPulse was planned and built, iteration by iteration. T
 | [save-points/](save-points/) | `SAVEPOINT_<milestone>_<YYYYMMDD>.md` are self-contained project snapshots: architecture, interfaces, decision log, status and environment. [LATEST.md](save-points/LATEST.md) is the newest one. |
 | ADRs | [M14_03 RCA–adviser bridge](iterations/M14_03_03222026_expansion-calibration/M14_03_ADR_rca_adviser_bridge.txt) and [M14_04 guided remediation playbooks](iterations/M14_04_03242026_guided-remediation/ADR-M14_04-Guided-Remediation-Playbooks.md). Most other decisions live in the save-point decision tables and the session logs. |
 | [CODEBASE_DIGEST.md](CODEBASE_DIGEST.md) | Generated reference: file inventory, interfaces, metric keys, API routes, collectors and config keys. |
-| [roadmap.md](roadmap.md), [CHANGELOG.md](CHANGELOG.md) | Milestone status and what each iteration delivered. |
+| [roadmap.md](roadmap.md), [CHANGELOG.md](CHANGELOG.md) | Milestone status (M16–M19 are the current direction) and what each iteration delivered. |
 | [PGPulse_Development_Strategy_v2.md](PGPulse_Development_Strategy_v2.md) | The development method: planning in Claude.ai, implementation in Claude Code. |
 | [RESTORE_CONTEXT.md](RESTORE_CONTEXT.md) | Emergency context recovery if a handoff is lost. |
 | [desktop/](desktop/) | User and setup guides for the Windows desktop build. |
-| [legacy/](legacy/) | Competitive research notes. |
+| [archive/pgam/](archive/pgam/README.md) | Historical PGAM lineage, including the March 2026 competitive research notes. Read-only. |
 | [../.claude/CLAUDE.md](../.claude/CLAUDE.md), [../.claude/rules/](../.claude/rules/) | Instructions and rules the agents follow: module ownership, code style, security, PostgreSQL conventions, chat transitions, save points. |

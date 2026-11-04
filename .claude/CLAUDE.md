@@ -17,8 +17,8 @@ If you're starting a new session on this project, read in this order:
    - `postgresql.md` — version gates, PG-specific conventions
    - `Chat_Transition_Process.md` — how context transfers between Claude.ai chats
    - `Save_Point_System.md` — how to create/restore project snapshots
-5. **Roadmap** → `docs/roadmap.md` — milestone status and query porting tracker
-6. **Legacy reference** → `PGAM_FEATURE_AUDIT.md` — 76 SQL queries to port (kept in the Claude.ai project knowledge, not in this repository)
+5. **Roadmap** → `docs/roadmap.md` — milestone status; M16–M19 define the current direction
+6. **Archive** → `docs/archive/pgam/` — historical PGAM lineage. Read-only; not a reference for new work.
 
 > **DO NOT** make architecture decisions without checking the save point first.
 > Decisions were already made. Check before re-deciding.
@@ -26,8 +26,9 @@ If you're starting a new session on this project, read in this order:
 ---
 
 ## Description
-PostgreSQL Health & Activity Monitor — Go rewrite of legacy PGAM PHP tool.
-Real-time monitoring, alerting, ML-based anomaly detection, and cross-stack RCA.
+Fleet incident intelligence for PostgreSQL with cross-tier root cause analysis — the evidence
+layer of a DBA agent system (PGPulse = evidence, DBPortal = execution with human approval).
+Cluster timeline, tier collectors, alerting, ML-based anomaly detection, and cross-tier RCA.
 
 ## Stack
 - Language: Go 1.25.0
@@ -88,19 +89,14 @@ shared task list.
 - web/ — embedded frontend (React/TS/Tailwind/ECharts, complete as of M5, go:embed)
 - migrations/ — SQL migrations embedded in internal/storage/migrations/
 - deploy/ — Docker, Helm, systemd
-- docs/ — documentation, iterations, legacy reference, save points
+- docs/ — documentation, iterations, save points; docs/archive/pgam/ holds the historical PGAM lineage
 - docs/save-points/ — project snapshots for continuity and disaster recovery
 - .claude/rules/ — development process rules
 
-## Legacy Reference
-- PGAM Feature Audit: PGAM_FEATURE_AUDIT.md (Claude.ai project knowledge; not in this repository)
-- Query-to-file mapping:
-  - analiz2.php queries 1–19 → internal/collector/ (server_info, connections, cache, etc.)
-  - analiz2.php queries 20–41 → internal/collector/replication_*.go
-  - analiz2.php queries 42–47 → internal/collector/progress_*.go
-  - analiz2.php queries 48–52 → internal/collector/statements_*.go
-  - analiz2.php queries 53–58 → internal/collector/ (wait_events, lock_tree, long_transactions)
-  - analiz_db.php queries 1–18 → internal/collector/database.go (M7)
+## Archive
+- Historical PGAM lineage: docs/archive/pgam/ (see its README). The PGAM feature audit was never
+  committed to this repository; it stays in Claude.ai project knowledge and is not needed for development.
+- Collectors are documented by tier in docs/collectors.md (M16); do not add new "PGAM query #N" comments.
 
 ## Shared Interfaces
 
@@ -226,5 +222,7 @@ M12_01 — Core Desktop (Wails v3):
 Build: clean. See: docs/iterations/M12_01_03172026_core-desktop/
 
 ### What's Next
-M12_02 — Connection dialog (C-01→C-05), OS notifications (N-01→N-06), NSIS installer (I-01→I-07).
-See: docs/iterations/HANDOFF_M12_01_to_M12_02.md
+M16 — Cut the anchor (archive PGAM docs, strip lineage comments, collectors by tier, metric naming
+standardization with migration, agent as default OS path, security-vetting package, PG 18 in the
+conformance set). M12_02 (desktop UX + installer) is frozen; M15_02 is superseded by M18.
+See: docs/roadmap.md
