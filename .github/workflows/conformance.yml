@@ -1,0 +1,96 @@
+name: PostgreSQL conformance
+
+# Runs every collector's version-gated SQL against PostgreSQL 14–18 and
+# publishes the collector × version matrix. Scheduled + manual only: it pulls
+# five server images and is not meant to gate every push.
+on:
+  schedule:
+    - cron: "23 3 * * 1" # Mondays 03:23 UTC
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: "Fail the run if any collector is not ok"
+        type: boolean
+        default: false
+      versions:
+        description: "PostgreSQL majors to check (space-separated)"
+        type: string
+        default: "14 15 16 17 18"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: conformance
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CONFORMANCE_VERSIONS: ${{ inputs.versions || '14 15 16 17 18' }}
+      CONFORMANCE_STRICT: ${{ inputs.strict && '1' || '0' }}
+      CONFORMANCE_KEEP: "1"
+      CONFORMANCE_OUT: conformance-out
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Pull PostgreSQL images
+        run: |
+          for v in $CONFORMANCE_VERSIONS; do docker pull -q "postgres:$v"; done
+
+      - name: Run conformance harness
+        run: scripts/conformance/run.sh
+
+      - name: Version detection against live servers
+        run: |
+          dsns=""
+          for v in $CONFORMANCE_VERSIONS; do
+            dsns+="postgres://pgpulse_monitor:conformance@127.0.0.1:$((54300 + v))/postgres?sslmode=disable "
+          done
+          PGPULSE_VERSION_TEST_DSNS="$dsns" go test -race -count=1 -v ./internal/version/...
+
+      - name: Unit tests (version gates, harness)
+        run: go test -race ./internal/version/... ./scripts/conformance/...
+
+      - name: Publish matrix to job summary
+        if: always()
+        run: |
+          if [ -f "$CONFORMANCE_OUT/README.md" ]; then
+            cat "$CONFORMANCE_OUT/README.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Compare with committed matrix
+        if: always()
+        run: |
+          # Informational: shows whether the committed docs/conformance/results.json
+          # is stale (ignores timestamps, durations, commit and image digests).
+          norm='del(.generated_at, .commit, .route) | .servers[].collectors[]? |= del(.duration_ms)'
+          if [ -f "$CONFORMANCE_OUT/results.json" ] && [ -f docs/conformance/results.json ]; then
+            if diff <(jq -S "$norm" docs/conformance/results.json) <(jq -S "$norm" "$CONFORMANCE_OUT/results.json") > drift.diff; then
+              echo "Committed matrix is up to date."
+            else
+              echo "::warning::Conformance results differ from docs/conformance/results.json; re-run scripts/conformance/run.sh and commit."
+              head -200 drift.diff
+            fi
+          fi
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-report
+          path: conformance-out/
+          if-no-files-found: warn
+
+      - name: Stop servers
+        if: always()
+        run: |
+          for v in $CONFORMANCE_VERSIONS; do docker rm -f "pgpulse-conformance-$v" >/dev/null 2>&1 || true; done
