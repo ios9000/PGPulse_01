@@ -11,10 +11,9 @@ import (
 )
 
 // sqlLockTree fetches all (blocked_pid, blocker_pid) pairs using
-// pg_blocking_pids(), which is simpler and more reliable than the
-// recursive pg_locks CTE used in PGAM. One row per blocking relationship
+// pg_blocking_pids(), which is simpler and more reliable than a
+// recursive pg_locks self-join CTE. One row per blocking relationship
 // (a PID blocked by N blockers produces N rows).
-// PGAM source: analiz2.php Q55.
 const sqlLockTree = `
 SELECT
     a.pid                              AS blocked_pid,
@@ -39,7 +38,12 @@ type lockStats struct {
 
 // LockTreeCollector reports lock blocking summary metrics by querying
 // pg_blocking_pids() and computing graph statistics in Go.
-// PGAM source: analiz2.php Q55.
+//
+//   - Tier: session
+//   - Question: Is anyone blocking other sessions, how many are stuck behind them, and how deep is the chain?
+//   - Views: pg_stat_activity, pg_blocking_pids()
+//   - Collection: 10s (high group)
+//   - PG versions: 14+ (no version gate)
 type LockTreeCollector struct {
 	Base
 }

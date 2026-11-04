@@ -26,6 +26,12 @@ const (
 )
 
 // OSCollector collects OS-level metrics from a pgpulse-agent or local procfs.
+//
+//   - Tier: os
+//   - Question: Is the host running out of CPU, memory or disk, independent of what PostgreSQL reports?
+//   - Views: none — pgpulse-agent HTTP endpoint, or local /proc when the DSN host is this machine
+//   - Collection: 10s (high group); no-op when neither an agent URL nor a local DSN is configured
+//   - PG versions: any (does not query PostgreSQL)
 type OSCollector struct {
 	instanceID string
 	source     OSCollectorSource

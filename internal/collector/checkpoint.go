@@ -69,6 +69,12 @@ type checkpointSnapshot struct {
 // CheckpointCollector collects checkpoint and background writer statistics.
 // This is a stateful collector that computes rate metrics by comparing
 // consecutive snapshots of cumulative counters.
+//
+//   - Tier: postgres
+//   - Question: Are checkpoints being forced by WAL volume instead of the timer, and who is writing dirty buffers?
+//   - Views: pg_stat_bgwriter (14–16); pg_stat_checkpointer + pg_stat_bgwriter (17+)
+//   - Collection: 60s (medium group)
+//   - PG versions: 14–16 / 17+ via checkpointGate
 type CheckpointCollector struct {
 	Base
 	sqlGate  version.Gate

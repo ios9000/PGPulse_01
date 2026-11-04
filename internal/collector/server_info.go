@@ -26,7 +26,14 @@ var backupStateGate = version.Gate{
 }
 
 // ServerInfoCollector collects PostgreSQL server identity and state metrics.
-// It covers PGAM queries Q2, Q3, Q9, and Q10.
+//
+//   - Tier: postgres
+//   - Question: When did this server start, is it a primary or standby, and how close is it to XID or multixact wraparound?
+//   - Views: pg_postmaster_start_time(), pg_is_in_backup() (14 only), pg_database (datfrozenxid, datminmxid), pg_read_file('/etc/hostname'), pg_read_file('/etc/os-release')
+//   - Collection: 300s (low group)
+//   - PG versions: 14 / 15+ via backupStateGate (pg_is_in_backup() was removed in 15; is_in_backup reports 0 there)
+//
+// Recovery state comes from InstanceContext, which the orchestrator queries once per cycle.
 type ServerInfoCollector struct {
 	Base
 }
@@ -47,7 +54,7 @@ func (c *ServerInfoCollector) Name() string { return "server_info" }
 func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn, ic InstanceContext) ([]MetricPoint, error) {
 	var points []MetricPoint
 
-	// Q2: postmaster start time
+	// Postmaster start time.
 	tctx, cancel := queryContext(ctx)
 	var startEpoch int64
 	err := conn.QueryRow(tctx, "SELECT extract(epoch FROM pg_postmaster_start_time())::bigint").Scan(&startEpoch)
@@ -58,14 +65,14 @@ func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn, ic In
 	points = append(points, c.point("server.start_time_unix", float64(startEpoch), nil))
 	points = append(points, c.point("server.uptime_seconds", float64(time.Now().Unix()-startEpoch), nil))
 
-	// Q9: recovery state — read from InstanceContext (queried once per cycle by orchestrator).
+	// Recovery state — read from InstanceContext (queried once per cycle by orchestrator).
 	recoveryVal := 0.0
 	if ic.IsRecovery {
 		recoveryVal = 1.0
 	}
 	points = append(points, c.point("server.is_in_recovery", recoveryVal, nil))
 
-	// Q10: backup state — PG 14 only; removed in PG 15
+	// Backup state — PG 14 only; pg_is_in_backup() was removed in PG 15.
 	if sql, ok := backupStateGate.Select(c.pgVersion); ok {
 		tctx3, cancel3 := queryContext(ctx)
 		var isBackup int64

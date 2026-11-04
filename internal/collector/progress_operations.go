@@ -11,7 +11,6 @@ import (
 )
 
 // progressCreateIndexSQL queries active CREATE INDEX / REINDEX operations.
-// PGAM source: analiz2.php Q44.
 const progressCreateIndexSQL = `
 SELECT
     a.pid::text,
@@ -27,7 +26,12 @@ FROM pg_stat_progress_create_index p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
 // CreateIndexProgressCollector collects CREATE INDEX / REINDEX progress.
-// PGAM source: analiz2.php Q44.
+//
+//   - Tier: session
+//   - Question: Which index builds are running, in which phase, and how far along are they?
+//   - Views: pg_stat_progress_create_index, pg_stat_activity
+//   - Collection: 60s (medium group)
+//   - PG versions: 14+ (no version gate)
 type CreateIndexProgressCollector struct {
 	Base
 }
@@ -106,7 +110,6 @@ func (c *CreateIndexProgressCollector) Collect(ctx context.Context, conn *pgx.Co
 }
 
 // progressBasebackupSQL queries active base backup operations.
-// PGAM source: analiz2.php Q46.
 const progressBasebackupSQL = `
 SELECT
     a.pid::text,
@@ -120,7 +123,12 @@ FROM pg_stat_progress_basebackup p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
 // BasebackupProgressCollector collects base backup progress.
-// PGAM source: analiz2.php Q46.
+//
+//   - Tier: session
+//   - Question: Is a base backup streaming from this server, who started it, and how much is left?
+//   - Views: pg_stat_progress_basebackup, pg_stat_activity
+//   - Collection: 60s (medium group)
+//   - PG versions: 14+ (no version gate)
 type BasebackupProgressCollector struct {
 	Base
 }
@@ -190,7 +198,6 @@ func (c *BasebackupProgressCollector) Collect(ctx context.Context, conn *pgx.Con
 }
 
 // progressCopySQL queries active COPY operations.
-// PGAM source: analiz2.php Q47.
 // Note: pg_stat_progress_copy does NOT have a phase column.
 const progressCopySQL = `
 SELECT
@@ -204,7 +211,12 @@ FROM pg_stat_progress_copy p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
 // CopyProgressCollector collects COPY operation progress.
-// PGAM source: analiz2.php Q47.
+//
+//   - Tier: session
+//   - Question: Which COPY loads or exports are running, and how many bytes and tuples have they processed?
+//   - Views: pg_stat_progress_copy, pg_stat_activity
+//   - Collection: 60s (medium group)
+//   - PG versions: 14+ (no version gate)
 type CopyProgressCollector struct {
 	Base
 }

@@ -17,9 +17,15 @@ SELECT COALESCE(
 ) AS hit_ratio
 FROM pg_stat_database`
 
-// CacheCollector collects the global PostgreSQL buffer cache hit ratio.
-// It covers PGAM query Q14.
-// PGAM bug fix: added NULLIF + COALESCE to prevent division by zero on fresh instances.
+// CacheCollector reports the instance-wide shared buffer cache hit ratio.
+//
+//   - Tier: postgres
+//   - Question: Is the working set still fitting in shared_buffers, or are reads going to disk?
+//   - Views: pg_stat_database
+//   - Collection: 10s (high group)
+//   - PG versions: 14+ (no version gate)
+//
+// NULLIF + COALESCE guard against division by zero on a fresh instance with no block reads yet.
 type CacheCollector struct {
 	Base
 }

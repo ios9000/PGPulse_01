@@ -13,8 +13,8 @@ import (
 // sqlStatementsTop selects the top-N queries by total execution time along with
 // aggregate totals for all queries. The totals row is cross-joined so that every
 // result row carries the same totals, enabling "other" bucket computation.
-// PGAM source: analiz2.php Q50 (IO-sorted) and Q51 (CPU-sorted) — unified here
-// by ranking on total_exec_time and deriving both IO and CPU from that single scan.
+// Ranking once on total_exec_time and deriving both IO time and CPU time from that
+// single scan avoids separate IO-sorted and CPU-sorted passes over pg_stat_statements.
 const sqlStatementsTop = `
 WITH ranked AS (
     SELECT
@@ -82,7 +82,12 @@ type topQueryRow struct {
 
 // StatementsTopCollector collects top-N pg_stat_statements entries by total
 // execution time and emits an "other" aggregate for the remaining queries.
-// PGAM source: analiz2.php Q50 and Q51.
+//
+//   - Tier: postgres
+//   - Question: Which queries consume the most execution time, and how much of it is I/O versus CPU?
+//   - Views: pg_stat_statements
+//   - Collection: 60s (medium group); no-op when pg_stat_statements is not installed
+//   - PG versions: 14+ (no version gate; reads blk_read_time/blk_write_time, which PG 17 renamed to shared_blk_*_time)
 type StatementsTopCollector struct {
 	Base
 	limit int

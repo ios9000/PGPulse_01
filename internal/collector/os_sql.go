@@ -59,6 +59,12 @@ import (
 var devicePattern = regexp.MustCompile(`^(sd[a-z]+|nvme\d+n\d+|vd[a-z]+|xvd[a-z]+)$`)
 
 // OSSQLCollector collects OS metrics by reading /proc files via pg_read_file().
+//
+//   - Tier: os
+//   - Question: Is the database host short on CPU, memory or disk throughput, when no agent is installed?
+//   - Views: pg_read_file() on /proc/meminfo, /proc/uptime, /proc/loadavg, /proc/stat, /proc/diskstats
+//   - Collection: 60s (medium group); registered only when os_metrics_method is "sql"
+//   - PG versions: 14+ (no version gate; needs pg_read_server_files)
 type OSSQLCollector struct {
 	instanceID string
 	pgVersion  version.PGVersion

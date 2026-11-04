@@ -28,7 +28,12 @@ FROM pg_stat_statements_info`
 )
 
 // ExtensionsCollector checks key PostgreSQL extensions and reports their state.
-// It covers PGAM queries Q18 and Q19.
+//
+//   - Tier: postgres
+//   - Question: Is pg_stat_statements installed, how full is its buffer, and when were its stats last reset?
+//   - Views: pg_extension, pg_stat_statements, pg_stat_statements_info
+//   - Collection: 300s (low group)
+//   - PG versions: 14+ (stats reset read guarded by AtLeast(14, 0))
 type ExtensionsCollector struct {
 	Base
 }
@@ -50,7 +55,7 @@ func (c *ExtensionsCollector) Name() string { return "extensions" }
 func (c *ExtensionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	var points []MetricPoint
 
-	// Q18: is pg_stat_statements installed?
+	// Is pg_stat_statements installed?
 	tctx, cancel := queryContext(ctx)
 	var pgssCount int64
 	err := conn.QueryRow(tctx, sqlPGSSInstalled).Scan(&pgssCount)
@@ -70,7 +75,7 @@ func (c *ExtensionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ Ins
 		return points, nil
 	}
 
-	// Q19: pg_stat_statements fill percentage
+	// pg_stat_statements fill percentage.
 	tctx2, cancel2 := queryContext(ctx)
 	var fillPct float64
 	err = conn.QueryRow(tctx2, sqlPGSSFillPct).Scan(&fillPct)
@@ -82,7 +87,7 @@ func (c *ExtensionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ Ins
 		points = append(points, c.point("extensions.pgss_fill_pct", fillPct, nil))
 	}
 
-	// Q19b: stats reset time — pg_stat_statements_info exists on PG ≥ 14 (our minimum)
+	// Stats reset time — pg_stat_statements_info exists on PG ≥ 14 (our minimum).
 	if c.pgVersion.AtLeast(14, 0) {
 		tctx3, cancel3 := queryContext(ctx)
 		var resetEpoch int64

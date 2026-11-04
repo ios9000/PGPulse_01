@@ -13,6 +13,12 @@ import (
 )
 
 // ClusterCollector collects HA cluster metrics from Patroni and ETCD providers.
+//
+//   - Tier: patroni-etcd
+//   - Question: Does the HA cluster have exactly one leader, are all members running, and is the etcd quorum healthy?
+//   - Views: none — Patroni REST API / patronictl and etcd endpoints
+//   - Collection: 60s (medium group); no-op for providers that are not configured
+//   - PG versions: any (does not query PostgreSQL)
 type ClusterCollector struct {
 	instanceID string
 	patroni    patroni.PatroniProvider

@@ -12,7 +12,6 @@ import (
 
 // replicationStatusPrimarySQL enumerates active physical replicas connected via replication slots.
 // JOIN to pg_replication_slots ensures we only count replicas with an active slot.
-// PGAM source: analiz2.php Q20.
 const replicationStatusPrimarySQL = `
 SELECT
     coalesce(r.application_name, '') AS app_name,
@@ -25,7 +24,6 @@ WHERE s.slot_type = 'physical' AND s.active = true`
 
 // replicationStatusReplicaSQL reads the WAL receiver state on a standby.
 // lag_bytes = difference between the latest WAL end sent by primary and what's been received.
-// PGAM source: analiz2.php Q21.
 const replicationStatusReplicaSQL = `
 SELECT
     coalesce(status, '') AS status,
@@ -35,8 +33,14 @@ SELECT
 FROM pg_stat_wal_receiver`
 
 // ReplicationStatusCollector collects replication topology information.
-// On a primary: enumerates active physical replicas (Q20).
-// On a replica: reports WAL receiver connection status (Q21).
+// On a primary it enumerates active physical replicas; on a replica it reports
+// WAL receiver connection status.
+//
+//   - Tier: replication
+//   - Question: Which replicas are attached to this primary, or is this standby actually streaming from its upstream?
+//   - Views: pg_stat_replication, pg_replication_slots (primary); pg_stat_wal_receiver (standby)
+//   - Collection: 60s (medium group)
+//   - PG versions: 14+ (no version gate)
 type ReplicationStatusCollector struct {
 	Base
 }
