@@ -1,6 +1,9 @@
 package config
 
-import "time"
+import (
+	"log/slog"
+	"time"
+)
 
 // Config is the top-level PGPulse configuration.
 type Config struct {
@@ -294,4 +297,53 @@ type PlaybooksConfig struct {
 	ResultRowLimit          int           `koanf:"result_row_limit"`
 	RunRetentionDays        int           `koanf:"run_retention_days"`
 	ImplicitFeedbackWindow  time.Duration `koanf:"implicit_feedback_window"`
+}
+
+// OS metrics collection methods (see docs/security/VETTING.md for the blast radius of each).
+const (
+	OSMetricsMethodSQL      = "sql"      // reads /proc on the monitored host via pg_read_file()
+	OSMetricsMethodAgent    = "agent"    // polls the separate pgpulse-agent over HTTP
+	OSMetricsMethodDisabled = "disabled" // no OS metrics
+)
+
+// EffectiveOSMetricsMethod returns the OS metrics method that applies to inst:
+// the per-instance os_metrics_method override, else the global os_metrics.method,
+// else "sql". This mirrors instanceRunner.resolveOSMethod in internal/orchestrator/runner.go.
+func (c Config) EffectiveOSMetricsMethod(inst InstanceConfig) string {
+	if inst.OSMetricsMethod != "" {
+		return inst.OSMetricsMethod
+	}
+	if c.OSMetrics.Method != "" {
+		return c.OSMetrics.Method
+	}
+	return OSMetricsMethodSQL
+}
+
+// SQLOSMetricsInstances returns the IDs of enabled instances whose effective
+// OS metrics method is "sql". An instance with Enabled == nil counts as enabled.
+func (c Config) SQLOSMetricsInstances() []string {
+	var ids []string
+	for _, inst := range c.Instances {
+		if inst.Enabled != nil && !*inst.Enabled {
+			continue
+		}
+		if c.EffectiveOSMetricsMethod(inst) == OSMetricsMethodSQL {
+			ids = append(ids, inst.ID)
+		}
+	}
+	return ids
+}
+
+// WarnOSMetricsSQL logs a single WARN line at startup when any enabled instance
+// resolves to os_metrics_method "sql", because that path calls pg_read_file()
+// on the monitored server. It reports whether the warning was logged.
+func WarnOSMetricsSQL(logger *slog.Logger, cfg Config) bool {
+	ids := cfg.SQLOSMetricsInstances()
+	if len(ids) == 0 {
+		return false
+	}
+	logger.Warn("os_metrics_method=sql: OS metrics are read with pg_read_file() on the monitored server, "+
+		"which needs pg_read_server_files; consider os_metrics_method agent or disabled, see docs/security/VETTING.md",
+		"instances", ids)
+	return true
 }

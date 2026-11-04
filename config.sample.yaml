@@ -41,3 +41,15 @@ instances:
     # enabled: true
     # max_conns: 5
     # os_metrics_method: sql   # sql, agent, disabled
+    #   How OS metrics (CPU, memory, load, disk I/O) are collected for this instance.
+    #   Overrides the global os_metrics.method; if neither is set the default is "sql".
+    #   sql      — reads /proc/* (and /etc/hostname, /etc/os-release) on the monitored
+    #              host via pg_read_file(). The monitoring role then needs
+    #              pg_read_server_files plus EXECUTE on pg_read_file(text), which lets it
+    #              read ANY file the postgres OS user can read (data files, configs,
+    #              keys). Widest blast radius. PGPulse logs a WARN at startup in this mode.
+    #   agent    — polls the separate pgpulse-agent over HTTP (agent_url, port 9187).
+    #              The monitoring role needs only pg_monitor; the agent reads procfs as
+    #              its own OS user, outside PostgreSQL.
+    #   disabled — no OS metrics; the monitoring role needs only pg_monitor.
+    #   Details: docs/security/VETTING.md
