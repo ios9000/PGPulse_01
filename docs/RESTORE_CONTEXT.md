@@ -18,8 +18,7 @@ This is an emergency recovery document. For full context, see:
 | TypeScript | 0 errors |
 | Deployed | Ubuntu 24 / PG 16.13 (demo.example.com) |
 | Milestones done | M0-M8, REM_01, M9_01, M_UX_01, M10_01, M11_01, M11_02, M12_01, M14_01-M14_04 |
-| Next | M12_02 — UX + Installer (connection dialog, OS notifications, NSIS) |
-| PGAM queries ported | ~70/76 |
+| Next | M16 — Cut the anchor (see docs/roadmap.md); M12_02 frozen, M15_02 superseded by M18 |
 | REST API endpoints | 82 |
 | Alert rules | 23 |
 | Remediation rules | 25 |
@@ -40,7 +39,7 @@ M14 — RCA + Guided Remediation (4 sub-iterations):
 
 1. Read `docs/save-points/LATEST.md`
 2. Read `.claude/CLAUDE.md`
-3. Start next work (M12_02, M9, or M10)
+3. Start next work (M16 — see `docs/roadmap.md`)
 
 ## Build Commands
 

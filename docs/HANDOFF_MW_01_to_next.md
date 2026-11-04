@@ -21,7 +21,7 @@ All items from M8_11 handoff remain in force, plus:
 - Test scope must be `./cmd/... ./internal/...` (not `./...`) to prevent scanning `web/node_modules/`
 - OSSQLCollector reuses agent parsers from `internal/agent/` — no code duplication
 - Per-instance `os_metrics_method` config: "sql" (default), "agent", "disabled"
-- Metric naming standardization is parked for competitive research — do NOT rename keys until then
+- Metric naming standardization is **M16 work** (see `docs/roadmap.md`): one scheme for all keys, applied with a storage migration and a compatibility read path. The earlier parking note ("do not rename keys until the competitive research is done") is closed — the research is archived in `docs/archive/pgam/` and the rename happens in M16.
 - `docs/CODEBASE_DIGEST.md` is auto-generated at end of each iteration — always re-upload to Project Knowledge
 - **MemoryStore** implements `collector.MetricStore` — 2h default retention, configurable via `--history`
 - **Live mode** auto-detected when `storage.dsn` is absent — ML/forecast/plan/settings disabled
@@ -114,7 +114,7 @@ Storage:  In-memory, 2h retention (configurable via --history)
 | **Port defaults to 8080 in live mode** | **Fix in MW_01b** | Empty `config.Config{}` doesn't set Port=8989. Quick fix: set default after `cfg = config.Config{}` |
 | **build-release.sh uses `zip`** | **Workaround** | `zip` not on Git Bash. Use `powershell Compress-Archive` on Windows. Fix: add OS detection + PowerShell fallback |
 | **Instance name shows raw host from DSN** | Minor | `extractHostPort()` parses correctly, display only |
-| `os.diskstat.*` vs `os.disk.*` naming | Parked | Fix in metric naming standardization |
+| `os.diskstat.*` vs `os.disk.*` naming | M16 | Resolved by metric naming standardization (M16) |
 | Cache Hit Ratio metric name mismatch | Open | Pre-existing |
 | `c.command_desc` SQL bug in cluster progress | Open | Pre-existing, PG16 |
 | `002_timescaledb.sql` migration skip warning | Open | Pre-existing |

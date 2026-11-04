@@ -3,7 +3,9 @@
 PGPulse is a PostgreSQL health and activity monitor: a single Go binary with an embedded React UI.
 It collects metrics from PostgreSQL 14+, alerts on them, traces incidents to likely root causes and guides remediation.
 
-<!-- TODO(owner): screenshot -->
+## Direction
+
+PGPulse is becoming a fleet incident-intelligence system with cross-tier root cause analysis: the cluster, not the instance, is the entity, and an incident is followed across application, PgBouncer, HAProxy, Patroni/etcd, PostgreSQL and OS tiers on one timeline. Its product form is a DBA agent system in which PGPulse is the evidence layer and DBPortal is the execution layer with human approval. Four milestones carry it there: **M16 Cut the anchor** (archive the PGAM lineage, collectors documented by tier, metric naming standardized, agent as the default OS path, PG 18 in the conformance set), **M17 Cluster model + cross-tier RCA** (cluster timeline, PgBouncer and HAProxy collectors, tier adapters, attribution, evidence export), **M18 Operation forecasting** (window feasibility validated on live runs, playbook hand-off to the execution seam) and **M19 Agent loop** (propose → approve → execute → verify). Details are in [docs/roadmap.md](docs/roadmap.md).
 
 ## Features
 
@@ -142,7 +144,7 @@ Where to read more:
 
 ## How it was built
 
-PGPulse began as a Go rewrite of PGAM, a legacy PHP PostgreSQL activity monitor from 2019.
+PGPulse began in February 2026 as a Go rewrite of an older PHP activity monitor; that lineage is closed and archived under [docs/archive/pgam/](docs/archive/pgam/README.md).
 
 **My role.** I set the requirements and made the architecture decisions, working through designs with Claude.ai.
 
