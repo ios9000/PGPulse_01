@@ -36,8 +36,18 @@ var settingsMap = map[string]settingDef{
 	"max_prepared_transactions": {metric: "settings.max_prepared_tx", boolType: false},
 }
 
-// SettingsCollector collects key PostgreSQL runtime settings as metric values.
-// It covers PGAM query Q17, extended with additional settings.
+// SettingsCollector reports a small set of capacity-relevant server settings
+// as numeric metrics so they can be charted and alerted on alongside usage.
+//
+//	Tier:       postgres
+//	Question:   What are the configured ceilings (shared_buffers, lock table, prepared transactions) and is I/O timing being tracked?
+//	Reads:      pg_settings
+//	Collection: 300s
+//	Versions:   PG 14+
+//
+// Only settings that a usage metric is compared against are collected; the
+// settingsMap table is the single place to add another. shared_buffers is
+// emitted in 8 kB pages exactly as pg_settings reports it.
 type SettingsCollector struct {
 	Base
 }

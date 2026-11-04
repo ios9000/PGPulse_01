@@ -22,9 +22,18 @@ const sqlStatementsResetAge = `
 SELECT EXTRACT(EPOCH FROM now() - stats_reset)
 FROM pg_stat_statements_info`
 
-// StatementsConfigCollector collects pg_stat_statements health metrics:
-// buffer fill percentage, track settings, and time since last stats reset.
-// PGAM source: analiz2.php Q48 and Q49.
+// StatementsConfigCollector reports whether pg_stat_statements is configured
+// to produce trustworthy query statistics: track mode, I/O timing, entry
+// count against pg_stat_statements.max, and time since the last reset.
+//
+//	Tier:       postgres
+//	Question:   Can the top-query statistics be trusted — is tracking on, is the entry buffer overflowing, and how long has it been accumulating?
+//	Reads:      pg_settings, pg_stat_statements, pg_stat_statements_info, pg_extension
+//	Collection: 60s
+//	Versions:   PG 14+ (pg_stat_statements_info exists from PG 14; returns nil when the extension is not installed)
+//
+// stats_reset is NULL when the statistics have never been reset, in which case
+// the reset-age metric is omitted rather than reported as 0.
 type StatementsConfigCollector struct {
 	Base
 }
@@ -50,7 +59,7 @@ func (c *StatementsConfigCollector) Collect(ctx context.Context, conn *pgx.Conn,
 		return nil, nil
 	}
 
-	// Query GUC settings (Q48).
+	// Query the relevant GUC settings.
 	qCtx, cancel := queryContext(ctx)
 	settingsRows, err := conn.Query(qCtx, sqlStatementsSettings)
 	cancel()
@@ -72,7 +81,7 @@ func (c *StatementsConfigCollector) Collect(ctx context.Context, conn *pgx.Conn,
 	}
 	settingsRows.Close()
 
-	// Query statement entry count (Q48).
+	// Query the statement entry count.
 	qCtx2, cancel2 := queryContext(ctx)
 	var count float64
 	err = conn.QueryRow(qCtx2, sqlStatementsCount).Scan(&count)
@@ -81,7 +90,7 @@ func (c *StatementsConfigCollector) Collect(ctx context.Context, conn *pgx.Conn,
 		return nil, fmt.Errorf("statements_config: count: %w", err)
 	}
 
-	// Query reset age from pg_stat_statements_info (Q49).
+	// Query reset age from pg_stat_statements_info.
 	// Available since PG 14 (our minimum). stats_reset is NULL when never reset.
 	qCtx3, cancel3 := queryContext(ctx)
 	var resetAge *float64

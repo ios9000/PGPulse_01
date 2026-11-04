@@ -10,8 +10,8 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/version"
 )
 
-// progressCreateIndexSQL queries active CREATE INDEX / REINDEX operations.
-// PGAM source: analiz2.php Q44.
+// progressCreateIndexSQL queries active CREATE INDEX / REINDEX operations,
+// joined to pg_stat_activity for the database name.
 const progressCreateIndexSQL = `
 SELECT
     a.pid::text,
@@ -26,8 +26,18 @@ SELECT
 FROM pg_stat_progress_create_index p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
-// CreateIndexProgressCollector collects CREATE INDEX / REINDEX progress.
-// PGAM source: analiz2.php Q44.
+// CreateIndexProgressCollector reports the progress of running CREATE INDEX
+// and REINDEX commands.
+//
+//	Tier:       session
+//	Question:   Is an index build or rebuild running, which phase is it in, and is it waiting on other sessions?
+//	Reads:      pg_stat_progress_create_index, pg_stat_activity
+//	Collection: 60s
+//	Versions:   PG 14+
+//
+// Completion is derived from blocks_done / blocks_total. The lockers_* counters
+// matter for CONCURRENTLY builds: the "waiting for old snapshots" phases block
+// until every listed transaction finishes, which is where such builds stall.
 type CreateIndexProgressCollector struct {
 	Base
 }
@@ -105,8 +115,9 @@ func (c *CreateIndexProgressCollector) Collect(ctx context.Context, conn *pgx.Co
 	return points, nil
 }
 
-// progressBasebackupSQL queries active base backup operations.
-// PGAM source: analiz2.php Q46.
+// progressBasebackupSQL queries active base backups, joined to pg_stat_activity
+// for the connecting user, application and client address (a backup has no
+// database, so those identify who is taking it).
 const progressBasebackupSQL = `
 SELECT
     a.pid::text,
@@ -119,8 +130,18 @@ SELECT
 FROM pg_stat_progress_basebackup p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
-// BasebackupProgressCollector collects base backup progress.
-// PGAM source: analiz2.php Q46.
+// BasebackupProgressCollector reports the progress of running base backups
+// (pg_basebackup and the replication-protocol BASE_BACKUP command).
+//
+//	Tier:       session
+//	Question:   Is a base backup running, who started it, and how much has been streamed?
+//	Reads:      pg_stat_progress_basebackup, pg_stat_activity
+//	Collection: 60s
+//	Versions:   PG 14+
+//
+// Completion is derived from backup_streamed / backup_total; backup_total is 0
+// (and completion stays 0) while the size estimate is still being computed or
+// when the backup was started with --no-estimate-size.
 type BasebackupProgressCollector struct {
 	Base
 }
@@ -189,9 +210,10 @@ func (c *BasebackupProgressCollector) Collect(ctx context.Context, conn *pgx.Con
 	return points, nil
 }
 
-// progressCopySQL queries active COPY operations.
-// PGAM source: analiz2.php Q47.
-// Note: pg_stat_progress_copy does NOT have a phase column.
+// progressCopySQL queries active COPY operations, joined to pg_stat_activity
+// for the database name.
+// Note: pg_stat_progress_copy does NOT have a phase column; command and type
+// (FILE / PROGRAM / PIPE / CALLBACK) are the only descriptors.
 const progressCopySQL = `
 SELECT
     a.pid::text,
@@ -203,8 +225,17 @@ SELECT
 FROM pg_stat_progress_copy p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
-// CopyProgressCollector collects COPY operation progress.
-// PGAM source: analiz2.php Q47.
+// CopyProgressCollector reports the progress of running COPY commands.
+//
+//	Tier:       session
+//	Question:   Is a bulk COPY running, into or out of which table, and how much has it processed?
+//	Reads:      pg_stat_progress_copy, pg_stat_activity
+//	Collection: 60s
+//	Versions:   PG 14+
+//
+// Completion is derived from bytes_processed / bytes_total. bytes_total is only
+// known for COPY FROM a file; for COPY FROM STDIN/PROGRAM and all COPY TO it is
+// 0, so completion stays at 0 and bytes_processed is the useful signal.
 type CopyProgressCollector struct {
 	Base
 }

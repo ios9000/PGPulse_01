@@ -9,8 +9,25 @@ import (
 
 const dbStatementTimeout = "60s"
 
-// DatabaseCollector implements DBCollector for per-database analysis.
-// Ports analiz_db.php Q2-Q18.
+// DatabaseCollector runs the per-database analysis pass: relation sizes,
+// bloat, vacuum need, index usage, sequences, partitions and logical
+// replication sync state, scoped to one database at a time.
+//
+//	Tier:       database
+//	Question:   Inside this database, which tables and indexes are growing, bloating, starving for vacuum, or sitting unused?
+//	Reads:      pg_stat_user_tables, pg_statio_user_tables, pg_stat_user_indexes, pg_index, pg_class, pg_namespace, pg_stats, pg_inherits, pg_sequences, pg_stat_user_functions, pg_largeobject_metadata, pg_largeobject, pg_subscription_rel, pg_subscription
+//	Collection: per-database
+//	Versions:   PG 14+
+//
+// It implements DBCollector rather than Collector: the orchestrator's DBRunner
+// opens a connection to each discovered database and dispatches it once per
+// database per cycle. A 60-second statement_timeout is set on the session
+// because catalog-heavy queries (bloat estimation in particular) can run long
+// on databases with many relations.
+//
+// Each sub-collector is independent and partial success is the norm: a failing
+// sub-collector is recorded and the rest still run, so one slow or permission-
+// denied query cannot blank out the whole database's analysis.
 type DatabaseCollector struct{}
 
 // NewDatabaseCollector creates a new DatabaseCollector.
@@ -82,7 +99,7 @@ func dbPoint(metric string, value float64, dbName string, extra map[string]strin
 	}
 }
 
-// collectLargeObjects — analiz_db.php Q2: count large objects.
+// collectLargeObjects counts large objects in the database.
 func collectLargeObjects(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const sql = `SELECT COUNT(*) FROM pg_largeobject_metadata`
 
@@ -96,7 +113,8 @@ func collectLargeObjects(ctx context.Context, q Queryer, dbName string) ([]Metri
 	}, nil
 }
 
-// collectFunctionStats — analiz_db.php Q4: per-function call statistics.
+// collectFunctionStats reports the 50 most expensive user functions by total time.
+// Skipped silently when track_functions = none, since the view is empty then.
 func collectFunctionStats(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	// Check if track_functions is enabled.
 	var trackFn string
@@ -137,7 +155,8 @@ func collectFunctionStats(ctx context.Context, q Queryer, dbName string) ([]Metr
 	return points, rows.Err()
 }
 
-// collectSequences — analiz_db.php Q5: sequence usage and remaining capacity.
+// collectSequences reports how much of each sequence's range has been consumed,
+// so exhaustion can be caught before inserts start failing.
 func collectSequences(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const seqSQL = `
 		SELECT schemaname, sequencename, last_value, max_value, increment_by,
@@ -176,7 +195,7 @@ func collectSequences(ctx context.Context, q Queryer, dbName string) ([]MetricPo
 	return points, rows.Err()
 }
 
-// collectSchemaSizes — analiz_db.php Q6: size of each schema.
+// collectSchemaSizes reports the on-disk size of each user schema.
 func collectSchemaSizes(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const schemaSQL = `
 		SELECT n.nspname AS schema_name,
@@ -209,7 +228,8 @@ func collectSchemaSizes(ctx context.Context, q Queryer, dbName string) ([]Metric
 	return points, rows.Err()
 }
 
-// collectUnloggedObjects — analiz_db.php Q7: unlogged tables and their sizes.
+// collectUnloggedObjects lists unlogged tables and their sizes — data that is
+// not crash-safe and not replicated.
 func collectUnloggedObjects(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const unloggedSQL = `
 		SELECT n.nspname AS schema_name, c.relname AS table_name,
@@ -241,7 +261,7 @@ func collectUnloggedObjects(ctx context.Context, q Queryer, dbName string) ([]Me
 	return points, rows.Err()
 }
 
-// collectTableSizes — analiz_db.php Q11: table sizes (data, index, toast, total).
+// collectTableSizes reports data, index, TOAST and total size for the 100 largest tables.
 func collectTableSizes(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const tableSizeSQL = `
 		SELECT schemaname, relname,
@@ -279,7 +299,10 @@ func collectTableSizes(ctx context.Context, q Queryer, dbName string) ([]MetricP
 	return points, rows.Err()
 }
 
-// collectBloat — analiz_db.php Q12: table and index bloat estimation using pg_stats.
+// collectBloat estimates table and index bloat from pg_stats column statistics
+// (the classic check_postgres-style estimate). It reports only relations with an
+// estimated bloat ratio above 1.5, ordered by wasted bytes, because the estimate
+// is noisy for small or well-maintained tables and those are not actionable.
 func collectBloat(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const bloatSQL = `
 	WITH constants AS (
@@ -365,7 +388,8 @@ func collectBloat(ctx context.Context, q Queryer, dbName string) ([]MetricPoint,
 	return points, rows.Err()
 }
 
-// collectCatalogSizes — analiz_db.php Q13: size of system catalog tables.
+// collectCatalogSizes reports the 20 largest system catalog tables; catalog
+// growth usually points at temp-table churn or runaway DDL.
 func collectCatalogSizes(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const catSQL = `
 		SELECT relname,
@@ -397,7 +421,8 @@ func collectCatalogSizes(ctx context.Context, q Queryer, dbName string) ([]Metri
 	return points, rows.Err()
 }
 
-// collectTableCacheHit — analiz_db.php Q14: per-table buffer cache hit ratio.
+// collectTableCacheHit reports the per-table buffer cache hit ratio for the 50
+// tables with the most heap reads.
 func collectTableCacheHit(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const cacheSQL = `
 		SELECT schemaname, relname,
@@ -438,7 +463,8 @@ func collectTableCacheHit(ctx context.Context, q Queryer, dbName string) ([]Metr
 	return points, rows.Err()
 }
 
-// collectAutovacuumOptions — analiz_db.php Q15: per-table autovacuum settings.
+// collectAutovacuumOptions reports per-table autovacuum overrides (reloptions),
+// so tables where autovacuum was disabled or detuned are visible.
 func collectAutovacuumOptions(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const avSQL = `
 		SELECT n.nspname AS schema_name, c.relname AS table_name,
@@ -492,7 +518,8 @@ func collectAutovacuumOptions(ctx context.Context, q Queryer, dbName string) ([]
 	return points, rows.Err()
 }
 
-// collectVacuumNeed — analiz_db.php Q16: tables needing vacuum.
+// collectVacuumNeed reports dead-tuple counts, dead-tuple percentage and the age
+// of the last autovacuum/autoanalyze for the 50 tables with the most dead tuples.
 func collectVacuumNeed(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const vacuumSQL = `
 		SELECT schemaname, relname,
@@ -549,7 +576,8 @@ func collectVacuumNeed(ctx context.Context, q Queryer, dbName string) ([]MetricP
 	return points, rows.Err()
 }
 
-// collectIndexUsage — analiz_db.php Q17: index usage statistics.
+// collectIndexUsage reports scan counts, tuples read/fetched and size for the
+// 100 most-scanned indexes.
 func collectIndexUsage(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const idxSQL = `
 		SELECT schemaname, relname, indexrelname,
@@ -583,7 +611,9 @@ func collectIndexUsage(ctx context.Context, q Queryer, dbName string) ([]MetricP
 	return points, rows.Err()
 }
 
-// collectUnusedIndexes — analiz_db.php Q18: indexes with zero scans.
+// collectUnusedIndexes reports the 50 largest indexes that have never been
+// scanned. Unique and primary-key indexes are excluded because they enforce
+// constraints and are not candidates for removal even with zero scans.
 func collectUnusedIndexes(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const unusedSQL = `
 		SELECT s.schemaname, s.relname, s.indexrelname,
@@ -619,7 +649,7 @@ func collectUnusedIndexes(ctx context.Context, q Queryer, dbName string) ([]Metr
 	return points, rows.Err()
 }
 
-// collectToastSizes — analiz_db.php Q10: TOAST table sizes.
+// collectToastSizes reports the 50 largest TOAST tables and their parent tables.
 func collectToastSizes(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const toastSQL = `
 		SELECT n.nspname AS schema_name, c.relname AS table_name,
@@ -654,7 +684,8 @@ func collectToastSizes(ctx context.Context, q Queryer, dbName string) ([]MetricP
 	return points, rows.Err()
 }
 
-// collectPartitions — analiz_db.php Q9: partitioned tables and their children.
+// collectPartitions reports every parent/child pair in pg_inherits with the
+// child's size, covering both declarative partitions and inheritance children.
 func collectPartitions(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const partSQL = `
 		SELECT nmsp_parent.nspname AS parent_schema,
@@ -695,7 +726,7 @@ func collectPartitions(ctx context.Context, q Queryer, dbName string) ([]MetricP
 	return points, rows.Err()
 }
 
-// collectLargeObjectSizes — analiz_db.php Q8: total size of large objects.
+// collectLargeObjectSizes reports the total size of large objects in the database.
 func collectLargeObjectSizes(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const loSQL = `
 		SELECT COALESCE(SUM(pg_largeobject_metadata.oid::text::bigint), 0) AS lo_count,
@@ -713,7 +744,10 @@ func collectLargeObjectSizes(ctx context.Context, q Queryer, dbName string) ([]M
 	}, nil
 }
 
-// collectLogicalReplication — PGAM Q41: logical replication sync status.
+// collectLogicalReplication counts subscription tables that have not yet
+// reached the 'ready' sync state. Any query error (no subscriptions, missing
+// privileges) is reported as 0 pending tables rather than as a failure, so a
+// database without logical replication never degrades the collection cycle.
 func collectLogicalReplication(ctx context.Context, q Queryer, dbName string) ([]MetricPoint, error) {
 	const lrSQL = `
 		SELECT s.subname,

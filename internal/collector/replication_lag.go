@@ -10,7 +10,8 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/version"
 )
 
-// replicationLagSQL combines PGAM Q37 (byte lag) and Q38 (time lag) into a single query.
+// replicationLagSQL reads byte lag and time lag for every connected standby in
+// a single pass over pg_stat_replication.
 // All nullable columns are COALESCE'd to prevent nil scan panics.
 // pg_wal_lsn_diff columns: pending = unsent WAL; write/flush/replay = pipeline stages.
 // No version gate needed — all columns exist since PG 10; our minimum is PG 14.
@@ -29,9 +30,20 @@ SELECT
     coalesce(EXTRACT(EPOCH FROM replay_lag), 0) AS replay_seconds
 FROM pg_stat_replication`
 
-// ReplicationLagCollector collects byte-based and time-based replication lag
-// from pg_stat_replication. Runs on primary servers only.
-// PGAM source: analiz2.php Q37 (byte lag), Q38 (time lag).
+// ReplicationLagCollector reports how far each connected standby is behind
+// the primary, in bytes per pipeline stage and in seconds.
+//
+//	Tier:       replication
+//	Question:   How far behind is each standby, and is the lag in sending, writing, flushing or replaying WAL?
+//	Reads:      pg_stat_replication, pg_current_wal_lsn(), pg_wal_lsn_diff()
+//	Collection: 60s
+//	Versions:   PG 14+ (runs on the primary only; returns nil on standbys)
+//
+// The byte lag is split into pending (not yet sent), write, flush and replay
+// stages so the bottleneck is visible: pending lag points at the network or
+// walsender, replay lag at the standby's own apply speed. The *_lag intervals
+// come straight from the view and can be NULL on an idle primary, hence the
+// COALESCE to 0.
 type ReplicationLagCollector struct {
 	Base
 }

@@ -12,7 +12,19 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/cluster/patroni"
 )
 
-// ClusterCollector collects HA cluster metrics from Patroni and ETCD providers.
+// ClusterCollector reports HA cluster membership and quorum health from
+// Patroni and etcd.
+//
+//	Tier:       patroni-etcd
+//	Question:   Does the cluster have exactly one healthy leader, are all members running, and is the etcd quorum intact?
+//	Reads:      Patroni REST API / patronictl (cluster members, roles, lag); etcd member list and endpoint health
+//	Collection: 60s
+//	Versions:   PG 14+ (no SQL; depends on Patroni/etcd configuration, not on PostgreSQL version)
+//
+// Each provider is optional. An unconfigured provider is skipped silently; a
+// configured provider that fails is logged at WARN and the collector still
+// returns whatever the other provider produced, so a Patroni outage never
+// hides etcd data and vice versa.
 type ClusterCollector struct {
 	instanceID string
 	patroni    patroni.PatroniProvider

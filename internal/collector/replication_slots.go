@@ -19,8 +19,6 @@ import (
 //   PG 14: no two_phase or conflicting columns
 //   PG 15: adds two_phase (boolean)
 //   PG 16+: adds conflicting (boolean, null when slot is active)
-//
-// PGAM source: analiz2.php Q40.
 var replicationSlotsGate = version.Gate{
 	Name: "replication_slots",
 	Variants: []version.SQLVariant{
@@ -63,9 +61,18 @@ var replicationSlotsGate = version.Gate{
 	},
 }
 
-// ReplicationSlotsCollector collects replication slot health metrics.
-// Runs on both primary and replica servers.
-// PGAM source: analiz2.php Q40.
+// ReplicationSlotsCollector reports every replication slot, whether it is
+// active, and how much WAL it is forcing the server to retain.
+//
+//	Tier:       replication
+//	Question:   Which replication slots exist, are any inactive, and how much WAL are they pinning on disk?
+//	Reads:      pg_replication_slots, pg_current_wal_lsn(), pg_wal_lsn_diff()
+//	Collection: 60s
+//	Versions:   PG 14 / PG 15 / PG 16+ variants (see replicationSlotsGate)
+//
+// Retained bytes are measured from restart_lsn: an inactive slot whose
+// retained bytes keep growing is the classic cause of a pg_wal volume filling
+// up. Runs on both primaries and standbys, since standbys can hold slots too.
 type ReplicationSlotsCollector struct {
 	Base
 	sqlGate version.Gate

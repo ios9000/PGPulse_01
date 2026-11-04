@@ -19,8 +19,8 @@ func completionPct(done, total float64) float64 {
 	return (done / total) * 100
 }
 
-// progressVacuumSQL queries active vacuum operations with progress stats.
-// PGAM source: analiz2.php Q42.
+// progressVacuumSQL queries active VACUUM operations (manual and autovacuum),
+// joined to pg_stat_activity for the database name.
 const progressVacuumSQL = `
 SELECT
     a.pid::text,
@@ -36,8 +36,24 @@ SELECT
 FROM pg_stat_progress_vacuum p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
-// VacuumProgressCollector collects vacuum operation progress from pg_stat_progress_vacuum.
-// PGAM source: analiz2.php Q42.
+// VacuumProgressCollector reports the progress of running VACUUM operations,
+// including autovacuum workers.
+//
+//	Tier:       session
+//	Question:   Which tables are being vacuumed right now, which phase is each vacuum in, and how far along is it?
+//	Reads:      pg_stat_progress_vacuum, pg_stat_activity
+//	Collection: 60s
+//	Versions:   PG 14–16 (the dead-tuple columns were renamed in PG 17; see note)
+//
+// Completion is derived from heap_blks_scanned / heap_blks_total. The
+// index_vacuum_count and num_dead_tuples/max_dead_tuples pair show whether a
+// vacuum is cycling through repeated index passes because maintenance_work_mem
+// is too small for the number of dead tuples.
+//
+// Note: PG 17 renamed max_dead_tuples to max_dead_tuple_bytes and
+// num_dead_tuples to num_dead_item_ids. The query still selects the pre-17
+// names and therefore fails on PG 17+; a version gate is required before this
+// collector can be documented as PG 17-capable.
 type VacuumProgressCollector struct {
 	Base
 }

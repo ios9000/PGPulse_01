@@ -27,8 +27,19 @@ SELECT COALESCE(extract(epoch FROM stats_reset)::bigint, 0) AS reset_epoch
 FROM pg_stat_statements_info`
 )
 
-// ExtensionsCollector checks key PostgreSQL extensions and reports their state.
-// It covers PGAM queries Q18 and Q19.
+// ExtensionsCollector reports whether pg_stat_statements is installed and,
+// if so, how full its entry buffer is and when its statistics were last reset.
+//
+//	Tier:       environment
+//	Question:   Is pg_stat_statements installed, and is its buffer or reset age about to make query statistics unreliable?
+//	Reads:      pg_extension, pg_stat_statements, pg_stat_statements_info, current_setting('pg_stat_statements.max')
+//	Collection: 300s
+//	Versions:   PG 14+ (pg_stat_statements_info exists from PG 14)
+//
+// A buffer near 100% means the least-used entries are being evicted and
+// top-query rankings drift; a very recent reset means the rankings have not
+// had time to become representative. Fill and reset failures are logged and
+// skipped so the installed/not-installed signal is always emitted.
 type ExtensionsCollector struct {
 	Base
 }
@@ -50,7 +61,7 @@ func (c *ExtensionsCollector) Name() string { return "extensions" }
 func (c *ExtensionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
 	var points []MetricPoint
 
-	// Q18: is pg_stat_statements installed?
+	// Is pg_stat_statements installed?
 	tctx, cancel := queryContext(ctx)
 	var pgssCount int64
 	err := conn.QueryRow(tctx, sqlPGSSInstalled).Scan(&pgssCount)
@@ -70,7 +81,7 @@ func (c *ExtensionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ Ins
 		return points, nil
 	}
 
-	// Q19: pg_stat_statements fill percentage
+	// pg_stat_statements buffer fill percentage.
 	tctx2, cancel2 := queryContext(ctx)
 	var fillPct float64
 	err = conn.QueryRow(tctx2, sqlPGSSFillPct).Scan(&fillPct)
@@ -82,7 +93,7 @@ func (c *ExtensionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ Ins
 		points = append(points, c.point("extensions.pgss_fill_pct", fillPct, nil))
 	}
 
-	// Q19b: stats reset time — pg_stat_statements_info exists on PG ≥ 14 (our minimum)
+	// Stats reset time — pg_stat_statements_info exists on PG ≥ 14 (our minimum).
 	if c.pgVersion.AtLeast(14, 0) {
 		tctx3, cancel3 := queryContext(ctx)
 		var resetEpoch int64

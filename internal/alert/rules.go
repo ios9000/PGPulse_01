@@ -3,7 +3,7 @@ package alert
 // BuiltinRules returns the default set of alert rules shipped with PGPulse.
 func BuiltinRules() []Rule {
 	return []Rule{
-		// --- Ported from PGAM (14 rules: 7 warning/critical pairs) ---
+		// --- Core capacity and health rules (14 rules: 7 warning/critical pairs) ---
 		{
 			ID: "wraparound_warning", Name: "Transaction ID Wraparound Warning",
 			Description: "Measures how close the oldest unfrozen transaction ID is to the 2-billion wraparound limit. " +

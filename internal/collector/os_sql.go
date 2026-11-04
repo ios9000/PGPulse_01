@@ -3,7 +3,9 @@ package collector
 // OSSQLCollector — OS Metrics via PostgreSQL pg_read_file()
 //
 // Reads /proc files on the monitored server via pg_read_file(), parses them,
-// and emits MetricPoints. Requires the pg_read_server_files grant or superuser.
+// and emits MetricPoints. Requires EXECUTE on pg_read_file() for the monitoring
+// role (the function's EXECUTE is revoked from PUBLIC by default); membership
+// in pg_read_server_files alone only lifts the data-directory path restriction.
 //
 // Metric Key Mapping (matches agent's snapshotToMetricPoints for compatibility):
 //
@@ -58,7 +60,21 @@ import (
 // devicePattern matches whole-disk device names; partitions (sda1) are excluded.
 var devicePattern = regexp.MustCompile(`^(sd[a-z]+|nvme\d+n\d+|vd[a-z]+|xvd[a-z]+)$`)
 
-// OSSQLCollector collects OS metrics by reading /proc files via pg_read_file().
+// OSSQLCollector reports host memory, load, uptime, CPU and block-device
+// metrics by reading /proc through the PostgreSQL connection itself.
+//
+//	Tier:       os
+//	Question:   Is the host under CPU, memory or disk-latency pressure, when no agent is deployed next to PostgreSQL?
+//	Reads:      pg_read_file('/proc/meminfo'), /proc/uptime, /proc/loadavg, /proc/stat, /proc/diskstats
+//	Collection: 60s
+//	Versions:   PG 14+ (requires GRANT EXECUTE ON pg_read_file to the monitoring role; pg_read_server_files membership alone only lifts the path restriction)
+//
+// This is the default OS source and needs no extra deployment, at the price of
+// a 60s cadence and no filesystem-space metrics (statfs is not reachable via
+// SQL). CPU and disk counters in /proc are cumulative, so the collector keeps
+// the previous raw readings and emits rates from the delta; the first cycle
+// after start therefore yields no CPU or disk-throughput points. Partitions
+// (sda1) are filtered out so only whole devices are reported.
 type OSSQLCollector struct {
 	instanceID string
 	pgVersion  version.PGVersion

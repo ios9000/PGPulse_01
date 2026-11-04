@@ -66,9 +66,19 @@ type checkpointSnapshot struct {
 	restartpointsRequested float64 // -1 on PG <= 16
 }
 
-// CheckpointCollector collects checkpoint and background writer statistics.
-// This is a stateful collector that computes rate metrics by comparing
-// consecutive snapshots of cumulative counters.
+// CheckpointCollector reports checkpoint and background writer activity,
+// both as absolute counters and as per-second rates.
+//
+//	Tier:       postgres
+//	Question:   Are checkpoints and the background writer keeping up, or are backends forced to write buffers themselves?
+//	Reads:      pg_stat_bgwriter (PG 14–16); pg_stat_checkpointer + pg_stat_bgwriter (PG 17+)
+//	Collection: 60s
+//	Versions:   PG 14–16 and PG 17+ variants (see checkpointGate)
+//
+// This is a stateful collector: it keeps the previous snapshot of the cumulative
+// counters and derives rates from the delta. Rates are skipped on the first
+// cycle and whenever a counter decreases (stats reset), so a reset never
+// produces a negative or wildly inflated rate.
 type CheckpointCollector struct {
 	Base
 	sqlGate  version.Gate

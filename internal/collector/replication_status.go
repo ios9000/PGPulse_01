@@ -12,7 +12,6 @@ import (
 
 // replicationStatusPrimarySQL enumerates active physical replicas connected via replication slots.
 // JOIN to pg_replication_slots ensures we only count replicas with an active slot.
-// PGAM source: analiz2.php Q20.
 const replicationStatusPrimarySQL = `
 SELECT
     coalesce(r.application_name, '') AS app_name,
@@ -25,7 +24,6 @@ WHERE s.slot_type = 'physical' AND s.active = true`
 
 // replicationStatusReplicaSQL reads the WAL receiver state on a standby.
 // lag_bytes = difference between the latest WAL end sent by primary and what's been received.
-// PGAM source: analiz2.php Q21.
 const replicationStatusReplicaSQL = `
 SELECT
     coalesce(status, '') AS status,
@@ -34,9 +32,21 @@ SELECT
     coalesce(pg_wal_lsn_diff(latest_end_lsn, flushed_lsn), 0) AS lag_bytes
 FROM pg_stat_wal_receiver`
 
-// ReplicationStatusCollector collects replication topology information.
-// On a primary: enumerates active physical replicas (Q20).
-// On a replica: reports WAL receiver connection status (Q21).
+// ReplicationStatusCollector reports the replication topology as seen from
+// this instance: connected standbys on a primary, or the upstream connection
+// on a standby.
+//
+//	Tier:       replication
+//	Question:   On a primary, which physical standbys are connected and in what sync state; on a standby, is it still streaming from its primary?
+//	Reads:      pg_stat_replication + pg_replication_slots (primary); pg_stat_wal_receiver + pg_wal_lsn_diff() (standby)
+//	Collection: 60s
+//	Versions:   PG 14+
+//
+// The role is taken from InstanceContext.IsRecovery, queried once per cycle by
+// the orchestrator. The primary path always emits active_replicas (0 when none
+// are connected) and the standby path always emits wal_receiver.connected (0
+// when no receiver row exists), so a lost standby shows up as a value, not as
+// a missing series.
 type ReplicationStatusCollector struct {
 	Base
 }

@@ -23,8 +23,18 @@ JOIN pg_database d ON d.oid = s.datid
 WHERE d.datistemplate = false
   AND s.xact_commit + s.xact_rollback > 0`
 
-// TransactionsCollector collects transaction commit ratio and deadlock counts per database.
-// It covers PGAM query Q15, enhanced with per-database breakdown and deadlock counts.
+// TransactionsCollector reports the commit/rollback ratio and cumulative
+// deadlock count for each database.
+//
+//	Tier:       database
+//	Question:   Which databases are rolling back an unusual share of transactions or hitting deadlocks?
+//	Reads:      pg_stat_database, pg_database
+//	Collection: 300s
+//	Versions:   PG 14+
+//
+// Databases with no transactions yet are skipped so the ratio is only emitted
+// where it is meaningful; NULLIF/COALESCE guard the division for the same
+// reason. deadlocks is a cumulative counter since the last stats reset.
 type TransactionsCollector struct {
 	Base
 }

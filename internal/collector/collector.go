@@ -1,3 +1,34 @@
+// Package collector gathers the signals PGPulse uses for fleet incident
+// intelligence: each collector answers one operational question about a
+// monitored PostgreSQL instance and emits the metric points that back
+// anomaly detection, root-cause analysis and alerting.
+//
+// Every collector type carries a structured doc comment with five fields,
+// which docs/collectors.md is generated from:
+//
+//	Tier:       postgres | database | session | replication | patroni-etcd | pooler | os | environment
+//	Question:   the one-sentence question a DBA gets answered
+//	Reads:      the PostgreSQL views, functions or external sources consulted
+//	Collection: 10s | 60s | 300s | per-database — the orchestrator group it runs in
+//	Versions:   the PostgreSQL version gate, or "PG 14+" when the collector runs everywhere
+//
+// Tiers group collectors by the layer of the stack they observe:
+//
+//   - postgres: instance-wide server state (cache, checkpoints, settings, I/O, wraparound)
+//   - database: per-database and per-relation analysis (sizes, bloat, vacuum need, indexes)
+//   - session: what backends are doing right now (connections, waits, locks, long transactions, progress)
+//   - replication: physical and logical replication health
+//   - patroni-etcd: HA cluster membership and quorum
+//   - pooler: connection pooler state (reserved; no collector yet)
+//   - os: host resources of the monitored server
+//   - environment: identity and configuration that changes rarely (server info, extensions)
+//
+// Collection cadence is decided by the orchestrator, which runs collectors in
+// three shared ticker groups (high 10s, medium 60s, low 300s by default) plus
+// a per-database runner that dispatches DBCollectors once per discovered
+// database every 5 minutes. The Interval() a collector reports is advisory and
+// is not consulted by the orchestrator; the Collection field documents the
+// group a collector is actually registered in.
 package collector
 
 import (

@@ -25,7 +25,19 @@ const (
 	OSSourceAgent
 )
 
-// OSCollector collects OS-level metrics from a pgpulse-agent or local procfs.
+// OSCollector reports host CPU, memory, load, uptime, filesystem usage and
+// block-device throughput for the server PostgreSQL runs on.
+//
+//	Tier:       os
+//	Question:   Is the host itself under pressure — CPU, memory, disk space or disk latency — in a way that explains what PostgreSQL is seeing?
+//	Reads:      procfs/sysfs via a remote pgpulse-agent (/metrics scrape) or, when the DSN points at localhost, read directly
+//	Collection: 10s
+//	Versions:   PG 14+ (no SQL; registered only when an agent URL is set or the instance is local)
+//
+// Without an agent URL and with a remote DSN there is nothing to read and the
+// collector returns no points rather than an error (graceful degradation).
+// Filesystem space and inode metrics are only available through this path:
+// they need statfs(2), which OSSQLCollector cannot do via pg_read_file.
 type OSCollector struct {
 	instanceID string
 	source     OSCollectorSource

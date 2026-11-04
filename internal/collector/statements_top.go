@@ -13,8 +13,10 @@ import (
 // sqlStatementsTop selects the top-N queries by total execution time along with
 // aggregate totals for all queries. The totals row is cross-joined so that every
 // result row carries the same totals, enabling "other" bucket computation.
-// PGAM source: analiz2.php Q50 (IO-sorted) and Q51 (CPU-sorted) — unified here
-// by ranking on total_exec_time and deriving both IO and CPU from that single scan.
+// A single ranking on total_exec_time is used, with I/O time (blk_read_time +
+// blk_write_time) and CPU time (the remainder) derived from the same scan,
+// rather than separate I/O-sorted and CPU-sorted queries: the top-N set is
+// stable across both views and the view is read once per cycle.
 const sqlStatementsTop = `
 WITH ranked AS (
     SELECT
@@ -80,9 +82,23 @@ type topQueryRow struct {
 	ttlCPU   float64
 }
 
-// StatementsTopCollector collects top-N pg_stat_statements entries by total
-// execution time and emits an "other" aggregate for the remaining queries.
-// PGAM source: analiz2.php Q50 and Q51.
+// StatementsTopCollector reports the top-N queries by total execution time,
+// with their I/O and CPU split, plus an "other" bucket for everything else.
+//
+//	Tier:       postgres
+//	Question:   Which queries are consuming the most execution time, and is that time going to I/O or CPU?
+//	Reads:      pg_stat_statements, pg_extension
+//	Collection: 60s
+//	Versions:   PG 14–16 (pg_stat_statements 1.11 on PG 17 renamed blk_read_time/blk_write_time; see note)
+//
+// Returns nil when pg_stat_statements is not installed. The "other" bucket is
+// derived from the cross-joined totals so that the top-N plus "other" always
+// add up to 100% of recorded time.
+//
+// Note: pg_stat_statements 1.11 (shipped with PG 17) renamed blk_read_time to
+// shared_blk_read_time and blk_write_time to shared_blk_write_time. The query
+// still uses the pre-17 names and therefore fails on PG 17+; a version gate is
+// required before this collector can be documented as PG 17-capable.
 type StatementsTopCollector struct {
 	Base
 	limit int

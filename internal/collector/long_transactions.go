@@ -11,12 +11,13 @@ import (
 )
 
 // longTxnThreshold is the minimum transaction age to be considered "long".
-// Matches PGAM's hardcoded 5-second threshold. Will become configurable in M2.
+// Five seconds is a deliberately low bar: on an OLTP workload anything older
+// is already holding back vacuum and pinning snapshots. Not yet configurable.
 const longTxnThreshold = "5 seconds"
 
 // sqlLongTransactions counts active client backends with long-running transactions,
-// split into "active" (running) and "waiting" (blocked on a lock or event).
-// Merges PGAM Q56 (active) and Q57 (waiting) into a single parameterized query.
+// split into "active" (running on CPU) and "waiting" (blocked on a lock or event)
+// in a single pass over pg_stat_activity, keyed on whether wait_event is NULL.
 // $1 is the minimum transaction age interval (e.g. "5 seconds").
 const sqlLongTransactions = `
 SELECT
@@ -37,10 +38,19 @@ type longTxnRow struct {
 	oldestSeconds float64
 }
 
-// LongTransactionsCollector reports counts and maximum age of long-running
-// active and waiting transactions. Always emits exactly 4 metric points
-// (2 types × 2 metrics), using 0 for types with no matching transactions.
-// PGAM source: analiz2.php Q56/Q57.
+// LongTransactionsCollector reports how many transactions have been open longer
+// than the threshold and how old the oldest one is, split by whether the
+// backend is running or waiting.
+//
+//	Tier:       session
+//	Question:   Are there long-running transactions holding back vacuum and locks, and are they working or stuck waiting?
+//	Reads:      pg_stat_activity
+//	Collection: 10s
+//	Versions:   PG 14+
+//
+// It always emits exactly four points (count and oldest_seconds for each of
+// "active" and "waiting"), zero-filling missing categories, so alert rules can
+// evaluate against a continuous series instead of a gap.
 type LongTransactionsCollector struct {
 	Base
 }

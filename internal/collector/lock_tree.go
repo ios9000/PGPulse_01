@@ -11,10 +11,11 @@ import (
 )
 
 // sqlLockTree fetches all (blocked_pid, blocker_pid) pairs using
-// pg_blocking_pids(), which is simpler and more reliable than the
-// recursive pg_locks CTE used in PGAM. One row per blocking relationship
-// (a PID blocked by N blockers produces N rows).
-// PGAM source: analiz2.php Q55.
+// pg_blocking_pids(). This is preferred over a recursive self-join on
+// pg_locks: the function asks the lock manager directly, so it is correct
+// for every lock mode and never misreports a waiter as its own blocker.
+// One row per blocking relationship (a PID blocked by N blockers produces
+// N rows); the graph statistics are computed in Go.
 const sqlLockTree = `
 SELECT
     a.pid                              AS blocked_pid,
@@ -37,9 +38,20 @@ type lockStats struct {
 	MaxChainDepth int // longest chain (0 = no blocking)
 }
 
-// LockTreeCollector reports lock blocking summary metrics by querying
-// pg_blocking_pids() and computing graph statistics in Go.
-// PGAM source: analiz2.php Q55.
+// LockTreeCollector reports the shape of the current lock-blocking graph:
+// how many root blockers exist, how many sessions they are holding up, and
+// how deep the longest blocking chain is.
+//
+//	Tier:       session
+//	Question:   Is anyone blocked on locks right now, how many sessions are affected, and how deep does the blocking chain go?
+//	Reads:      pg_stat_activity, pg_blocking_pids()
+//	Collection: 10s
+//	Versions:   PG 14+
+//
+// The three summary metrics are always emitted (as zeros when nothing is
+// blocked) so dashboards and alert rules see a continuous series. In a
+// deadlock every participant is both blocked and blocking, so the root-blocker
+// count is 0 while blocked_count still reflects the affected sessions.
 type LockTreeCollector struct {
 	Base
 }

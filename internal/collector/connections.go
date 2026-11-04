@@ -12,7 +12,8 @@ import (
 
 const (
 	// sqlConnectionsByState counts client backends by state, excluding the monitoring connection.
-	// PGAM bug fix: WHERE pid != pg_backend_pid() prevents counting PGPulse's own connection.
+	// The pid != pg_backend_pid() filter keeps PGPulse's own session out of the count;
+	// without it every instance reports one phantom active connection.
 	sqlConnectionsByState = `
 SELECT COALESCE(state, 'unknown') AS state, count(*) AS cnt
 FROM pg_stat_activity
@@ -27,8 +28,18 @@ SELECT
     current_setting('superuser_reserved_connections')::bigint AS reserved`
 )
 
-// ConnectionsCollector collects connection count and utilization metrics.
-// It covers PGAM queries Q11, Q12, and Q13, enhanced with per-state breakdown.
+// ConnectionsCollector reports client connection counts by state and how
+// close the instance is to max_connections.
+//
+//	Tier:       session
+//	Question:   How many client connections are open, what are they doing, and how close is the instance to running out of slots?
+//	Reads:      pg_stat_activity, current_setting('max_connections'), current_setting('superuser_reserved_connections')
+//	Collection: 10s
+//	Versions:   PG 14+
+//
+// Utilization is measured against max_connections minus the superuser-reserved
+// slots, because those slots are unavailable to ordinary clients; an instance
+// can refuse application connections well before the raw max is reached.
 type ConnectionsCollector struct {
 	Base
 }
@@ -50,7 +61,7 @@ func (c *ConnectionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ In
 	var points []MetricPoint
 	var total float64
 
-	// Q11: connection counts by state, excluding this monitoring connection
+	// Connection counts by state, excluding this monitoring connection.
 	tctx, cancel := queryContext(ctx)
 	rows, err := conn.Query(tctx, sqlConnectionsByState)
 	cancel()
@@ -74,7 +85,7 @@ func (c *ConnectionsCollector) Collect(ctx context.Context, conn *pgx.Conn, _ In
 
 	points = append(points, c.point("connections.total", total, nil))
 
-	// Q12+Q13: max_connections and superuser_reserved_connections
+	// Connection ceiling: max_connections and superuser_reserved_connections.
 	tctx2, cancel2 := queryContext(ctx)
 	var maxConn, reserved int64
 	err = conn.QueryRow(tctx2, sqlConnectionsMaxReserved).Scan(&maxConn, &reserved)

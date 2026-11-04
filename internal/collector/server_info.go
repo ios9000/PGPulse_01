@@ -25,8 +25,20 @@ var backupStateGate = version.Gate{
 	},
 }
 
-// ServerInfoCollector collects PostgreSQL server identity and state metrics.
-// It covers PGAM queries Q2, Q3, Q9, and Q10.
+// ServerInfoCollector reports server identity and lifecycle state: start
+// time and uptime, recovery role, backup state, transaction-ID and multixact
+// wraparound risk, and the host's name and OS.
+//
+//	Tier:       environment
+//	Question:   What is this server (host, OS, uptime, role), and is it approaching XID or multixact wraparound?
+//	Reads:      pg_postmaster_start_time(), pg_database (age(datfrozenxid), mxid_age(datminmxid)), pg_is_in_backup() on PG 14, pg_read_file('/etc/hostname', '/etc/os-release')
+//	Collection: 300s
+//	Versions:   PG 14+ (pg_is_in_backup() is gated to PG 14; removed in PG 15, where is_in_backup is emitted as 0)
+//
+// Wraparound risk is expressed as a percentage of the 2^31 limit across all
+// connectable databases, so a single alert threshold works regardless of
+// autovacuum_freeze_max_age. Hostname and OS are read via pg_read_file and
+// skipped silently when the monitoring role lacks that grant.
 type ServerInfoCollector struct {
 	Base
 }
@@ -47,7 +59,7 @@ func (c *ServerInfoCollector) Name() string { return "server_info" }
 func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn, ic InstanceContext) ([]MetricPoint, error) {
 	var points []MetricPoint
 
-	// Q2: postmaster start time
+	// Postmaster start time and derived uptime.
 	tctx, cancel := queryContext(ctx)
 	var startEpoch int64
 	err := conn.QueryRow(tctx, "SELECT extract(epoch FROM pg_postmaster_start_time())::bigint").Scan(&startEpoch)
@@ -58,14 +70,14 @@ func (c *ServerInfoCollector) Collect(ctx context.Context, conn *pgx.Conn, ic In
 	points = append(points, c.point("server.start_time_unix", float64(startEpoch), nil))
 	points = append(points, c.point("server.uptime_seconds", float64(time.Now().Unix()-startEpoch), nil))
 
-	// Q9: recovery state — read from InstanceContext (queried once per cycle by orchestrator).
+	// Recovery state — read from InstanceContext (queried once per cycle by orchestrator).
 	recoveryVal := 0.0
 	if ic.IsRecovery {
 		recoveryVal = 1.0
 	}
 	points = append(points, c.point("server.is_in_recovery", recoveryVal, nil))
 
-	// Q10: backup state — PG 14 only; removed in PG 15
+	// Backup state — PG 14 only; pg_is_in_backup() was removed in PG 15.
 	if sql, ok := backupStateGate.Select(c.pgVersion); ok {
 		tctx3, cancel3 := queryContext(ctx)
 		var isBackup int64

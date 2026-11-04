@@ -10,8 +10,10 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/version"
 )
 
-// progressClusterSQL queries active CLUSTER / VACUUM FULL operations.
-// PGAM source: analiz2.php Q43.
+// progressClusterSQL queries active CLUSTER / VACUUM FULL operations, joined to
+// pg_stat_activity for the database name. relid is rendered via regclass with
+// an 'oid:N' fallback because the relation may not resolve from the session's
+// own database.
 const progressClusterSQL = `
 SELECT
     a.pid::text,
@@ -24,8 +26,18 @@ SELECT
 FROM pg_stat_progress_cluster p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
-// ClusterProgressCollector collects CLUSTER/VACUUM FULL progress from pg_stat_progress_cluster.
-// PGAM source: analiz2.php Q43.
+// ClusterProgressCollector reports the progress of running CLUSTER and
+// VACUUM FULL commands.
+//
+//	Tier:       session
+//	Question:   Is a CLUSTER or VACUUM FULL running, which table is it rewriting, and how far along is it?
+//	Reads:      pg_stat_progress_cluster, pg_stat_activity
+//	Collection: 60s
+//	Versions:   PG 14+
+//
+// Completion is derived from heap_blks_scanned / heap_blks_total; it is 0
+// until the scan phase starts. These commands take an ACCESS EXCLUSIVE lock,
+// so a long-running one is a prime suspect behind lock-blocking incidents.
 type ClusterProgressCollector struct {
 	Base
 }
@@ -97,8 +109,8 @@ func (c *ClusterProgressCollector) Collect(ctx context.Context, conn *pgx.Conn, 
 	return points, nil
 }
 
-// progressAnalyzeSQL queries active ANALYZE operations.
-// PGAM source: analiz2.php Q45.
+// progressAnalyzeSQL queries active ANALYZE operations, joined to
+// pg_stat_activity for the database name.
 const progressAnalyzeSQL = `
 SELECT
     a.pid::text,
@@ -112,8 +124,18 @@ SELECT
 FROM pg_stat_progress_analyze p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
-// AnalyzeProgressCollector collects ANALYZE progress from pg_stat_progress_analyze.
-// PGAM source: analiz2.php Q45.
+// AnalyzeProgressCollector reports the progress of running ANALYZE commands,
+// including autovacuum-driven ones.
+//
+//	Tier:       session
+//	Question:   Is an ANALYZE running, which table is being sampled, and how far along is it?
+//	Reads:      pg_stat_progress_analyze, pg_stat_activity
+//	Collection: 60s
+//	Versions:   PG 14+
+//
+// Completion is derived from sample_blks_scanned / sample_blks_total. For
+// partitioned tables the child_tables_* counters and current_child label show
+// which partition is being processed.
 type AnalyzeProgressCollector struct {
 	Base
 }

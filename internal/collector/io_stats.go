@@ -50,8 +50,20 @@ type ioStatsRow struct {
 	fsyncTime   float64
 }
 
-// IOStatsCollector collects I/O statistics from pg_stat_io (PostgreSQL 16+).
-// Returns nil, nil for PostgreSQL < 16 where the view does not exist.
+// IOStatsCollector reports cumulative I/O counters broken down by backend
+// type, object and I/O context.
+//
+//	Tier:       postgres
+//	Question:   Which backend types are doing the reads, writes, extends and fsyncs, and how much of that time is spent waiting on I/O?
+//	Reads:      pg_stat_io
+//	Collection: 300s
+//	Versions:   PG 16+ (returns nil on older versions where the view does not exist)
+//
+// pg_stat_io reports NULL for columns that do not apply to a given
+// (backend_type, object, context) combination. The query maps those to -1 and
+// the collector drops -1 values instead of emitting them, so "not applicable"
+// is never confused with "zero". Timing columns are only populated when
+// track_io_timing is on.
 type IOStatsCollector struct {
 	Base
 }
