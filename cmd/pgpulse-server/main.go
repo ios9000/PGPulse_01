@@ -117,6 +117,7 @@ func main() {
 		os.Exit(1)
 	}
 	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	config.WarnOSMetricsSQL(logger, cfg)
 
 	// Activate signal handling early so Ctrl-C during startup is caught.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
