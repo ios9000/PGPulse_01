@@ -19,8 +19,6 @@ import (
 //   PG 14: no two_phase or conflicting columns
 //   PG 15: adds two_phase (boolean)
 //   PG 16+: adds conflicting (boolean, null when slot is active)
-//
-// PGAM source: analiz2.php Q40.
 var replicationSlotsGate = version.Gate{
 	Name: "replication_slots",
 	Variants: []version.SQLVariant{
@@ -65,7 +63,12 @@ var replicationSlotsGate = version.Gate{
 
 // ReplicationSlotsCollector collects replication slot health metrics.
 // Runs on both primary and replica servers.
-// PGAM source: analiz2.php Q40.
+//
+//   - Tier: replication
+//   - Question: Is any replication slot inactive or retaining enough WAL to threaten the disk?
+//   - Views: pg_replication_slots, pg_current_wal_lsn(), pg_wal_lsn_diff()
+//   - Collection: 60s (medium group)
+//   - PG versions: 14 / 15 / 16+ via replicationSlotsGate (15 adds two_phase, 16 adds conflicting)
 type ReplicationSlotsCollector struct {
 	Base
 	sqlGate version.Gate

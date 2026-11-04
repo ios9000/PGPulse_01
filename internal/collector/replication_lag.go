@@ -10,7 +10,8 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/version"
 )
 
-// replicationLagSQL combines PGAM Q37 (byte lag) and Q38 (time lag) into a single query.
+// replicationLagSQL reads byte lag and time lag in a single query so both come from
+// the same snapshot of pg_stat_replication.
 // All nullable columns are COALESCE'd to prevent nil scan panics.
 // pg_wal_lsn_diff columns: pending = unsent WAL; write/flush/replay = pipeline stages.
 // No version gate needed — all columns exist since PG 10; our minimum is PG 14.
@@ -31,7 +32,12 @@ FROM pg_stat_replication`
 
 // ReplicationLagCollector collects byte-based and time-based replication lag
 // from pg_stat_replication. Runs on primary servers only.
-// PGAM source: analiz2.php Q37 (byte lag), Q38 (time lag).
+//
+//   - Tier: replication
+//   - Question: How far behind is each replica, in bytes and seconds, and at which pipeline stage (send, write, flush, replay)?
+//   - Views: pg_stat_replication, pg_current_wal_lsn(), pg_wal_lsn_diff()
+//   - Collection: 60s (medium group); skipped on standbys
+//   - PG versions: 14+ (no version gate)
 type ReplicationLagCollector struct {
 	Base
 }

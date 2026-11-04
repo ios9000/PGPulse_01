@@ -24,7 +24,12 @@ FROM pg_stat_statements_info`
 
 // StatementsConfigCollector collects pg_stat_statements health metrics:
 // buffer fill percentage, track settings, and time since last stats reset.
-// PGAM source: analiz2.php Q48 and Q49.
+//
+//   - Tier: postgres
+//   - Question: Can pg_stat_statements data be trusted — is the buffer full, is tracking on, and when was it last reset?
+//   - Views: pg_settings, pg_stat_statements, pg_stat_statements_info
+//   - Collection: 60s (medium group); no-op when pg_stat_statements is not installed
+//   - PG versions: 14+ (no version gate; pg_stat_statements_info exists from 14)
 type StatementsConfigCollector struct {
 	Base
 }
@@ -50,7 +55,7 @@ func (c *StatementsConfigCollector) Collect(ctx context.Context, conn *pgx.Conn,
 		return nil, nil
 	}
 
-	// Query GUC settings (Q48).
+	// Query GUC settings.
 	qCtx, cancel := queryContext(ctx)
 	settingsRows, err := conn.Query(qCtx, sqlStatementsSettings)
 	cancel()
@@ -72,7 +77,7 @@ func (c *StatementsConfigCollector) Collect(ctx context.Context, conn *pgx.Conn,
 	}
 	settingsRows.Close()
 
-	// Query statement entry count (Q48).
+	// Query statement entry count.
 	qCtx2, cancel2 := queryContext(ctx)
 	var count float64
 	err = conn.QueryRow(qCtx2, sqlStatementsCount).Scan(&count)
@@ -81,7 +86,7 @@ func (c *StatementsConfigCollector) Collect(ctx context.Context, conn *pgx.Conn,
 		return nil, fmt.Errorf("statements_config: count: %w", err)
 	}
 
-	// Query reset age from pg_stat_statements_info (Q49).
+	// Query reset age from pg_stat_statements_info.
 	// Available since PG 14 (our minimum). stats_reset is NULL when never reset.
 	qCtx3, cancel3 := queryContext(ctx)
 	var resetAge *float64

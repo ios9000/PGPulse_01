@@ -52,6 +52,12 @@ type ioStatsRow struct {
 
 // IOStatsCollector collects I/O statistics from pg_stat_io (PostgreSQL 16+).
 // Returns nil, nil for PostgreSQL < 16 where the view does not exist.
+//
+//   - Tier: postgres
+//   - Question: Which backend types and I/O contexts are doing the reads, writes, extends and fsyncs?
+//   - Views: pg_stat_io
+//   - Collection: 300s (low group)
+//   - PG versions: 16+ (Major < 16 check in Collect; no-op below 16)
 type IOStatsCollector struct {
 	Base
 }

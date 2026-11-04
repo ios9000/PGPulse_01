@@ -24,7 +24,12 @@ WHERE d.datistemplate = false
   AND s.xact_commit + s.xact_rollback > 0`
 
 // TransactionsCollector collects transaction commit ratio and deadlock counts per database.
-// It covers PGAM query Q15, enhanced with per-database breakdown and deadlock counts.
+//
+//   - Tier: database
+//   - Question: Which databases are rolling back an unusual share of transactions or hitting deadlocks?
+//   - Views: pg_stat_database, pg_database
+//   - Collection: 300s (low group)
+//   - PG versions: 14+ (no version gate)
 type TransactionsCollector struct {
 	Base
 }

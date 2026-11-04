@@ -20,7 +20,6 @@ func completionPct(done, total float64) float64 {
 }
 
 // progressVacuumSQL queries active vacuum operations with progress stats.
-// PGAM source: analiz2.php Q42.
 const progressVacuumSQL = `
 SELECT
     a.pid::text,
@@ -37,7 +36,12 @@ FROM pg_stat_progress_vacuum p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
 // VacuumProgressCollector collects vacuum operation progress from pg_stat_progress_vacuum.
-// PGAM source: analiz2.php Q42.
+//
+//   - Tier: session
+//   - Question: Which VACUUMs are running now, in which phase, and how far along are they?
+//   - Views: pg_stat_progress_vacuum, pg_stat_activity
+//   - Collection: 60s (medium group)
+//   - PG versions: 14+ (no version gate; reads max_dead_tuples/num_dead_tuples, which PG 17 renamed to max_dead_tuple_bytes/num_dead_item_ids)
 type VacuumProgressCollector struct {
 	Base
 }

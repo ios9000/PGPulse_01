@@ -14,7 +14,6 @@ import (
 // NULL wait_event_type means the backend is running on CPU (not waiting);
 // COALESCE maps this to 'CPU' / 'Running' so it appears in the output
 // alongside real wait events rather than being silently dropped.
-// PGAM source: analiz2.php Q53/Q54.
 const sqlWaitEvents = `
 SELECT
     COALESCE(wait_event_type, 'CPU') AS wait_event_type,
@@ -34,7 +33,12 @@ type waitEventRow struct {
 }
 
 // WaitEventsCollector reports per-wait-event backend counts and a total.
-// PGAM source: analiz2.php Q53/Q54.
+//
+//   - Tier: session
+//   - Question: What are active client backends waiting on right now (locks, I/O, LWLocks, or running on CPU)?
+//   - Views: pg_stat_activity
+//   - Collection: 10s (high group)
+//   - PG versions: 14+ (no version gate)
 type WaitEventsCollector struct {
 	Base
 }

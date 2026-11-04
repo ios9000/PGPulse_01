@@ -37,7 +37,12 @@ var settingsMap = map[string]settingDef{
 }
 
 // SettingsCollector collects key PostgreSQL runtime settings as metric values.
-// It covers PGAM query Q17, extended with additional settings.
+//
+//   - Tier: postgres
+//   - Question: Are the settings that bound memory, locking and I/O timing configured the way we expect?
+//   - Views: pg_settings (track_io_timing, shared_buffers, max_locks_per_transaction, max_prepared_transactions)
+//   - Collection: 300s (low group)
+//   - PG versions: 14+ (no version gate)
 type SettingsCollector struct {
 	Base
 }

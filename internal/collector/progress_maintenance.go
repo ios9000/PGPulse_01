@@ -11,7 +11,6 @@ import (
 )
 
 // progressClusterSQL queries active CLUSTER / VACUUM FULL operations.
-// PGAM source: analiz2.php Q43.
 const progressClusterSQL = `
 SELECT
     a.pid::text,
@@ -25,7 +24,12 @@ FROM pg_stat_progress_cluster p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
 // ClusterProgressCollector collects CLUSTER/VACUUM FULL progress from pg_stat_progress_cluster.
-// PGAM source: analiz2.php Q43.
+//
+//   - Tier: session
+//   - Question: Which CLUSTER or VACUUM FULL rewrites are running, and how far along are they?
+//   - Views: pg_stat_progress_cluster, pg_stat_activity
+//   - Collection: 60s (medium group)
+//   - PG versions: 14+ (no version gate)
 type ClusterProgressCollector struct {
 	Base
 }
@@ -98,7 +102,6 @@ func (c *ClusterProgressCollector) Collect(ctx context.Context, conn *pgx.Conn, 
 }
 
 // progressAnalyzeSQL queries active ANALYZE operations.
-// PGAM source: analiz2.php Q45.
 const progressAnalyzeSQL = `
 SELECT
     a.pid::text,
@@ -113,7 +116,12 @@ FROM pg_stat_progress_analyze p
 JOIN pg_stat_activity a ON a.pid = p.pid`
 
 // AnalyzeProgressCollector collects ANALYZE progress from pg_stat_progress_analyze.
-// PGAM source: analiz2.php Q45.
+//
+//   - Tier: session
+//   - Question: Which ANALYZE runs are in progress, and how much of their sample have they read?
+//   - Views: pg_stat_progress_analyze, pg_stat_activity
+//   - Collection: 60s (medium group)
+//   - PG versions: 14+ (no version gate)
 type AnalyzeProgressCollector struct {
 	Base
 }

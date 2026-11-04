@@ -11,12 +11,13 @@ import (
 )
 
 // longTxnThreshold is the minimum transaction age to be considered "long".
-// Matches PGAM's hardcoded 5-second threshold. Will become configurable in M2.
+// Fixed at 5 seconds; not yet configurable.
 const longTxnThreshold = "5 seconds"
 
 // sqlLongTransactions counts active client backends with long-running transactions,
 // split into "active" (running) and "waiting" (blocked on a lock or event).
-// Merges PGAM Q56 (active) and Q57 (waiting) into a single parameterized query.
+// Active and waiting transactions are counted in one pass with a CASE on wait_event,
+// so both categories share a single snapshot of pg_stat_activity.
 // $1 is the minimum transaction age interval (e.g. "5 seconds").
 const sqlLongTransactions = `
 SELECT
@@ -40,7 +41,12 @@ type longTxnRow struct {
 // LongTransactionsCollector reports counts and maximum age of long-running
 // active and waiting transactions. Always emits exactly 4 metric points
 // (2 types × 2 metrics), using 0 for types with no matching transactions.
-// PGAM source: analiz2.php Q56/Q57.
+//
+//   - Tier: session
+//   - Question: Which transactions have been open longer than 5 seconds, and are they running or waiting?
+//   - Views: pg_stat_activity
+//   - Collection: 10s (high group)
+//   - PG versions: 14+ (no version gate)
 type LongTransactionsCollector struct {
 	Base
 }

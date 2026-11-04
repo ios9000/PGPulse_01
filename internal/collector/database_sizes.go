@@ -19,7 +19,12 @@ WHERE datistemplate = false
 ORDER BY size_bytes DESC`
 
 // DatabaseSizesCollector collects the on-disk size of each non-template database.
-// It covers PGAM query Q16.
+//
+//   - Tier: database
+//   - Question: How large is each database, and which ones are growing?
+//   - Views: pg_database, pg_database_size()
+//   - Collection: 300s (low group)
+//   - PG versions: 14+ (no version gate)
 type DatabaseSizesCollector struct {
 	Base
 }
