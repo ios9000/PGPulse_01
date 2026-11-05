@@ -1,6 +1,8 @@
 package collector
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -170,11 +172,11 @@ func TestStatementsTopCollector_OtherBucketArithmetic(t *testing.T) {
 		metric string
 		want   float64
 	}{
-		{"pg.statements.top.calls", 150},       // 300 - (100+50)
-		{"pg.statements.top.rows", 300},        // 1000 - (500+200)
-		{"pg.statements.top.total_time_ms", 2000}, // 5000 - (2000+1000)
-		{"pg.statements.top.io_time_ms", 300},  // 1000 - (500+200)
-		{"pg.statements.top.cpu_time_ms", 1700}, // 4000 - (1500+800)
+		{"pg.statements.top.calls", 150},                  // 300 - (100+50)
+		{"pg.statements.top.rows", 300},                   // 1000 - (500+200)
+		{"pg.statements.top.total_time_ms", 2000},         // 5000 - (2000+1000)
+		{"pg.statements.top.io_time_ms", 300},             // 1000 - (500+200)
+		{"pg.statements.top.cpu_time_ms", 1700},           // 4000 - (1500+800)
 		{"pg.statements.top.avg_time_ms", 2000.0 / 150.0}, // otherTime/otherCalls
 	}
 
@@ -206,4 +208,65 @@ func hasTopBucket(points []MetricPoint, queryID string) bool {
 		}
 	}
 	return false
+}
+
+// TestStatementsTop_GateSelect verifies the pg_stat_statements timing columns
+// chosen for PG 16 (pre-1.11 blk_*_time) and PG 17/18 (1.11 shared_/local_blk_*_time).
+func TestStatementsTop_GateSelect(t *testing.T) {
+	tests := []struct {
+		major   int
+		want    []string
+		notWant []string
+	}{
+		{
+			major:   16,
+			want:    []string{"blk_read_time + blk_write_time", "FROM pg_stat_statements\n"},
+			notWant: []string{"shared_blk_read_time", "local_blk_read_time"},
+		},
+		{
+			major: 17,
+			want: []string{
+				"shared_blk_read_time + local_blk_read_time   AS blk_read_time",
+				"shared_blk_write_time + local_blk_write_time AS blk_write_time",
+			},
+		},
+		{
+			major: 18,
+			want: []string{
+				"shared_blk_read_time + local_blk_read_time   AS blk_read_time",
+				"shared_blk_write_time + local_blk_write_time AS blk_write_time",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("PG%d", tt.major), func(t *testing.T) {
+			v := version.PGVersion{Major: tt.major, Num: tt.major * 10000}
+			sql, ok := statementsTopGate.Select(v)
+			if !ok {
+				t.Fatalf("expected gate to select a variant for PG %d", tt.major)
+			}
+			for _, s := range tt.want {
+				if !strings.Contains(sql, s) {
+					t.Errorf("PG %d variant missing %q", tt.major, s)
+				}
+			}
+			for _, s := range tt.notWant {
+				if strings.Contains(sql, s) {
+					t.Errorf("PG %d variant must not contain %q", tt.major, s)
+				}
+			}
+			// Output column contract is identical across variants.
+			for _, s := range []string{"AS io_time_ms", "AS cpu_time_ms", "WHERE r.rn <= $1"} {
+				if !strings.Contains(sql, s) {
+					t.Errorf("PG %d variant missing %q", tt.major, s)
+				}
+			}
+		})
+	}
+}
+
+func TestStatementsTop_GateNoVariantBelow14(t *testing.T) {
+	if _, ok := statementsTopGate.Select(version.PGVersion{Major: 13, Num: 130000}); ok {
+		t.Error("expected no variant for PG 13")
+	}
 }
