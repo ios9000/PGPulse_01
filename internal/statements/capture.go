@@ -23,11 +23,29 @@ type ConnProvider interface {
 }
 
 // pgssGate holds version-gated SQL for reading pg_stat_statements.
+//
+// PG 17+ (pg_stat_statements 1.11) renamed blk_read_time / blk_write_time to
+// shared_blk_read_time / shared_blk_write_time and added local_blk_read_time /
+// local_blk_write_time. Before 1.11 blk_*_time covered both shared and local
+// block I/O, so the 17+ variant sums shared + local AS blk_read_time /
+// blk_write_time to keep snapshot semantics unchanged.
 var pgssGate = version.Gate{
 	Name: "pgss_snapshot",
 	Variants: []version.SQLVariant{
 		{
-			Range: version.VersionRange{MinMajor: 13, MinMinor: 0},
+			Range: version.VersionRange{MinMajor: 17, MinMinor: 0},
+			SQL: `SELECT s.queryid, s.userid, s.dbid, left(s.query, 8192) AS query,
+       s.calls, s.total_exec_time, s.total_plan_time, s.rows,
+       s.shared_blks_hit, s.shared_blks_read, s.shared_blks_dirtied, s.shared_blks_written,
+       s.local_blks_hit, s.local_blks_read, s.temp_blks_read, s.temp_blks_written,
+       s.shared_blk_read_time + s.local_blk_read_time AS blk_read_time,
+       s.shared_blk_write_time + s.local_blk_write_time AS blk_write_time,
+       s.wal_records, s.wal_fpi, s.wal_bytes,
+       s.mean_exec_time, s.min_exec_time, s.max_exec_time, s.stddev_exec_time
+FROM pg_stat_statements s WHERE s.queryid IS NOT NULL`,
+		},
+		{
+			Range: version.VersionRange{MinMajor: 13, MinMinor: 0, MaxMajor: 16, MaxMinor: 99},
 			SQL: `SELECT s.queryid, s.userid, s.dbid, left(s.query, 8192) AS query,
        s.calls, s.total_exec_time, s.total_plan_time, s.rows,
        s.shared_blks_hit, s.shared_blks_read, s.shared_blks_dirtied, s.shared_blks_written,

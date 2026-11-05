@@ -10,12 +10,17 @@ import (
 	"github.com/ios9000/PGPulse_01/internal/version"
 )
 
-// sqlStatementsTop selects the top-N queries by total execution time along with
+// statementsTopSQL builds the top-N query over source, which must expose
+// queryid, dbid, userid, calls, rows, total_exec_time, blk_read_time and
+// blk_write_time with pg_stat_statements ≤ 1.10 semantics.
+//
+// The query selects the top-N queries by total execution time along with
 // aggregate totals for all queries. The totals row is cross-joined so that every
 // result row carries the same totals, enabling "other" bucket computation.
 // Ranking once on total_exec_time and deriving both IO time and CPU time from that
 // single scan avoids separate IO-sorted and CPU-sorted passes over pg_stat_statements.
-const sqlStatementsTop = `
+func statementsTopSQL(source string) string {
+	return `
 WITH ranked AS (
     SELECT
         queryid::text                                        AS queryid,
@@ -28,7 +33,7 @@ WITH ranked AS (
         total_exec_time - blk_read_time - blk_write_time     AS cpu_time_ms,
         total_exec_time / calls                              AS avg_time_ms,
         ROW_NUMBER() OVER (ORDER BY total_exec_time DESC)    AS rn
-    FROM pg_stat_statements
+    FROM ` + source + `
     WHERE calls > 0
 ),
 totals AS (
@@ -59,6 +64,40 @@ FROM ranked r
 CROSS JOIN totals t
 WHERE r.rn <= $1
 ORDER BY r.rn`
+}
+
+// pgss111TimingSource adapts pg_stat_statements 1.11 (PG 17+) to the pre-1.11
+// column names. Before 1.11, blk_read_time / blk_write_time covered both shared
+// and local block I/O; 1.11 split them into shared_blk_*_time and
+// local_blk_*_time, so summing the two preserves the old meaning.
+const pgss111TimingSource = `(
+        SELECT
+            queryid, dbid, userid, calls, rows, total_exec_time,
+            shared_blk_read_time + local_blk_read_time   AS blk_read_time,
+            shared_blk_write_time + local_blk_write_time AS blk_write_time
+        FROM pg_stat_statements
+    ) s`
+
+// statementsTopGate selects the pg_stat_statements top-N SQL by PG version.
+//
+// PG 14–16 (pg_stat_statements ≤ 1.10): reads blk_read_time / blk_write_time directly.
+// PG 17+ (pg_stat_statements 1.11): those columns were renamed to
+// shared_blk_read_time / shared_blk_write_time and local_blk_read_time /
+// local_blk_write_time were added; the variant reads them through
+// pgss111TimingSource so emitted metric keys and semantics are unchanged.
+var statementsTopGate = version.Gate{
+	Name: "statements_top",
+	Variants: []version.SQLVariant{
+		{
+			Range: version.VersionRange{MinMajor: 14, MinMinor: 0, MaxMajor: 16, MaxMinor: 99},
+			SQL:   statementsTopSQL("pg_stat_statements"),
+		},
+		{
+			Range: version.VersionRange{MinMajor: 17, MinMinor: 0, MaxMajor: 99, MaxMinor: 99},
+			SQL:   statementsTopSQL(pgss111TimingSource),
+		},
+	},
+}
 
 // topQueryRow holds one scanned row from the statements top query.
 // The ttl* fields come from the CROSS JOIN totals CTE and are identical in every row.
@@ -87,10 +126,11 @@ type topQueryRow struct {
 //   - Question: Which queries consume the most execution time, and how much of it is I/O versus CPU?
 //   - Views: pg_stat_statements
 //   - Collection: 60s (medium group); no-op when pg_stat_statements is not installed
-//   - PG versions: 14+ (no version gate; reads blk_read_time/blk_write_time, which PG 17 renamed to shared_blk_*_time)
+//   - PG versions: 14–16 / 17+ via statementsTopGate (PG 17 renamed blk_*_time to shared_blk_*_time and added local_blk_*_time)
 type StatementsTopCollector struct {
 	Base
-	limit int
+	sqlGate version.Gate
+	limit   int
 }
 
 // NewStatementsTopCollector creates a new StatementsTopCollector.
@@ -100,8 +140,9 @@ func NewStatementsTopCollector(instanceID string, v version.PGVersion, limit int
 		limit = 20
 	}
 	return &StatementsTopCollector{
-		Base:  newBase(instanceID, v, 60*time.Second),
-		limit: limit,
+		Base:    newBase(instanceID, v, 60*time.Second),
+		sqlGate: statementsTopGate,
+		limit:   limit,
 	}
 }
 
@@ -112,6 +153,11 @@ func (c *StatementsTopCollector) Name() string { return "statements_top" }
 // Returns nil, nil when pg_stat_statements is not installed.
 // Returns an empty slice when pg_stat_statements is installed but has no entries.
 func (c *StatementsTopCollector) Collect(ctx context.Context, conn *pgx.Conn, _ InstanceContext) ([]MetricPoint, error) {
+	sql, ok := c.sqlGate.Select(c.pgVersion)
+	if !ok {
+		return nil, fmt.Errorf("statements_top: no SQL variant for PG %s", c.pgVersion.Full)
+	}
+
 	ok, err := pgssAvailable(ctx, conn)
 	if err != nil {
 		return nil, err
@@ -123,7 +169,7 @@ func (c *StatementsTopCollector) Collect(ctx context.Context, conn *pgx.Conn, _ 
 	qCtx, cancel := queryContext(ctx)
 	defer cancel()
 
-	rows, err := conn.Query(qCtx, sqlStatementsTop, c.limit)
+	rows, err := conn.Query(qCtx, sql, c.limit)
 	if err != nil {
 		return nil, fmt.Errorf("statements_top: query: %w", err)
 	}
